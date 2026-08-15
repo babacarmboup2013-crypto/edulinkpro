@@ -1,0 +1,25 @@
+{
+  "name": "EduLink Pro — Gestion scolaire intelligente",
+  "short_name": "EduLink Pro",
+  "description": "EduLink Pro — solution moderne de gestion scolaire, évaluations et administration",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#f1f4f1",
+  "theme_color": "#0a4f3a",
+  "lang": "fr",
+  "icons": [
+    {
+      "src": "/edulink-favicon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any"
+    },
+    {
+      "src": "/edulink-favicon.png",
+      "sizes": "906x800",
+      "type": "image/png",
+      "purpose": "any"
+    }
+  ]
+}
+

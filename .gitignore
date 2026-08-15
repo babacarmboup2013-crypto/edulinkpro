@@ -1,0 +1,9 @@
+node_modules/
+dist/
+.vscode/
+.env
+*.log
+.vercel
+
+.vs/
+.env*
