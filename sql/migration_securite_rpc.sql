@@ -158,6 +158,7 @@ revoke select (value) on public.ief_config from anon;
 -- ------------------------------------------------------------
 -- schools : plus de lecture directe anon (la liste passe par une vue)
 drop policy if exists "schools_anon_all" on public.schools;
+drop policy if exists "schools_anon_read_public" on public.schools;
 create policy "schools_anon_read_public" on public.schools
   for select to anon
   using (actif is not false);
@@ -177,7 +178,8 @@ alter table public.ief_config force row level security;
 -- 6) LISTE PUBLIQUE DES ÉCOLES (sans les codes)
 --    Vue qui n'expose que les colonnes sûres pour l'écran de login.
 -- ------------------------------------------------------------
-create or replace view public.public_schools as
+drop view if exists public.public_schools;
+create view public.public_schools as
   select id, name, type, cycle, actif, ief_id
   from public.schools
   where actif is not false;

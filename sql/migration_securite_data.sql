@@ -23,6 +23,81 @@
 -- ============================================================
 
 -- ------------------------------------------------------------
+-- 0) NETTOYAGE DES SURCHARGES OBSOLÈTES (PGRST203)
+--    Les anciennes migrations ont créé certaines fonctions RPC avec
+--    p_school_id en `text`. Si deux versions coexistent (text + uuid),
+--    PostgREST ne sait plus laquelle appeler :
+--    "Could not choose the best candidate function".
+--    Ce bloc supprime automatiquement toute surcharge qui n'utilise
+--    PAS uuid pour l'identifiant d'école, puis recharge le cache du
+--    schéma de PostgREST. À relancer sans risque à chaque migration.
+-- ------------------------------------------------------------
+do $$
+declare
+  r record;
+begin
+  for r in
+    select p.oid::regprocedure as fn,
+           pg_get_function_identity_arguments(p.oid) as args
+    from pg_proc p
+    join pg_namespace n on n.oid = p.pronamespace
+    where n.nspname = 'public'
+      and p.proname in (
+        'get_school_data', 'save_school_data',
+        'get_school_data_admin', 'save_school_data_admin',
+        'get_school_data_staff', 'save_school_data_staff',
+        'get_school_personnel', 'get_schools_overview',
+        'check_school_code', 'check_staff_code'
+      )
+  loop
+    if position('uuid' in r.args) = 0 then
+      raise notice 'Suppression surcharge obsolète : % (%)', r.fn, r.args;
+      execute format('drop function %s', r.fn);
+    end if;
+  end loop;
+end $$;
+
+notify pgrst, 'reload schema';
+
+-- ------------------------------------------------------------
+-- 0bis) ALIGNEMENT DES TYPES DE COLONNES (text -> uuid)
+--    Les anciennes bases ont schools.id et school_data.school_id en TEXT,
+--    alors que les RPC ci-dessous attendent des UUID (erreur
+--    "operator does not exist: text = uuid"). Ce bloc convertit les
+--    colonnes en uuid si nécessaire (idempotent).
+-- ------------------------------------------------------------
+do $$
+declare
+  v_type text;
+begin
+  select data_type into v_type from information_schema.columns
+   where table_schema = 'public' and table_name = 'schools' and column_name = 'id';
+  if v_type = 'text' then
+    drop view if exists public.public_schools;
+    -- retirer la FK le temps de la conversion
+    if exists (select 1 from pg_constraint where conrelid = 'public.school_data'::regclass and contype = 'f') then
+      alter table public.school_data drop constraint school_data_school_id_fkey;
+    end if;
+    execute 'alter table public.schools alter column id drop default';
+    alter table public.schools alter column id type uuid using id::uuid;
+    alter table public.schools alter column id set default gen_random_uuid();
+    alter table public.school_data alter column school_id type uuid using school_id::uuid;
+    alter table public.school_data add constraint school_data_school_id_fkey
+      foreign key (school_id) references public.schools(id) on delete cascade;
+    create view public.public_schools as
+      select id, name, type, cycle, actif, ief_id from public.schools where actif is not false;
+    grant select on public.public_schools to anon;
+    raise notice 'Colonnes schools.id / school_data.school_id converties en uuid';
+  else
+    raise notice 'Types deja conformes (uuid)';
+  end if;
+exception when others then
+  raise warning 'Conversion uuid non appliquee : %', sqlerrm;
+end $$;
+
+notify pgrst, 'reload schema';
+
+-- ------------------------------------------------------------
 -- 1) RLS stricte sur `school_data` : anon ne peut plus lire/écrire
 --    directement. Seules les fonctions SECURITY DEFINER accèderont
 --    aux lignes (elles tournent avec le rôle du propriétaire).
@@ -43,6 +118,11 @@ drop policy if exists "school_data_anon_update" on public.school_data;
 --    SECURITY DEFINER : l'appelant (anon) n'accède jamais aux
 --    payloads, seulement aux statistiques calculées côté serveur.
 -- ------------------------------------------------------------
+-- Supprime les éventuelles surcharges héritées (anciennes signatures
+-- moins strictes) pour qu'il ne reste QUE la version paramétrée ci-dessous.
+drop function if exists public.get_schools_overview();
+drop function if exists public.get_schools_overview(uuid);
+drop function if exists public.get_schools_overview(uuid, boolean);
 create or replace function public.get_schools_overview(p_ief_id uuid default null, p_include_inactive boolean default false)
 returns jsonb
 language plpgsql
@@ -355,7 +435,9 @@ alter table public.ief_config force row level security;
 alter table public.schools force row level security;
 
 -- La vue publique des écoles (sans codes) reste accessible pour l'écran de login
-create or replace view public.public_schools as
+-- (drop préalable : create or replace view ne peut pas modifier/supprimer des colonnes existantes)
+drop view if exists public.public_schools;
+create view public.public_schools as
   select id, name, type, cycle, actif, ief_id
   from public.schools
   where actif is not false;
@@ -526,7 +608,7 @@ begin
   select value into v_staff from jsonb_array_elements(v_personnel) value where value->>'id' = p_staff_id limit 1;
   if v_staff is null or coalesce(v_staff->>'code', '') <> coalesce(p_code, '') then raise exception 'Code personnel incorrect'; end if;
   v_role := coalesce(v_staff->>'role', '');
-  if v_role not in ('Enseignant(e)', 'Vigile', 'Comptable/Gestionnaire', 'Secrétaire') then raise exception 'Rôle non autorisé'; end if;
+  if v_role not in ('Enseignant(e)', 'Vigile', 'Comptable/Gestionnaire', 'Secrétaire', 'Directeur Pédagogique', 'Assistant(e) Pédagogique') then raise exception 'Rôle non autorisé'; end if;
   return jsonb_build_object('ok', true, 'data', v_payload);
 end;
 $$;
@@ -552,7 +634,7 @@ begin
   select value into v_staff from jsonb_array_elements(v_personnel) value where value->>'id' = p_staff_id limit 1;
   if v_staff is null or coalesce(v_staff->>'code', '') <> coalesce(p_code, '') then raise exception 'Code personnel incorrect'; end if;
   v_role := coalesce(v_staff->>'role', '');
-  if v_role not in ('Enseignant(e)', 'Vigile', 'Comptable/Gestionnaire', 'Secrétaire') then raise exception 'Rôle non autorisé'; end if;
+  if v_role not in ('Enseignant(e)', 'Vigile', 'Comptable/Gestionnaire', 'Secrétaire', 'Directeur Pédagogique', 'Assistant(e) Pédagogique') then raise exception 'Rôle non autorisé'; end if;
   update public.school_data
      set payload = p_payload, version = coalesce(v_version, 0) + 1, updated_at = now()
    where school_id = p_school_id;

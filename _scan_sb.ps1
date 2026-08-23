@@ -1,1 +1,0 @@
-Select-String -Path 'c:/Users/LENOVO/Desktop/JSX1/EduLink Pro V1.jsx' -Pattern 'sb\(' , 'school_data', 'public_schools', 'ief_config', 'admins', 'iefs' | Select-Object LineNumber, Line | Format-Table -AutoSize -Wrap

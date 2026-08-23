@@ -83,6 +83,42 @@ function removeQueue(id) {
   return tx('queue', 'readwrite', (store) => store.delete(id));
 }
 
+/* ---------- Politique de rejet des éléments impossibles à synchroniser ----------
+   Sans elle, un élément de la file dont les codes d'accès sont introuvables
+   (session expirée, snapshot absent des anciennes versions…) était retenté
+   TOUTES LES 15 SECONDES à l'infini : la bannière « données non encore
+   synchronisées » avec « Erreur : Code d'accès absent pour cette école »
+   réapparaissait sans fin. Désormais :
+   - erreur DÉFINITIVE (accès refusé par le serveur, 401/403…) → abandon
+     immédiat de l'élément ;
+   - autre erreur (« Code d'accès absent », réseau…) → nouvelles tentatives,
+     puis abandon après MAX_SYNC_ATTEMPTS échecs consécutifs (laisse le temps
+     d'une reconnexion qui fournirait de nouveaux codes valides).
+   Dans les deux cas l'élément SORT de la file et l'application est prévenue
+   UNE SEULE FOIS via l'événement « offline-sync-rejected ». Les saisies
+   restent dans le cache local de l'appareil : rien n'est perdu côté client,
+   et la prochaine écriture réussie renvoie l'état complet de l'école. */
+const MAX_SYNC_ATTEMPTS = 20;
+
+function isDefinitiveSyncError(message) {
+  const m = String(message || '');
+  // Les pannes réseau (« Failed to fetch », timeout, « connexion refusée »…)
+  // sont toujours transitoires : le serveur sera peut-être joignable au
+  // prochain cycle, on ne doit pas abandonner l'élément.
+  if (/failed to fetch|network|aborted|timeout|r[ée]seau|connection refused/i.test(m)) return false;
+  return (
+    /refus/i.test(m) ||                       // « Accès refusé », « Enregistrement … refusé »…
+    /\b40[13]\b/.test(m) ||                   // codes HTTP 401/403 dans les erreurs REST
+    /permission denied|row-level security|unauthorized|forbidden|invalid api key|\bjwt\b/i.test(m)
+  );
+}
+
+function reportRejected(schoolId, message) {
+  try {
+    window.dispatchEvent(new CustomEvent('offline-sync-rejected', { detail: { schoolId, message: String(message || '') } }));
+  } catch (_) {}
+}
+
 /* ---------- Statut & abonnés ---------- */
 function emit() {
   listeners.forEach((cb) => { try { cb({ ...status }); } catch (_) {} });
@@ -174,13 +210,27 @@ async function drainQueue() {
       } catch (e) {
         const message = e?.message || 'Erreur de synchronisation serveur';
         console.error('queueSave sync failed:', e);
-        setStatus({ lastError: message });
+        const attempts = (item.attempts || 0) + 1;
+        if (isDefinitiveSyncError(message) || attempts >= MAX_SYNC_ATTEMPTS) {
+          // Abandon définitif : on sort l'élément de la file au lieu de le
+          // retenter à l'infini, et on prévient l'application une seule fois.
+          await removeQueue(item.id).catch(() => {});
+          reportRejected(item.schoolId, message);
+        } else {
+          // Échec passager : on mémorise le nombre de tentatives (persisté
+          // avec l'élément pour survivre à un rechargement de la page).
+          try { await tx('queue', 'readwrite', (store) => store.put({ ...item, attempts })); } catch (_) {}
+          setStatus({ lastError: message });
+        }
       }
     }
   } catch (e) {
     console.error('drainQueue error:', e);
   }
-  setStatus({ syncing: false, pendingCount: await countPending() });
+  const pendingCount = await countPending();
+  // File vide → plus d'erreur résiduelle : la bannière disparaît net.
+  if (pendingCount === 0) setStatus({ syncing: false, pendingCount, lastError: '' });
+  else setStatus({ syncing: false, pendingCount });
 }
 
 /* ---------- API publique ---------- */
@@ -237,13 +287,24 @@ export async function queueSave(schoolId, draft, opts) {
       await opts.saveSchoolData(schoolId, draft, access);
     } catch (e) {
       console.error('save failed, queueing:', e);
-      try { await pushQueue({ schoolId, draft, access, ts: Date.now() }); } catch (_) {}
+      const message = e?.message || 'Erreur de synchronisation serveur';
+      if (isDefinitiveSyncError(message)) {
+        // Rejet définitif du serveur : inutile d'encombrer la file avec un
+        // élément qui ne partira jamais. Prévention unique + cache local
+        // conservé (writeCache a déjà été appelé plus haut).
+        reportRejected(schoolId, message);
+      } else {
+        // « Code d'accès absent », réseau instable… : on met en file — une
+        // reconnexion ou un changement de session peut fournir des codes
+        // valides ; drainQueue plafonnera les tentatives si rien ne change.
+        try { await pushQueue({ schoolId, draft, access, ts: Date.now(), attempts: 1 }); } catch (_) {}
+      }
     }
     setStatus({ syncing: false, pendingCount: await countPending() });
   } else {
     // Hors ligne → mise en file d'attente (données uniquement, sérialisables)
     try {
-      await pushQueue({ schoolId, draft, access, ts: Date.now() });
+      await pushQueue({ schoolId, draft, access, ts: Date.now(), attempts: 0 });
     } catch (_) {}
     setStatus({ online, pendingCount: await countPending() });
   }

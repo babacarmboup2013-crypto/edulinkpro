@@ -55,23 +55,26 @@ create table if not exists public.ief_config (
 );
 
 -- ------------------------------------------------------------
--- 5) Row Level Security — accès via l'API anon (même modèle
---    que le reste de l'application SYGENOP)
+-- 5) Row Level Security — AUCUN accès direct pour le rôle anon.
+--    ⚠️ MIGRATION HISTORIQUE CORRIGÉE : la version initiale créait des
+--    politiques "anon ... using (true)" qui exposaient tous les codes
+--    (la clé anon est publique par conception). Ne jamais les recréer.
 -- ------------------------------------------------------------
 alter table public.iefs enable row level security;
 drop policy if exists "iefs_anon_all" on public.iefs;
-create policy "iefs_anon_all" on public.iefs for all to anon using (true) with check (true);
+drop policy if exists "iefs_anon_read" on public.iefs;
 
 alter table public.admins enable row level security;
 drop policy if exists "admins_anon_all" on public.admins;
-create policy "admins_anon_all" on public.admins for all to anon using (true) with check (true);
+drop policy if exists "admins_anon_read" on public.admins;
 
 alter table public.ief_config enable row level security;
 drop policy if exists "ief_config_anon_all" on public.ief_config;
-create policy "ief_config_anon_all" on public.ief_config for all to anon using (true) with check (true);
+drop policy if exists "ief_config_anon_read" on public.ief_config;
 
 -- ------------------------------------------------------------
--- 6) Valeurs par défaut (à personnaliser)
+-- 6) Valeurs par défaut — PROVISOIRES, à changer immédiatement après
+--    installation depuis l'application (Super Admin → Gestion des IEF).
 -- ------------------------------------------------------------
 insert into public.ief_config (key, value) values ('admin_code', 'ADMIN-2025') on conflict (key) do nothing;
 insert into public.ief_config (key, value) values ('ief_code', 'IEF-DAKAR') on conflict (key) do nothing;
@@ -90,5 +93,10 @@ where not exists (
 -- ============================================================
 --  FIN DE LA MIGRATION
 --  Rechargez ensuite la page SYGENOP (F5).
+--
+--  ⚠️ OBLIGATOIRE ensuite, dans l'ordre :
+--    sql/migration_securite_rpc.sql   (vérif de codes sans exposition)
+--    sql/migration_securite_data.sql  (RLS stricte + RPC données)
+--    sql/migration_rate_limit.sql     (anti brute-force serveur)
 -- ============================================================
 

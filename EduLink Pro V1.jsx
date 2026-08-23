@@ -16,7 +16,7 @@ import {
 } from 'recharts';
 import {
   initOfflineSync, subscribeSyncStatus, queueSave,
-  getInstantCache, primeCacheFromServer, retrySync,
+  getInstantCache, primeCacheFromServer, retrySync, clearQueue,
 } from './offline/syncManager';
 import ChesterWidget from './components/Chester';
 import flagSenegal from './assets/flag-senegal.webp';
@@ -134,6 +134,7 @@ const LS_SCHOOLS = 'sygenop_schools_cache';
 const LS_SCHOOL_CODE = 'sygenop_school_code';
 const LS_THEME = 'sygenop_theme';
 const LS_LOGIN_ATTEMPTS = 'sygenop_login_attempts';
+const LS_ACTIVE = 'sygenop_active_page';
 
 // Code d'accès de l'école active — stocké en mémoire + localStorage (persistance
 // de session). Il est utilisé par les RPC sécurisés get_school_data /
@@ -223,6 +224,31 @@ function loginLockInfo(identifier) {
     return { locked: false, remainingMs: 0 };
   }
   return { locked: false, remainingMs: 0 };
+}
+
+/* ---- Repli hors-ligne pour le personnel ----
+   Mémorise sur l'appareil les couples (école, membre, code) qui se sont
+   déjà connectés avec succès ici. En cas de réseau indisponible — la
+   vérification serveur étant alors impossible — seule une personne ayant
+   déjà utilisé CE code sur CET appareil peut se reconnecter. Le stockage
+   local reste du même niveau de sensibilité que session.staffCode, déjà
+   persisté par ailleurs. */
+const LS_OFFLINE_CREDENTIALS = 'sygenop_offline_credentials';
+function rememberOfflineCredential({ schoolId, staffId, code }) {
+  try {
+    if (!schoolId || !staffId || !code) return;
+    const all = loadJSON(LS_OFFLINE_CREDENTIALS, []);
+    const next = all.filter((c) => !(c && c.schoolId === schoolId && c.staffId === staffId));
+    next.push({ schoolId, staffId, code });
+    saveJSON(LS_OFFLINE_CREDENTIALS, next.slice(-50));
+  } catch (_) {}
+}
+function matchOfflineCredential({ schoolId, staffId, code }) {
+  const all = loadJSON(LS_OFFLINE_CREDENTIALS, []);
+  return (Array.isArray(all) ? all : []).some((c) =>
+    c && c.schoolId === schoolId && c.staffId === staffId &&
+    String(c.code || '') === String(code || '')
+  );
 }
 
 /* ============================================================
@@ -725,7 +751,14 @@ function studentTotalDue(state, level) {
   const f = feeForLevel(state, level);
   return f.rubriques.reduce((sum, rubrique) => sum + rubrique.montant, 0);
 }
-function studentMonthlyDue(state, level) { const f = feeForLevel(state, level); return Math.round(studentTotalDue(state, level) / f.mensualites); }
+// Part « annuelle » des frais = uniquement les rubriques à échéance
+// annuelle. Les rubriques « À l'entrée » (inscription, tenue…) sont déjà
+// réglées au moment de l'inscription et ne font l'objet d'aucune mensualité.
+function studentAnnualDue(state, level) {
+  const f = feeForLevel(state, level);
+  return f.rubriques.filter((r) => r.nature !== 'entree').reduce((sum, r) => sum + r.montant, 0);
+}
+function studentMonthlyDue(state, level) { return Math.round(studentAnnualDue(state, level) / feeForLevel(state, level).mensualites); }
 function studentPaiements(student) {
   return (student && student.paiements) || [];
 }
@@ -737,6 +770,34 @@ function paymentStatus(due, paid) {
   if (paid <= 0) return { key: 'retard', label: 'Aucun versement', tone: 'red' };
   if (paid >= due) return { key: 'a_jour', label: 'À jour', tone: 'green' };
   return { key: 'partiel', label: 'Partiel', tone: 'gold' };
+}
+const MOIS_COURTS = ['Janv.', 'Févr.', 'Mars', 'Avr.', 'Mai', 'Juin', 'Juil.', 'Août', 'Sept.', 'Oct.', 'Nov.', 'Déc.'];
+function monthLabel(ym) {
+  const parts = String(ym || '').split('-');
+  const idx = (Number(parts[1]) || 1) - 1;
+  return `${MOIS_COURTS[idx] || parts[1] || '?'} ${String(parts[0] || '').slice(2)}`.trim();
+}
+function paymentMonthKey(p) {
+  return p.mois || String(p.date || '').slice(0, 7);
+}
+function studentPaidInMonth(student, month) {
+  return studentPaiements(student).reduce((s, p) => s + (paymentMonthKey(p) === month ? (Number(p.montant) || 0) : 0), 0);
+}
+function schoolYearMonths(state) {
+  const annee = String((state && state.header && state.header.annee) || '');
+  const years = (annee.match(/\d{4}/g) || []).map(Number);
+  const startYear = years[0] || new Date().getFullYear();
+  const endYear = years[1] || startYear + 1;
+  const months = [];
+  let y = startYear;
+  let m = 10;
+  for (let i = 0; i < 12; i += 1) {
+    months.push(`${y}-${String(m).padStart(2, '0')}`);
+    if (y === endYear && m === 7) break;
+    m += 1;
+    if (m > 12) { m = 1; y += 1; }
+  }
+  return months;
 }
 function nextRecuNumero(state) {
   const seq = (Number(state && state.recuSeq) || 0) + 1;
@@ -796,7 +857,7 @@ function schoolBalance(state) { return schoolPaymentsSummary(state).totalPaid - 
 
 function emptySchoolState() {
   return {
-    header: { ia: 'DAKAR', ief: 'GRAND DAKAR', ecole: '', type: 'École Publique', directeur: '', tel: '', annee: '2025/2026' },
+    header: { ia: 'DAKAR', ief: 'GRAND DAKAR', ecole: '', type: 'École Publique', directeur: '', tel: '', annee: '2026/2027', periodeActif: 'T1' },
     config: {},
     classes: {},
     personnel: [],
@@ -953,27 +1014,68 @@ function removeActualite(state, id) {
   return { ...state, actualites: ((state && state.actualites) || []).filter((a) => a.id !== id) };
 }
 
+// Dernier recours : code d'une école encore présent dans l'ancien cache local
+// des écoles (installations antérieures à la sécurisation, où la liste
+// contenait la colonne "code"). Les codes n'ont pas été invalidés côté base,
+// ils restent donc valides ; si le cache ne les contient plus, renvoie ''.
+function cachedSchoolCode(id) {
+  try {
+    const row = (loadJSON(LS_SCHOOLS, []) || []).find((s) => s && s.id === id);
+    return String((row && row.code) || '').trim();
+  } catch (_) { return ''; }
+}
+
 async function loadSchoolData(id) {
   const session = loadJSON(LS_SESSION, null);
-  const schoolCode = session?.schoolId === id ? (session.schoolCode || getActiveSchoolCode()) : null;
+  const ownsSchool = session?.schoolId === id;
   const staffRole = ['teacher', 'guard', 'accountant', 'secretary'].includes(session?.role);
-  const staffCode = staffRole && session?.schoolId === id ? (session.staffCode || '') : '';
+  let schoolCode = (ownsSchool ? (session.schoolCode || getActiveSchoolCode()) : '') || null;
+  const staffCode = staffRole && ownsSchool ? (session.staffCode || '') : '';
   const adminCode = session?.role === 'admin' ? (session.adminCode || session.iefAdminCode || '') : '';
+  // Code de l'ancien cache UNIQUEMENT si aucune autre voie d'accès n'existe,
+  // pour ne jamais masquer une credential valide avec un code potentiellement
+  // périmé.
+  if (!schoolCode && !staffCode && !adminCode && session?.role !== 'ief') {
+    schoolCode = cachedSchoolCode(id) || null;
+  }
   try {
-    let result;
+    let payload = null;
     if (schoolCode) {
-      result = await sb('POST', 'rpc/get_school_data', '', { p_school_id: id, p_code: schoolCode });
+      const result = await sb('POST', 'rpc/get_school_data', '', { p_school_id: id, p_code: schoolCode });
+      if (result?.ok === false) throw new Error(result.error || 'Accès refusé');
+      payload = result?.data || result;
     } else if (staffCode) {
-      result = await sb('POST', 'rpc/get_school_data_staff', '', { p_school_id: id, p_staff_id: session.staffId, p_code: staffCode });
+      const result = await sb('POST', 'rpc/get_school_data_staff', '', { p_school_id: id, p_staff_id: session.staffId, p_code: staffCode });
+      if (result?.ok === false) throw new Error(result.error || 'Accès refusé');
+      payload = result?.data || result;
     } else if (adminCode) {
-      result = await sb('POST', 'rpc/get_school_data_admin', '', { p_school_id: id, p_admin_code: adminCode });
+      const result = await sb('POST', 'rpc/get_school_data_admin', '', { p_school_id: id, p_admin_code: adminCode });
+      if (result?.ok === false) throw new Error(result.error || 'Accès refusé');
+      payload = result?.data || result;
+    } else if (session?.role === 'ief') {
+      // Compte IEF en lecture seule : lecture AUTHENTIFIÉE et BORNÉE à sa
+      // circonscription via la RPC get_school_data_ief — le code de lecture
+      // de la session est revérifié côté serveur à chaque requête, l'école
+      // doit appartenir à l'IEF du code, et les codes du personnel sont
+      // masqués. Repli historique (Edge Function read-schools) uniquement
+      // pour les vieilles sessions sans code stocké.
+      const iefCode = session.iefCode || '';
+      if (iefCode) {
+        const result = await sb('POST', 'rpc/get_school_data_ief', '', { p_school_id: id, p_code: iefCode });
+        if (result?.ok === false) throw new Error(result.error || 'Accès refusé');
+        payload = result?.data || result;
+      } else {
+        const rows = await sb('GET', 'school_data', `school_id=eq.${id}&select=school_id,payload`);
+        const row = Array.isArray(rows) ? rows.find((r) => r && r.school_id === id) : null;
+        payload = (row && row.payload) || null;
+      }
     } else {
       throw new Error('Code d’accès absent pour cette école');
     }
-    if (result?.ok === false) throw new Error(result.error || 'Accès refusé');
-    const payload = result?.data || result;
     if (payload && payload.classes) {
       payload.__version = payload.__version || 1;
+      // Migration année scolaire : les écoles encore sur l'ancien millésime passent en 2026/2027
+      if (payload.header && payload.header.annee === '2025/2026') payload.header.annee = '2026/2027';
       primeCacheFromServer(id, payload).catch(() => {});
       return payload;
     }
@@ -986,19 +1088,59 @@ async function loadSchoolData(id) {
   }
 }
 
-async function saveSchoolData(id, state) {
+// Snapshot sérialisable des codes d'accès de la session courante. Capturé au
+// moment de la saisie et persisté avec chaque élément de la file hors-ligne,
+// il permet la synchronisation différée même si la session a changé ou expiré
+// d'ici là (autre école, autre rôle, timeout).
+function buildAccessSnapshot() {
+  const s = loadJSON(LS_SESSION, null);
+  if (!s) return null;
+  return {
+    schoolId: s.schoolId ?? null,
+    role: s.role || '',
+    schoolCode: s.schoolCode || '',
+    staffId: s.staffId ?? null,
+    staffCode: s.staffCode || '',
+    adminCode: s.adminCode || s.iefAdminCode || '',
+  };
+}
+
+async function saveSchoolData(id, state, access) {
   const session = loadJSON(LS_SESSION, null);
-  const schoolCode = session?.schoolId === id ? (session.schoolCode || getActiveSchoolCode()) : null;
+  // Le snapshot capturé à la saisie ne vaut que pour l'école d'origine pour
+  // les codes ÉCOLE et PERSONNEL (vérifiés contre cette école précise).
+  // Les codes ADMIN, eux, ne sont pas liés à une école côté client : leur
+  // validité ET leur périmètre sont vérifiés côté serveur. On les accepte
+  // donc même si le snapshot n'a pas de schoolId (les sessions admin n'en
+  // ont PAS) — sans cela, toute écriture admin mise en file échouait avec
+  // « Code d'accès absent » dès que la session changeait ou expirait.
+  const snap = access || null;
+  const snapMatchesSchool = !!(snap && snap.schoolId === id);
+  const snapIsStaff = snapMatchesSchool && ['teacher', 'guard', 'accountant', 'secretary'].includes(snap.role);
+  const ownsSchool = session?.schoolId === id;
+  let schoolCode = (ownsSchool ? (session.schoolCode || getActiveSchoolCode()) : '')
+    || (snapMatchesSchool ? (snap.schoolCode || '') : '') || null;
   const staffRole = ['teacher', 'guard', 'accountant', 'secretary'].includes(session?.role);
-  const staffCode = staffRole && session?.schoolId === id ? (session.staffCode || '') : '';
-  const adminCode = session?.role === 'admin' ? (session.adminCode || session.iefAdminCode || '') : '';
+  const staffId = (staffRole && ownsSchool) ? session.staffId : (snapIsStaff ? snap.staffId : null);
+  const staffCode = (staffRole && ownsSchool) ? (session.staffCode || '')
+    : (snapIsStaff ? (snap.staffCode || '') : '');
+  const adminCode = session?.role === 'admin'
+    ? (session.adminCode || session.iefAdminCode || (snap ? snap.adminCode : '') || '')
+    : ((snap && snap.adminCode) || '');
+  // Dernier recours : ancien cache local contenant encore le code de l'école
+  // — mais JAMAIS si une autre credential existe, afin de ne pas court-circuiter
+  // une voie valide avec un code potentiellement périmé.
+  if (!schoolCode && !staffCode && !adminCode) schoolCode = cachedSchoolCode(id) || null;
   const clean = { ...state };
   delete clean.__version;
   let result;
     if (schoolCode) {
       result = await sb('POST', 'rpc/save_school_data', '', { p_school_id: id, p_code: schoolCode, p_payload: clean });
-    } else if (staffCode) {
-      result = await sb('POST', 'rpc/save_school_data_staff', '', { p_school_id: id, p_staff_id: session.staffId, p_code: staffCode, p_payload: clean });
+    } else if (staffId != null && staffCode) {
+      // Credentials personnel issues de la session OU du snapshot : la
+      // condition ne doit PAS exiger que la session courante soit encore
+      // « staff » (elle peut avoir expiré ou changé depuis la saisie).
+      result = await sb('POST', 'rpc/save_school_data_staff', '', { p_school_id: id, p_staff_id: staffId, p_code: staffCode, p_payload: clean });
     } else if (adminCode) {
     try {
       result = await sb('POST', 'rpc/save_school_data_admin', '', { p_school_id: id, p_admin_code: adminCode, p_payload: clean });
@@ -1102,14 +1244,17 @@ function shiftDay(iso, delta) {
   d.setDate(d.getDate() + delta);
   return d.toISOString().slice(0, 10);
 }
-// Jours ouvrés = lundi à vendredi du mois (hors jours fériés, non gérés ici)
-function joursOuvresDuMois(ym) {
+// Jours ouvrés du mois selon les jours de la semaine travaillés par
+// l'établissement (défaut : lundi à vendredi ; hors jours fériés, gérés
+// séparément via config.pointage.joursNonOuvres).
+function joursOuvresDuMois(ym, joursOuvres = [1, 2, 3, 4, 5]) {
   const [y, m] = ym.split('-').map(Number);
   const nbJours = new Date(y, m, 0).getDate();
+  const ouverts = Array.isArray(joursOuvres) && joursOuvres.length ? joursOuvres.map(Number) : [1, 2, 3, 4, 5];
   let count = 0;
   for (let j = 1; j <= nbJours; j++) {
     const dow = new Date(y, m - 1, j).getDay(); // 0=dim, 6=sam
-    if (dow >= 1 && dow <= 5) count++;
+    if (ouverts.includes(dow)) count++;
   }
   return count;
 }
@@ -1134,11 +1279,11 @@ function downloadCSV(filename, rows) {
   document.body.appendChild(a); a.click(); document.body.removeChild(a);
     setTimeout(() => URL.revokeObjectURL(url), 1500);
 }
-const STAFF_ROLES = ["Directeur/Directrice", "Enseignant(e)", "Surveillant(e)", "Vigile", "Comptable/Gestionnaire", "Secrétaire", "Personnel administratif", "Personnel d'appui"];
-const STAFF_LOGIN_ROLES = new Set(['Enseignant(e)', 'Vigile', 'Comptable/Gestionnaire', 'Secrétaire']);
+const STAFF_ROLES = ["Directeur/Directrice", "Directeur Pédagogique", "Enseignant(e)", "Assistant(e) Pédagogique", "Surveillant(e)", "Vigile", "Comptable/Gestionnaire", "Secrétaire", "Femme de Charge", "Jardinier", "Gardien", "Planton", "Personnel administratif", "Personnel d'appui"];
+const STAFF_LOGIN_ROLES = new Set(['Enseignant(e)', 'Vigile', 'Comptable/Gestionnaire', 'Secrétaire', 'Directeur Pédagogique', 'Assistant(e) Pédagogique']);
 function staffAccessRole(role) {
   if (role === 'Comptable/Gestionnaire') return 'accountant';
-  if (role === 'Secrétaire') return 'secretary';
+  if (role === 'Secrétaire' || role === 'Directeur Pédagogique' || role === 'Assistant(e) Pédagogique') return 'secretary';
   if (String(role || '').toLowerCase().startsWith('enseignant')) return 'teacher';
   if (String(role || '').toLowerCase() === 'vigile') return 'guard';
   return null;
@@ -1164,6 +1309,21 @@ const JOURS_SEMAINE_POINTAGE = [
   { key: 1, label: 'Lundi' }, { key: 2, label: 'Mardi' }, { key: 3, label: 'Mercredi' },
   { key: 4, label: 'Jeudi' }, { key: 5, label: 'Vendredi' },
 ];
+// Semaine complète (key = Date.getDay()) pour le paramétrage libre des jours
+// ouvrés : certaines écoles travaillent le samedi, d'autres pas le mercredi…
+const JOURS_SEMAINE = [
+  ...JOURS_SEMAINE_POINTAGE,
+  { key: 6, label: 'Samedi' }, { key: 0, label: 'Dimanche' },
+];
+const JOURS_COURTS = { 0: 'dim.', 1: 'lun.', 2: 'mar.', 3: 'mer.', 4: 'jeu.', 5: 'ven.', 6: 'sam.' };
+function libelleJoursOuvres(joursOuvres) {
+  const days = [...new Set((joursOuvres || [1, 2, 3, 4, 5]).map(Number))].filter((d) => d >= 0 && d <= 6).sort((a, b) => a - b);
+  if (!days.length) return '—';
+  // Contigu sans boucle dim→sam (ex. ven., sam., dim. n'est pas un intervalle lisible).
+  const contiguous = days.every((d, i) => i === 0 || d === days[i - 1] + 1) && !(days.includes(0) && days.includes(6));
+  if (!contiguous) return days.map((d) => JOURS_COURTS[d]).join(' ');
+  return days.length === 1 ? JOURS_COURTS[days[0]] : `${JOURS_COURTS[days[0]]}–${JOURS_COURTS[days[days.length - 1]]}`;
+}
 function normaliseCycle(cycle) {
   return String(cycle || LEGACY_DEFAULT_CYCLE).normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase();
 }
@@ -1186,20 +1346,27 @@ function attendanceSettings(state) {
   const cycle = normaliseCycle(state?.header?.cycle || state?.cycle);
   const type = state?.header?.type || state?.type;
   const hasPublicSchedule = estEcolePublique(type) && ['prescolaire', 'elementaire'].includes(cycle);
+  // Jours ouvrés hebdomadaires paramétrés par l'établissement (key = getDay()).
+  // Absent → semaine standard lundi–vendredi (compatibilité anciens données).
+  const joursOuvres = Array.isArray(raw.joursOuvres) && raw.joursOuvres.length
+    ? [...new Set(raw.joursOuvres.map(Number))].filter((d) => d >= 0 && d <= 6)
+    : [1, 2, 3, 4, 5];
   return {
     heuresJour: Number(raw.heuresJour) > 0 ? Number(raw.heuresJour) : DEFAULT_HEURES_JOUR,
-    heuresParJour: Object.fromEntries(JOURS_SEMAINE_POINTAGE.map(({ key }) => {
+    heuresParJour: Object.fromEntries(JOURS_SEMAINE.map(({ key }) => {
+      const fallback = Number(raw.heuresJour) > 0 ? Number(raw.heuresJour) : (defaults[key] ?? DEFAULT_HEURES_JOUR);
       const value = hasPublicSchedule && raw.planningVersion !== 2
-        ? defaults[key]
-        : (Number(saved[key]) || (Number(raw.heuresJour) > 0 ? Number(raw.heuresJour) : defaults[key]));
+        ? (defaults[key] ?? fallback)
+        : (Number(saved[key]) || fallback);
       return [key, Math.max(0, Math.min(24, value))];
     })),
     joursNonOuvres: Array.isArray(raw.joursNonOuvres) ? raw.joursNonOuvres : [],
+    joursOuvres,
   };
 }
 function nonWorkingDayReason(date, settings) {
   const day = new Date(`${date}T00:00:00`).getDay();
-  if (day === 0 || day === 6) return 'Week-end';
+  if (!settings.joursOuvres.includes(day)) return 'Repos hebdomadaire';
   if (settings.joursNonOuvres.includes(date)) return 'Jour non ouvré ou férié';
   return null;
 }
@@ -1229,6 +1396,39 @@ function AttendanceSettingsModal({ school, onSave, onClose }) {
       <div><div className="text-sm font-semibold mb-2">Heures à servir par jour</div><div className="grid grid-cols-2 gap-2">{JOURS_SEMAINE_POINTAGE.map(({ key, label }) => <label key={key} className="text-xs font-semibold">{label}<input type="number" min="0" max="24" step="0.5" value={heuresParJour[key]} onChange={(e) => setHeuresParJour((prev) => ({ ...prev, [key]: e.target.value }))} className="mt-1 w-full px-3 py-2 rounded-lg border" /></label>)}</div></div>
       <label className="block text-sm font-semibold">Jours non ouvrés et fériés<textarea value={jours} onChange={(e) => setJours(e.target.value)} placeholder={'2026-12-25\n2027-01-01'} className="mt-1 w-full px-3 py-2 rounded-lg border min-h-28" /><span className="text-xs font-normal" style={{ color: 'var(--muted)' }}>Une date par ligne, au format AAAA-MM-JJ. Les week-ends sont automatiquement bloqués.</span></label>
       <div className="flex justify-end gap-2"><button type="button" onClick={onClose} className="px-3 py-2">Annuler</button><button className="px-3 py-2 rounded-lg text-white font-semibold" style={{ background: 'var(--green-d)' }}>Enregistrer</button></div>
+    </form>
+  </div>;
+}
+
+/* ---- Modale « Jours non ouvrés et fériés » GLOBAUX (Super Admin) ----
+   Définit en une seule fois les jours non ouvrés/fériés pour TOUTES les
+   écoles actives, tous types et cycles confondus — remplace le paramétrage
+   école par école, fastidieux quand le nombre d'établissements grandit.
+   Les autres règles de chaque école (heures/jours de semaine) sont conservées. */
+function JoursFeriesGlobauxModal({ isRacine, nbEcoles, applying, onApply, onClose }) {
+  const [jours, setJours] = useState('');
+  function submit(e) {
+    e.preventDefault();
+    const dates = [...new Set(jours.split(/[\n,;]+/).map((d) => d.trim()).filter((d) => /^\d{4}-\d{2}-\d{2}$/.test(d)))].sort();
+    onApply(dates);
+  }
+  return <div className="fixed inset-0 z-50 flex items-center justify-center p-4" style={{ background: 'rgba(10,20,15,.45)' }}>
+    <form onSubmit={submit} className="sygenop-card p-6 max-w-md w-full space-y-4">
+      <div className="flex items-center justify-between"><div className="font-bold" style={{ color: 'var(--ink)' }}>Jours non ouvrés et fériés — toutes les écoles</div><button type="button" onClick={onClose}><X size={18} /></button></div>
+      <p className="text-xs" style={{ color: 'var(--muted)' }}>
+        {isRacine
+          ? <>Applique la même liste à <b>toutes les écoles actives du système</b>, tous types et cycles confondus, même si une IEF est sélectionnée dans le filtre.</>
+          : <>Applique la même liste aux <b>{nbEcoles} école(s) active(s)</b> de votre IEF, tous types confondus.</>}
+        {' '}Les horaires hebdomadaires propres à chaque école sont conservés ; sa liste de jours non ouvrés est remplacée par celle-ci.
+      </p>
+      <label className="block text-sm font-semibold">Jours non ouvrés et fériés<textarea value={jours} onChange={(e) => setJours(e.target.value)} placeholder={'2026-12-25\n2027-01-01'} className="mt-1 w-full px-3 py-2 rounded-lg border min-h-28" /><span className="text-xs font-normal" style={{ color: 'var(--muted)' }}>Une date par ligne, au format AAAA-MM-JJ. Laisser vide efface les listes existantes de toutes les écoles.</span></label>
+      <div className="flex justify-end gap-2">
+        <button type="button" onClick={onClose} className="px-3 py-2">Annuler</button>
+        <button disabled={!!applying} className="px-3 py-2 rounded-lg text-white font-semibold flex items-center gap-2 disabled:opacity-60" style={{ background: 'var(--green-d)' }}>
+          {applying ? <Loader2 size={14} className="animate-spin" /> : <CheckCircle2 size={14} />}
+          {applying ? `Application… ${applying.done}/${applying.total}` : 'Appliquer à toutes'}
+        </button>
+      </div>
     </form>
   </div>;
 }
@@ -1346,19 +1546,19 @@ function GlobalStyles({ dark }) {
         body *{ visibility:hidden; }
         #sygenop-print-area, #sygenop-print-area *{ visibility:visible; }
         #sygenop-print-area{ position:absolute; left:0; top:0; width:100%; padding:0 !important; max-width:none !important; margin:0 !important; }
-        #student-card-print, #student-card-print *{ visibility:visible; }
-        #student-card-print{ position:absolute !important; left:0 !important; top:0 !important; width:100% !important; height:auto !important; padding:0 !important; margin:0 !important; overflow:visible !important; background:#fff !important; }
-        #student-card-print > div{ margin:0 auto !important; max-width:none !important; }
-        #student-card-print .student-id-card-sheet{ display:flex !important; flex-direction:column !important; align-items:center !important; justify-content:flex-start !important; width:170mm !important; padding-top:20mm !important; margin:0 auto !important; gap:12mm !important; }
-        #student-card-print .student-id-card-front, #student-card-print .student-id-card-back{ flex:0 0 auto !important; width:170mm !important; height:auto !important; min-height:112mm !important; max-height:none !important; max-width:170mm !important; box-sizing:border-box !important; padding:8mm !important; overflow:visible !important; border:0.5mm solid #176b49 !important; border-radius:3mm !important; margin:0 !important; page-break-before:auto !important; page-break-after:auto !important; }
-        #student-card-print .student-id-card-sheet > * + *{ margin-top:12mm !important; }
-        #student-card-print .student-id-card-front .grid{ gap:4mm !important; }
-        #student-card-print .student-id-card-front .space-y-2 > * + *{ margin-top:2mm !important; }
-        #student-card-print .student-id-card-front .text-lg, #student-card-print .student-id-card-back .text-lg{ font-size:15pt !important; }
-        #student-card-print .student-id-card-front .text-sm{ font-size:10pt !important; }
-        #student-card-print .student-id-card-front .text-xs, #student-card-print .student-id-card-back .text-xs{ font-size:9pt !important; }
-        #student-card-print .student-id-card-front img{ max-height:38mm !important; }
-        #student-card-print .student-id-card-back svg{ width:58mm !important; height:58mm !important; }
+        #student-card-print, #staff-card-print, #student-card-print *, #staff-card-print *{ visibility:visible; }
+        #student-card-print, #staff-card-print{ position:absolute !important; left:0 !important; top:0 !important; width:100% !important; height:auto !important; padding:0 !important; margin:0 !important; overflow:visible !important; background:#fff !important; }
+        #student-card-print > div, #staff-card-print > div{ margin:0 auto !important; max-width:none !important; }
+        #student-card-print .student-id-card-sheet, #staff-card-print .student-id-card-sheet{ display:flex !important; flex-direction:column !important; align-items:center !important; justify-content:flex-start !important; width:170mm !important; padding-top:20mm !important; margin:0 auto !important; gap:12mm !important; }
+        #student-card-print .student-id-card-front, #student-card-print .student-id-card-back, #staff-card-print .student-id-card-front, #staff-card-print .student-id-card-back{ flex:0 0 auto !important; width:170mm !important; height:auto !important; min-height:112mm !important; max-height:none !important; max-width:170mm !important; box-sizing:border-box !important; padding:8mm !important; overflow:visible !important; border:0.5mm solid #176b49 !important; border-radius:3mm !important; margin:0 !important; page-break-before:auto !important; page-break-after:auto !important; }
+        #student-card-print .student-id-card-sheet > * + *, #staff-card-print .student-id-card-sheet > * + *{ margin-top:12mm !important; }
+        #student-card-print .student-id-card-front .grid, #staff-card-print .student-id-card-front .grid{ gap:4mm !important; }
+        #student-card-print .student-id-card-front .space-y-2 > * + *, #staff-card-print .student-id-card-front .space-y-2 > * + *{ margin-top:2mm !important; }
+        #student-card-print .student-id-card-front .text-lg, #student-card-print .student-id-card-back .text-lg, #staff-card-print .student-id-card-front .text-lg, #staff-card-print .student-id-card-back .text-lg{ font-size:15pt !important; }
+        #student-card-print .student-id-card-front .text-sm, #staff-card-print .student-id-card-front .text-sm{ font-size:10pt !important; }
+        #student-card-print .student-id-card-front .text-xs, #student-card-print .student-id-card-back .text-xs, #staff-card-print .student-id-card-front .text-xs, #staff-card-print .student-id-card-back .text-xs{ font-size:9pt !important; }
+        #student-card-print .student-id-card-front img, #staff-card-print .student-id-card-front img{ max-height:38mm !important; }
+        #student-card-print .student-id-card-back svg, #staff-card-print .student-id-card-back svg{ width:58mm !important; height:58mm !important; }
         @page{ margin:0; size:A4 portrait; }
       }
     `}</style>
@@ -1563,7 +1763,11 @@ function LoginScreen({ onLogin, dark, setDark, notify }) {
     try {
       const res = await sb('POST', 'rpc/check_school_code', '', { p_school_id: s.id, p_code: String(code).trim() });
       ok = res === true;
-    } catch (_) {
+    } catch (e2) {
+      // Verrou serveur (rate limiting) : affiché tel quel, sans repli
+      // local ni comptage supplémentaire.
+      const m = sbErrMsg(e2);
+      if (/trop de tentatives/i.test(m)) { notify(m, true); return; }
       // Repli hors-ligne : la liste en cache contient encore le code pour les anciennes sessions.
       ok = (String(code).trim() === String(s.code));
     }
@@ -1598,29 +1802,19 @@ async function submitTeacher(e) {
       const min = Math.ceil(lock.remainingMs / 60000);
       notify(`Trop de tentatives. Réessayez dans ${min} min.`, true); return;
     }
-    const enteredCode = String(code || '').trim().toUpperCase();
-    let expected = String(p.code || '').trim().toUpperCase();
-    // Auto-réparation : si l'enseignant(e) n'a pas encore de code d'accès
-    // (données existantes ajoutées avant l'ajout du champ "code"), on lui en
-    // génère un et on le sauvegarde immédiatement dans les données de l'école,
-    // puis on autorise la connexion — l'enseignant(e) est bien un membre
-    // enregistré du personnel enseignant.
-    if (!expected) {
-      expected = generateAccessCode();
-      try {
-        const st = await loadSchoolData(schoolId);
-        const list = (st.personnel || []).map((x) => (x.id === staffId ? { ...x, code: expected } : x));
-        await saveSchoolData(schoolId, { ...st, personnel: list });
-        notify(`Code d'accès généré pour ${personFullName(p) || 'cet enseignant(e)'} : ${expected}`);
-      } catch (_) {
-        // Hors-ligne : le code ne peut pas être sauvegardé maintenant, mais on
-        // permet quand même la connexion avec le code généré.
-        notify(`Code d'accès généré (à sauvegarder à la prochaine connexion) : ${expected}`);
+    // Vérification SERVEUR du code personnel (RPC check_staff_code,
+    // rate-limitée côté base). La liste du personnel ne contient jamais
+    // les codes : toute comparaison côté client est une faille.
+    const enteredCode = String(code || '').trim();
+    if (!enteredCode) { notify('Saisissez votre code d\u2019accès', true); return; }
+    try {
+      const okServer = await sb('POST', 'rpc/check_staff_code', '', { p_school_id: schoolId, p_staff_id: staffId, p_code: enteredCode });
+      if (okServer === true) {
+        recordLoginSuccess('staff:' + staffId);
+        rememberOfflineCredential({ schoolId, staffId, code: enteredCode });
+        onLogin({ role: accessRole, schoolId, staffId, staffCode: enteredCode });
+        return;
       }
-      onLogin({ role: accessRole, schoolId, staffId, staffCode: expected });
-      return;
-    }
-if (enteredCode !== expected) {
       recordLoginFailure('staff:' + staffId);
       const nxt = getLoginAttempts('staff:' + staffId);
       if (nxt.lockedUntil > Date.now()) {
@@ -1629,9 +1823,20 @@ if (enteredCode !== expected) {
         notify(`Code enseignant incorrect (${nxt.fails}/${MAX_LOGIN_ATTEMPTS} essais).`, true);
       }
       return;
-    }
-    recordLoginSuccess('staff:' + staffId);
+    } catch (e2) {
+      const m = sbErrMsg(e2);
+      if (/trop de tentatives/i.test(m)) { notify(m, true); return; }
+      // Hors-ligne : autorise UNIQUEMENT une personne déjà connectée sur
+      // CET appareil avec CETTE école et CE code (repli local restreint).
+      if (matchOfflineCredential({ schoolId, staffId, code: enteredCode })) {
+        notify('Hors-ligne : connexion locale vérifiée.');
+        recordLoginSuccess('staff:' + staffId);
         onLogin({ role: accessRole, schoolId, staffId, staffCode: enteredCode });
+        return;
+      }
+      notify('Vérification impossible (hors-ligne ?). Reconnectez-vous à internet.', true);
+      return;
+    }
   }
 async function submitIEF(e) {
     e.preventDefault();
@@ -1652,8 +1857,12 @@ async function submitIEF(e) {
       // sources côté serveur et ne renvoie jamais les codes eux-mêmes.
       const res = await sb('POST', 'rpc/check_ief_code', '', { p_code: entered });
       if (res && res.ok) { ok = true; iefName = res.nom || null; iefId = res.ief_id || null; }
+      else if (res && res.locked) {
+        notify(`Trop de tentatives (serveur). Réessayez dans ${res.retry_after_min || 15} min.`, true);
+        setBusy(false); return;
+      }
     } catch (e2) { notify('Erreur : ' + sbErrMsg(e2), true); setBusy(false); return; }
-    if (ok) { recordLoginSuccess('ief:' + entered); onLogin({ role: 'ief', iefName, iefId }); }
+    if (ok) { recordLoginSuccess('ief:' + entered); onLogin({ role: 'ief', iefName, iefId, iefCode: entered }); }
     else {
       recordLoginFailure('ief:' + entered);
       const nxt = getLoginAttempts('ief:' + entered);
@@ -1685,6 +1894,11 @@ const entered = String(code).trim();
         setBusy(false);
         return;
       }
+      if (res && res.locked) {
+        notify(`Trop de tentatives (serveur). Réessayez dans ${res.retry_after_min || 15} min.`, true);
+        setBusy(false);
+        return;
+      }
     } catch (e2) { notify('Erreur : ' + sbErrMsg(e2), true); setBusy(false); return; }
     recordLoginFailure('admin:' + entered);
     const nxt = getLoginAttempts('admin:' + entered);
@@ -1699,16 +1913,32 @@ const entered = String(code).trim();
   const tabs = [
     { id: 'school', label: 'École', icon: School },
     { id: 'personnel', label: 'Personnel', icon: Users },
-    { id: 'ief', label: 'IEF', icon: ShieldCheck },
+    { id: 'ief', label: 'Admin', icon: ShieldCheck },
     { id: 'admin', label: 'Super Admin', icon: UserCog },
   ];
 
   return (
-    <div className="sygenop-root flex items-center justify-center p-6" style={{
+    <div className="sygenop-root relative flex items-center justify-center p-6 pb-10" style={{
       backgroundImage: `radial-gradient(circle at 12% 8%, rgba(16,163,116,.13), transparent 42%), radial-gradient(circle at 92% 4%, rgba(184,134,47,.12), transparent 38%)`,
     }}>
       <GlobalStyles dark={dark} />
-      <div className="w-full max-w-md">
+      <div className="w-full max-w-6xl flex flex-col lg:flex-row items-center justify-center lg:justify-center gap-10 lg:gap-24">
+
+        {/* Bloc de présentation — grand écran uniquement */}
+        <div className="hidden lg:flex flex-col w-full max-w-md space-y-4">
+          <h2 className="text-[32px] font-extrabold leading-tight" style={{ color: 'var(--ink)' }}>
+            La gestion scolaire,<br />
+            <span style={{ color: 'var(--green-d)' }}>simple et intelligente.</span>
+          </h2>
+          <p className="text-sm leading-relaxed" style={{ color: 'var(--muted)' }}>
+            EduLink Pro réunit dans une seule application la vie entière de votre
+            établissement : élèves, notes, finances, personnel et communication —
+            avec des comptes sécurisés pour chaque acteur de l'école.
+          </p>
+        </div>
+
+        {/* Formulaire de connexion — poussé à droite */}
+        <div className="w-full max-w-lg">
         <div className="flex flex-col items-center mb-8">
           <img
             src={`${import.meta.env.BASE_URL}edulink-favicon.svg`}
@@ -1726,8 +1956,8 @@ const entered = String(code).trim();
           </p>
         </div>
 
-        <div className="sygenop-card p-6">
-          <div className="grid grid-cols-4 gap-1 mb-5 p-1 rounded-xl" style={{ background: 'var(--bg)' }}>
+        <div className="sygenop-card px-8 py-10">
+          <div className="grid grid-cols-4 gap-1 mb-6 p-1 rounded-xl" style={{ background: 'var(--bg)' }}>
             {tabs.map((t) => (
               <button
                 key={t.id}
@@ -1742,13 +1972,13 @@ const entered = String(code).trim();
           </div>
 
           {tab === 'school' && (
-            <form onSubmit={submitSchool} className="space-y-3">
+            <form onSubmit={submitSchool} className="space-y-4">
               <div>
                 <label className="text-xs font-semibold block mb-1" style={{ color: 'var(--muted)' }}>École</label>
                 <select
                   value={schoolId}
                   onChange={(e) => setSchoolId(e.target.value)}
-                  className="w-full px-3 py-2.5 rounded-lg border text-sm"
+                  className="w-full px-3 py-3 rounded-lg border text-sm"
                   style={{ borderColor: 'var(--line)', background: 'var(--panel)', color: 'var(--ink)' }}
                 >
 <option value="">{loadingSchools ? 'Chargement…' : 'Sélectionner une école'}</option>
@@ -1761,13 +1991,13 @@ const entered = String(code).trim();
           )}
 
           {tab === 'personnel' && (
-            <form onSubmit={submitTeacher} className="space-y-3">
+            <form onSubmit={submitTeacher} className="space-y-4">
               <div>
                 <label className="text-xs font-semibold block mb-1" style={{ color: 'var(--muted)' }}>École</label>
                 <select
                   value={schoolId}
                   onChange={(e) => { setSchoolId(e.target.value); setStaffId(''); }}
-                  className="w-full px-3 py-2.5 rounded-lg border text-sm"
+                  className="w-full px-3 py-3 rounded-lg border text-sm"
                   style={{ borderColor: 'var(--line)', background: 'var(--panel)', color: 'var(--ink)' }}
                 >
 <option value="">Sélectionner une école</option>
@@ -1780,7 +2010,7 @@ const entered = String(code).trim();
                   value={staffId}
                   onChange={(e) => setStaffId(e.target.value)}
                   disabled={!schoolId}
-                  className="w-full px-3 py-2.5 rounded-lg border text-sm disabled:opacity-50"
+                  className="w-full px-3 py-3 rounded-lg border text-sm disabled:opacity-50"
                   style={{ borderColor: 'var(--line)', background: 'var(--panel)', color: 'var(--ink)' }}
                 >
                   <option value="">{schoolId ? (staffOptions.length ? 'Sélectionner' : 'Aucun personnel enregistré') : 'Choisissez d\u2019abord une école'}</option>
@@ -1793,14 +2023,14 @@ const entered = String(code).trim();
           )}
 
           {tab === 'ief' && (
-            <form onSubmit={submitIEF} className="space-y-3">
-              <CodeField code={code} setCode={setCode} show={showCode} setShow={setShowCode} label="Code IEF (lecture seule)" />
-              <SubmitBtn busy={busy}>Accéder en lecture seule (IEF)</SubmitBtn>
+            <form onSubmit={submitIEF} className="space-y-4">
+              <CodeField code={code} setCode={setCode} show={showCode} setShow={setShowCode} label="Code Admin IEF (lecture seule)" />
+              <SubmitBtn busy={busy}>Accéder en lecture seule</SubmitBtn>
             </form>
           )}
 
           {tab === 'admin' && (
-            <form onSubmit={submitAdmin} className="space-y-3">
+            <form onSubmit={submitAdmin} className="space-y-4">
               <CodeField code={code} setCode={setCode} show={showCode} setShow={setShowCode} label="Code Super Administrateur" />
               <SubmitBtn busy={busy}>Accéder en Super Admin</SubmitBtn>
             </form>
@@ -1815,13 +2045,12 @@ const entered = String(code).trim();
           {dark ? <Sun size={14} /> : <Moon size={14} />} {dark ? 'Thème clair' : 'Thème sombre'}
         </button>
       </div>
+      </div>
 
-      <div className="fixed bottom-4 left-4 flex items-center gap-2.5 opacity-95 bg-white/90 rounded-xl px-2.5 py-2 shadow-lg">
-        <img src={`${import.meta.env.BASE_URL}intechsoft-logo.jpg`} alt="InTechSoft Enterprises" className="h-14 w-14 rounded-lg object-cover shadow-md" />
-        <div className="leading-tight">
-          <div className="text-sm font-bold" style={{ color: '#1a1a2e' }}>InTechSoft Enterprises</div>
-          <div className="text-[10px]" style={{ color: '#555' }}>Computer &amp; Technology Solutions</div>
-        </div>
+      <div style={{ position: 'absolute', bottom: 3, left: 14 }} className="text-[11px] font-medium tracking-wide">
+        <span style={{ color: dark ? '#9ca3af' : '#6b7280' }}>
+          © {new Date().getFullYear()} EduLink Pro — Built by <b>InTechSoft Enterprises</b>
+        </span>
       </div>
     </div>
   );
@@ -1837,7 +2066,7 @@ function CodeField({ code, setCode, show, setShow, label }) {
           type={show ? 'text' : 'password'}
           value={code}
           onChange={(e) => setCode(e.target.value)}
-          className="w-full pl-9 pr-9 py-2.5 rounded-lg border text-sm"
+          className="w-full pl-9 pr-9 py-3 rounded-lg border text-sm"
           style={{ borderColor: 'var(--line)', background: 'var(--panel)', color: 'var(--ink)' }}
           placeholder="••••••"
         />
@@ -1853,7 +2082,7 @@ function SubmitBtn({ children, busy }) {
     <button
       type="submit"
       disabled={busy}
-      className="w-full py-2.5 rounded-lg font-semibold text-sm text-white flex items-center justify-center gap-2 disabled:opacity-60"
+      className="w-full py-3 rounded-lg font-semibold text-sm text-white flex items-center justify-center gap-2 disabled:opacity-60"
       style={{ background: 'linear-gradient(135deg,#16a374,#0a4f3a)' }}
     >
       {busy && <Loader2 size={15} className="animate-spin" />}
@@ -1865,6 +2094,24 @@ function SubmitBtn({ children, busy }) {
 /* ============================================================
    NAVIGATION
    ============================================================ */
+// Page d'accueil par défaut selon le rôle (logo cliquable + connexion).
+function homePageFor(role) {
+  if (role === 'guard') return 'gate';
+  if (['school', 'teacher', 'accountant', 'secretary'].includes(role)) return 'dash';
+  return 'ief';
+}
+
+// Toutes les rubriques accessibles à une session (utilisée pour valider la
+// page restaurée après actualisation — jamais de page hors périmètre).
+function allowedPagesFor(session) {
+  const ids = new Set();
+  NAV_ITEMS(session || { role: '' }).forEach((item) => {
+    ids.add(item.id);
+    (item.children || []).forEach((c) => ids.add(c.id));
+  });
+  return ids;
+}
+
 const NAV_ITEMS = (session) => {
   const items = [];
   if (session.role === 'ief' || session.role === 'admin') {
@@ -1951,7 +2198,11 @@ function Sidebar({ session, active, setActive, mobileOpen, setMobileOpen, hasAct
         style={{ background: 'linear-gradient(160deg,#0a4f3a 0%,#083b2b 60%,#062f22 100%)' }}
       >
         <div className="px-4 pt-5 pb-4 border-b border-white/10">
-          <div className="flex items-center gap-2">
+          <button
+            onClick={() => { setActive(homePageFor(session.role)); setMobileOpen(false); }}
+            title="Retour à l'accueil"
+            className="flex items-center gap-2 w-full text-left rounded-lg hover:bg-white/10 transition-colors px-1 py-1 -mx-1"
+          >
             <img
               src={`${import.meta.env.BASE_URL}edulink-favicon.svg`}
               alt="EduLink Pro"
@@ -1961,7 +2212,7 @@ function Sidebar({ session, active, setActive, mobileOpen, setMobileOpen, hasAct
               <h1 className="text-lg font-bold">EduLink Pro</h1>
               <span className="text-[9px] font-bold px-1.5 py-0.5 rounded" style={{ background: 'var(--gold, #b8862f)', color: '#fff' }}>V1</span>
             </div>
-          </div>
+          </button>
           <p className="text-[11px] mt-1 text-[#a3c9b3] font-medium leading-tight">
             La plateforme intelligente de gestion scolaire
           </p>
@@ -2015,7 +2266,7 @@ function Sidebar({ session, active, setActive, mobileOpen, setMobileOpen, hasAct
           })}
         </nav>
         <div className="px-4 py-3.5 text-[11px] text-[#86b79d] border-t border-white/10">
-          <b className="text-[#cbe0d3] font-semibold">EduLink Pro</b> — {session.iefName ? session.iefName : 'IEF'}
+          <b className="text-[#cbe0d3] font-semibold">EduLink Pro</b> — V1
           <div className="mt-1.5 pt-1.5 border-t border-white/10 text-[9.5px] text-[#6f9d84]">
             © {new Date().getFullYear()} Groupe InTechSoft Enterprises
           </div>
@@ -2025,7 +2276,7 @@ function Sidebar({ session, active, setActive, mobileOpen, setMobileOpen, hasAct
   );
 }
 
-function Topbar({ title, sub, session, schoolName, dark, setDark, onLogout, setMobileOpen, countdownMs }) {
+function Topbar({ title, sub, session, schoolName, dark, setDark, onLogout, setMobileOpen, countdownMs, annee, periodeKey, periodeLabel, periodeOptions = [], canEditPeriode, onPeriodeChange }) {
   const roleLabel = {
     ief: session.iefName ? `IEF (lecture seule) — ${session.iefName}` : 'IEF (lecture seule)', admin: 'Super Administrateur', teacher: 'Enseignant(e)', accountant: 'Comptable/Gestionnaire', secretary: 'Secrétaire', school: schoolName || 'Compte école',
   }[session.role];
@@ -2041,9 +2292,10 @@ function Topbar({ title, sub, session, schoolName, dark, setDark, onLogout, setM
   const cd = fmtCountdown(countdownMs);
   return (
     <div
-      className="no-print sticky top-0 z-20 px-4 md:px-7 py-3.5 flex items-center justify-between gap-4 shadow-lg"
+      className="no-print sticky top-0 z-20 px-4 md:px-7 py-2.5 shadow-lg"
       style={{ background: 'linear-gradient(120deg,#065f46 0%,#059669 55%,#10b981 100%)' }}
     >
+      <div className="flex items-center justify-between gap-4">
       <button className="md:hidden text-white" onClick={() => setMobileOpen(true)}><Menu size={22} /></button>
       <div>
         <div className="text-white font-bold text-[17px] md:text-[19px]">{title}</div>
@@ -2065,6 +2317,31 @@ function Topbar({ title, sub, session, schoolName, dark, setDark, onLogout, setM
           <LogOut size={14} /> <span className="hidden sm:inline">Déconnexion</span>
         </button>
       </div>
+      </div>
+      {(annee || periodeKey) && (
+        <div className="hidden md:flex items-center gap-2 justify-end mt-1.5 flex-wrap">
+          {annee && (
+            <span className="inline-flex items-center gap-1 text-[11px] font-bold px-2 py-0.5 rounded-md bg-white/15 text-white whitespace-nowrap">
+              <CalendarDays size={12} /> Année scolaire {annee}
+            </span>
+          )}
+          {canEditPeriode && periodeOptions.length ? (
+            <select
+              value={periodeKey || ''}
+              onChange={(e) => onPeriodeChange && onPeriodeChange(e.target.value)}
+              title="Période activée pour toute l'école (trimestres ou semestres selon le cycle)"
+              className="text-[11px] font-bold px-2 py-0.5 rounded-md border-0 outline-none cursor-pointer whitespace-nowrap"
+              style={{ background: 'rgba(255,255,255,.15)', color: '#fff' }}
+            >
+              {periodeOptions.map((p) => <option key={p.key} value={p.key} style={{ color: '#065f46' }}>{p.label}</option>)}
+            </select>
+          ) : periodeKey ? (
+            <span className="inline-flex items-center gap-1 text-[11px] font-bold px-2 py-0.5 rounded-md bg-white/15 text-white whitespace-nowrap">
+              {periodeLabel || periodeKey}
+            </span>
+          ) : null}
+        </div>
+      )}
     </div>
   );
 }
@@ -2259,6 +2536,37 @@ function StaffRoleDashboard({ state, loading, role, setActive, authorName }) {
 }
 
 /* ============================================================
+   ERROR BOUNDARY — évite l'écran blanc total si une vue plante
+   au rendu : affiche un message récupérable avec réessai/recharge.
+   ============================================================ */
+class ErrorBoundary extends React.Component {
+  constructor(props) {
+    super(props);
+    this.state = { error: null };
+  }
+  static getDerivedStateFromError(error) {
+    return { error };
+  }
+  componentDidCatch(error) {
+    console.error('Erreur de rendu :', error);
+  }
+  render() {
+    if (!this.state.error) return this.props.children;
+    return (
+      <div className="sygenop-card p-8 max-w-xl mx-auto mt-10 text-center" style={{ color: 'var(--ink)' }}>
+        <AlertCircle size={34} className="mx-auto mb-3" style={{ color: 'var(--red)' }} />
+        <h2 className="font-bold mb-2">Une erreur est survenue dans cette page</h2>
+        <p className="text-sm mb-4" style={{ color: 'var(--muted)' }}>{String((this.state.error && this.state.error.message) || this.state.error)}</p>
+        <div className="flex justify-center gap-2">
+          <button type="button" onClick={() => this.setState({ error: null })} className="px-4 py-2 rounded-lg text-sm font-semibold text-white" style={{ background: 'var(--green-d)' }}>Réessayer</button>
+          <button type="button" onClick={() => window.location.reload()} className="px-4 py-2 rounded-lg text-sm font-semibold" style={{ border: '1px solid var(--line)', color: 'var(--ink)', background: 'var(--panel)' }}>Recharger la page</button>
+        </div>
+      </div>
+    );
+  }
+}
+
+/* ============================================================
    TABLEAU DE BORD (école)
    ============================================================ */
 function DashboardView({ state, loading, teacherName, teacherStaffId, role, updateState, notify, setActive, authorName }) {
@@ -2269,6 +2577,11 @@ function DashboardView({ state, loading, teacherName, teacherStaffId, role, upda
   useEffect(() => {
     if (schoolPeriods.length && !schoolPeriods.some((period) => period.key === notePeriod)) setNotePeriod(schoolPeriods[0].key);
   }, [schoolPeriods.map((period) => period.key).join(','), notePeriod]);
+  // Suit la période activée globalement (barre du haut) quand elle change
+  const globalPeriode = state && state.header && state.header.periodeActif;
+  useEffect(() => {
+    if (globalPeriode && globalPeriode !== notePeriod && schoolPeriods.some((p) => p.key === globalPeriode)) setNotePeriod(globalPeriode);
+  }, [globalPeriode]);
   const presence = useMemo(() => (state ? schoolPresenceSummary(state, presMois) : null), [state, presMois]);
   const teacherAttendance = useMemo(() => (state && teacherStaffId ? teacherAttendanceSummary(state, teacherStaffId, presMois) : null), [state, teacherStaffId, presMois]);
   const academic = useMemo(() => (state ? schoolAcademicSummary(state, notePeriod) : null), [state, notePeriod]);
@@ -2897,7 +3210,7 @@ function ClassModal({ cls, level, personnel, materiel = [], affectations = [], c
   );
 }
 
-function PersonnelListTab({ personnel, onAdd, onEdit, onDelete, readOnly, cycle }) {
+function PersonnelListTab({ personnel, onAdd, onEdit, onDelete, onCard, readOnly, cycle }) {
   const [q, setQ] = useState('');
   const filtered = personnel.filter((p) => {
     const full = personFullName(p).toLowerCase();
@@ -2980,16 +3293,21 @@ function PersonnelListTab({ personnel, onAdd, onEdit, onDelete, readOnly, cycle 
                     <Pill tone={p.statut === 'Actif' ? 'green' : p.statut === 'Absent' ? 'red' : 'gold'}>{p.statut}</Pill>
                   </td>
                   <td className="px-4 py-3">
-                    {!readOnly && (
-                      <div className="flex items-center justify-end gap-1.5">
-                        <button onClick={() => onEdit(p)} className="p-1.5 rounded-lg hover:bg-black/5" style={{ color: 'var(--muted)' }} title="Modifier">
-                          <Pencil size={15} />
-                        </button>
-                        <button onClick={() => onDelete(p)} className="p-1.5 rounded-lg hover:bg-black/5" style={{ color: 'var(--red)' }} title="Supprimer">
-                          <Trash2 size={15} />
-                        </button>
-                      </div>
-                    )}
+                    <div className="flex items-center justify-end gap-1.5">
+                      <button onClick={() => onCard(p)} className="p-1.5 rounded-lg hover:bg-black/5" style={{ color: 'var(--gold)' }} title="Carte professionnelle">
+                        <CreditCard size={15} />
+                      </button>
+                      {!readOnly && (
+                        <>
+                          <button onClick={() => onEdit(p)} className="p-1.5 rounded-lg hover:bg-black/5" style={{ color: 'var(--muted)' }} title="Modifier">
+                            <Pencil size={15} />
+                          </button>
+                          <button onClick={() => onDelete(p)} className="p-1.5 rounded-lg hover:bg-black/5" style={{ color: 'var(--red)' }} title="Supprimer">
+                            <Trash2 size={15} />
+                          </button>
+                        </>
+                      )}
+                    </div>
                   </td>
                 </tr>
               ))}
@@ -3233,7 +3551,8 @@ function HeuresRecapPanel({ personnel, pointage, defaultMois, settings }) {
 
 function PaieTab({ personnel, pointage, state, updateState, readOnly }) {
   const [mois, setMois] = useState(currentMonthISO());
-  const joursOuvres = joursOuvresDuMois(mois);
+  const horaires = attendanceSettings(state);
+  const joursOuvres = joursOuvresDuMois(mois, horaires.joursOuvres);
   const joursDuMoisArr = joursDuMois(mois);
   const isPrivateSchool = String(state?.header?.type || state?.type || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().includes('privee');
   const retenuesManuelles = state?.retenuesPaie?.[mois] || {};
@@ -3299,7 +3618,7 @@ function PaieTab({ personnel, pointage, state, updateState, readOnly }) {
         <button onClick={() => setMois((m) => shiftMonth(m, 1))} className="p-2 rounded-lg" style={{ background: 'var(--bg)', color: 'var(--ink)' }}>
           <ChevronRight size={16} />
         </button>
-        <span className="text-xs font-semibold capitalize" style={{ color: 'var(--muted)' }}>{monthLabelFr(mois)} · {joursOuvres} jours ouvrés (lun.–ven.)</span>
+        <span className="text-xs font-semibold capitalize" style={{ color: 'var(--muted)' }}>{monthLabelFr(mois)} · {joursOuvres} jours ouvrés ({libelleJoursOuvres(horaires.joursOuvres)})</span>
         <button
           onClick={exportCSV}
           className="ml-auto px-3.5 py-2 rounded-lg text-sm font-semibold text-white flex items-center gap-1.5"
@@ -3571,6 +3890,12 @@ function PersonnelView({ state, loading, updateState, notify, readOnly }) {
   const [tab, setTab] = useState('liste');
   const [modalPerson, setModalPerson] = useState(undefined); // undefined = closed, null = new, obj = edit
   const [toDelete, setToDelete] = useState(null);
+  const [cardPerson, setCardPerson] = useState(null);
+
+  function saveStaffPhoto(personId, photoData) {
+    updateState((prev) => ({ ...prev, personnel: (prev.personnel || []).map((p) => (p.id === personId ? { ...p, photoData } : p)) }));
+    setCardPerson((p) => (p && p.id === personId ? { ...p, photoData } : p));
+  }
 
   if (loading || !state) {
     return <AppLoader />;
@@ -3663,6 +3988,7 @@ function PersonnelView({ state, loading, updateState, notify, readOnly }) {
           onAdd={() => setModalPerson(null)}
           onEdit={(p) => setModalPerson(p)}
           onDelete={(p) => setToDelete(p)}
+          onCard={(p) => setCardPerson(p)}
           readOnly={readOnly}
           cycle={schoolCycle}
         />
@@ -3674,6 +4000,11 @@ function PersonnelView({ state, loading, updateState, notify, readOnly }) {
       {modalPerson !== undefined && (
         <PersonnelModal person={modalPerson} cycle={schoolCycle} onSave={savePerson} onClose={() => setModalPerson(undefined)} />
       )}
+
+      {cardPerson && (
+        <div id="staff-card-print" className="fixed inset-0 z-50 overflow-auto p-4" style={{ background: 'rgba(10,20,15,.45)' }}><div className="max-w-2xl mx-auto mt-4"><div className="no-print flex flex-wrap justify-end gap-2 mb-2"><label className="px-3 py-2 rounded-lg text-sm font-semibold cursor-pointer" style={{ background: 'var(--gold-l)', color: 'var(--gold)' }}>Ajouter / changer la photo<input type="file" accept="image/*" className="hidden" onChange={(e) => { const file = e.target.files?.[0]; if (!file) return; const reader = new FileReader(); reader.onload = () => saveStaffPhoto(cardPerson.id, String(reader.result || '')); reader.readAsDataURL(file); }} /></label><button onClick={() => window.print()} className="px-3 py-2 rounded-lg text-white flex items-center gap-1" style={{ background: 'var(--green-d)' }}><Printer size={14} /> Imprimer / PDF</button><button onClick={() => setCardPerson(null)} className="px-3 py-2 rounded-lg" style={{ background: 'var(--panel)' }}>Fermer</button></div><StaffIdentityCard state={state} person={cardPerson} /></div></div>
+      )}
+
       {toDelete && (
         <ConfirmModal
           title="Supprimer ce membre du personnel ?"
@@ -3721,27 +4052,42 @@ function TimetableView({ state, classId, teacherName, updateState, notify, readO
     }
   }, [classId]);
 
-  const entries = (state?.emploiDuTemps || [])
+  const timetableList = (source) => {
+    const list = source?.emploiDuTemps;
+    return Array.isArray(list) ? list : Object.values(list || {}).filter(Boolean);
+  };
+
+  const entries = timetableList(state)
     .filter((entry) => filterClassId === 'all' || !filterClassId || entry.classId === filterClassId)
     .filter((entry) => !teacherName || !entry.teacher || entry.teacher === teacherName || entry.teacherId === teacherName)
     .sort((a, b) => `${TIMETABLE_DAYS.indexOf(a.day)}-${a.start}`.localeCompare(`${TIMETABLE_DAYS.indexOf(b.day)}-${b.start}`));
 
   const addEntry = (event) => {
     event.preventDefault();
-    if (!form.subject.trim() || !form.classId) {
+    const subject = form.subject.trim();
+    if (!subject || !form.classId) {
       notify('Indiquez la matière et la classe.', true);
+      return;
+    }
+    if (!form.start || !form.end) {
+      notify('Indiquez les heures de début et de fin.', true);
+      return;
+    }
+    if (form.end <= form.start) {
+      notify('L’heure de fin doit être après l’heure de début.', true);
       return;
     }
     updateState((prev) => ({
       ...prev,
-      emploiDuTemps: [...(prev.emploiDuTemps || []), { ...form, id: uid('slot'), subject: form.subject.trim() }],
+      emploiDuTemps: [...timetableList(prev), { ...form, id: uid('slot'), subject }],
     }));
+    if (filterClassId !== 'all' && filterClassId !== form.classId) setFilterClassId(form.classId);
     notify('Créneau ajouté à l’emploi du temps');
     setForm((prev) => ({ ...prev, subject: '', room: '' }));
   };
 
   const removeEntry = (entryId) => {
-    updateState((prev) => ({ ...prev, emploiDuTemps: (prev.emploiDuTemps || []).filter((entry) => entry.id !== entryId) }));
+    updateState((prev) => ({ ...prev, emploiDuTemps: timetableList(prev).filter((entry) => entry.id !== entryId) }));
     notify('Créneau supprimé');
   };
 
@@ -3809,7 +4155,7 @@ function TimetableView({ state, classId, teacherName, updateState, notify, readO
           if (!day || !start || !end || !subject || !targetClassId) throw new Error(`Ligne ${rowIndex + 2} invalide : vérifiez le jour, les horaires, la matière et la classe.`);
           return { id: uid('slot'), day, start, end, subject, classId: targetClassId, teacher: iTeacher > -1 ? cells[iTeacher] || '' : '', room: iRoom > -1 ? cells[iRoom] || '' : '' };
         });
-        updateState((prev) => ({ ...prev, emploiDuTemps: [...(prev.emploiDuTemps || []), ...imported] }));
+        updateState((prev) => ({ ...prev, emploiDuTemps: [...timetableList(prev), ...imported] }));
         setImportError(''); notify(`${imported.length} créneau(x) importé(s)`);
       } catch (error) { setImportError(error.message || 'Impossible de lire le fichier CSV.'); }
     };
@@ -3856,7 +4202,7 @@ function TimetableView({ state, classId, teacherName, updateState, notify, readO
           <input type="time" value={form.end} onChange={(event) => setForm((prev) => ({ ...prev, end: event.target.value }))} className="px-3 py-2 rounded-lg border text-sm" style={{ borderColor: 'var(--line)', background: 'var(--panel)', color: 'var(--ink)' }} />
           <input value={form.subject} onChange={(event) => setForm((prev) => ({ ...prev, subject: event.target.value }))} placeholder="Matière" className="px-3 py-2 rounded-lg border text-sm" style={{ borderColor: 'var(--line)', background: 'var(--panel)', color: 'var(--ink)' }} />
           <select value={form.classId} onChange={(event) => setForm((prev) => ({ ...prev, classId: event.target.value }))} className="px-3 py-2 rounded-lg border text-sm" style={{ borderColor: 'var(--line)', background: 'var(--panel)', color: 'var(--ink)' }}><option value="">Classe</option>{Object.entries(classes).map(([id, cls]) => <option key={id} value={id}>{cls.name}</option>)}</select>
-          <select value={form.teacher} onChange={(event) => setForm((prev) => ({ ...prev, teacher: event.target.value }))} className="px-3 py-2 rounded-lg border text-sm" style={{ borderColor: 'var(--line)', background: 'var(--panel)', color: 'var(--ink)' }}><option value="">{cycleTerminology(['6e', '5e', '4e', '3e'].includes(level) ? 'moyen' : ['Seconde', 'Première', 'Terminale'].includes(level) ? 'secondaire' : 'elementaire').teacher}</option>{personnel.filter((person) => person.role === 'Enseignant(e)').map((person) => <option key={person.id} value={personFullName(person)}>{personFullName(person)}</option>)}</select>
+          <select value={form.teacher} onChange={(event) => setForm((prev) => ({ ...prev, teacher: event.target.value }))} className="px-3 py-2 rounded-lg border text-sm" style={{ borderColor: 'var(--line)', background: 'var(--panel)', color: 'var(--ink)' }}><option value="">{cycleTerminology(state?.header?.cycle || LEGACY_DEFAULT_CYCLE).teacher}</option>{personnel.filter((person) => person.role === 'Enseignant(e)').map((person) => <option key={person.id} value={personFullName(person)}>{personFullName(person)}</option>)}</select>
           <input value={form.room} onChange={(event) => setForm((prev) => ({ ...prev, room: event.target.value }))} placeholder="Salle (facultatif)" className="px-3 py-2 rounded-lg border text-sm" style={{ borderColor: 'var(--line)', background: 'var(--panel)', color: 'var(--ink)' }} />
           <button type="submit" className="px-4 py-2 rounded-lg text-sm font-semibold text-white" style={{ background: 'var(--green-d)' }}><Plus size={15} className="inline mr-1" /> Ajouter le créneau</button>
         </form>
@@ -3913,6 +4259,11 @@ const classes = (state && state.classes) || {};
   useEffect(() => {
     if (schoolPeriods.length && !schoolPeriods.some((item) => item.key === period)) setPeriod(schoolPeriods[0].key);
   }, [schoolPeriods.map((item) => item.key).join(','), period]);
+  // Suit la période activée globalement (barre du haut) quand elle change
+  const globalPeriode = state && state.header && state.header.periodeActif;
+  useEffect(() => {
+    if (globalPeriode && globalPeriode !== period && schoolPeriods.some((p) => p.key === globalPeriode)) setPeriod(globalPeriode);
+  }, [globalPeriode]);
   const availableLevels = isTeacherScoped
     ? schoolLevels.filter((l) => Object.values(classes).some((c) => c.level === l && c.teacher === teacherName))
     : schoolLevels;
@@ -4016,7 +4367,7 @@ function saveClass(form) {
   );
 
   if (studentSection === 'timetable') {
-    return <div className="space-y-4 sygenop-fade">{commonStudentHeader}<TimetableView state={state} classId={classId} teacherName={teacherName} readOnly={true} /></div>;
+    return <div className="space-y-4 sygenop-fade">{commonStudentHeader}<TimetableView state={state} classId={classId} teacherName={teacherName} updateState={updateState} notify={notify} readOnly={true} /></div>;
   }
   if (studentSection === 'synth') {
     return <div className="space-y-4 sygenop-fade">{commonStudentHeader}<SynthView state={state} loading={loading} teacherName={teacherName} /></div>;
@@ -4360,13 +4711,29 @@ function StudentIdentityCard({ state, cls, student }) {
   const school = state.header?.ecole || 'Établissement scolaire';
   const qrValue = `SYGENOP|CARTE|${code}|${student.id}`;
   return <div className="student-id-card-sheet"><div className="student-id-card-front sygenop-card p-5" style={{ border: '2px solid var(--green-d)' }}>
-    <div className="flex items-start justify-between gap-4"><div><div className="text-lg font-bold" style={{ color: 'var(--green-d)' }}>{school}</div><div className="text-xs" style={{ color: 'var(--muted)' }}>CARTE D’IDENTITÉ SCOLAIRE · RECTO · Année {state.header?.annee || 'en cours'}</div></div><QRBadge value={qrValue} size={72} label="" /></div>
+    <div className="flex items-start justify-between gap-4"><SenegalFlag className="w-16 h-auto flex-shrink-0" /><div><div className="text-lg font-bold" style={{ color: 'var(--green-d)' }}>{school}</div><div className="text-xs" style={{ color: 'var(--muted)' }}>CARTE D’IDENTITÉ SCOLAIRE · RECTO · Année {state.header?.annee || 'en cours'}</div></div><QRBadge value={qrValue} size={72} label="" /></div>
     <div className="grid grid-cols-[1fr_120px] gap-4 mt-4 pt-4" style={{ borderTop: '1px solid var(--line)' }}><div className="space-y-2 text-sm"><div><b>Élève :</b> {student.prenom || '—'} {student.nom || ''}</div><div><b>Identifiant :</b> {code}</div><div><b>Classe :</b> {cls.name} · {cls.level}</div><div><b>Âge / Genre :</b> {student.age || '—'} / {student.genre || '—'}</div><div><b>Tuteur / Responsable :</b> {student.tuteurNom || 'Non renseigné'}</div><div><b>Contact tuteur :</b> {student.tuteurTel || 'Non renseigné'}</div></div><div className="border rounded-lg flex items-center justify-center overflow-hidden" style={{ borderColor: 'var(--line)', minHeight: 145, background: 'var(--bg)' }}>{student.photoData ? <img src={student.photoData} alt={`Photo de ${student.prenom || 'l’élève'}`} className="w-full h-full object-cover" /> : <span className="text-xs text-center px-2" style={{ color: 'var(--muted)' }}>Photo de l’élève</span>}</div></div>
     <div className="mt-4 text-[10px]" style={{ color: 'var(--muted)' }}>Scannez le QR code pour vérifier la situation des mensualités dans l’application.</div>
   </div><div className="student-id-card-back sygenop-card p-6 text-center" style={{ border: '2px solid var(--green-d)' }}><div className="font-bold text-lg" style={{ color: 'var(--green-d)' }}>{school}</div><div className="text-xs mb-5" style={{ color: 'var(--muted)' }}>CARTE D’IDENTITÉ SCOLAIRE · VERSO</div><QRBadge value={qrValue} size={230} label="Identifiant permanent de l’élève" /><div className="mt-5 text-xs" style={{ color: 'var(--muted)' }}>Ce QR ne change jamais. La comptabilité le scanne pour consulter les mensualités à jour dans le système.</div></div></div>;
 }
 
-function StudentCardVerification({ state: incomingState }) {
+/* ---- Carte professionnelle du personnel — même format que la carte élève ---- */
+function staffCardCode(person) {
+  return person.cardCode || `PERS-${String(person.id || '').slice(-8).toUpperCase()}`;
+}
+
+function StaffIdentityCard({ state, person }) {
+  const code = staffCardCode(person);
+  const school = state.header?.ecole || 'Établissement scolaire';
+  const qrValue = `SYGENOP|STAFF|${code}|${person.id}`;
+  return <div className="student-id-card-sheet"><div className="student-id-card-front sygenop-card p-5" style={{ border: '2px solid var(--gold, #b8862f)' }}>
+    <div className="flex items-start justify-between gap-4"><SenegalFlag className="w-16 h-auto flex-shrink-0" /><div><div className="text-lg font-bold" style={{ color: 'var(--green-d)' }}>{school}</div><div className="text-xs" style={{ color: 'var(--muted)' }}>CARTE PROFESSIONNELLE · RECTO · Année {state.header?.annee || 'en cours'}</div></div><QRBadge value={qrValue} size={72} label="" /></div>
+    <div className="grid grid-cols-[1fr_120px] gap-4 mt-4 pt-4" style={{ borderTop: '1px solid var(--line)' }}><div className="space-y-2 text-sm"><div><b>Agent :</b> {person.prenom || '—'} {person.nom || ''}</div><div><b>Matricule :</b> {code}</div><div><b>Fonction :</b> {person.role || '—'}</div>{person.specialites?.length > 0 && <div><b>Spécialités :</b> {person.specialites.join(', ')}</div>}<div><b>Téléphone :</b> {person.telephone || '—'}</div><div><b>Statut :</b> {person.statut || 'Actif'}</div></div><div className="border rounded-lg flex items-center justify-center overflow-hidden" style={{ borderColor: 'var(--line)', minHeight: 145, background: 'var(--bg)' }}>{person.photoData ? <img src={person.photoData} alt={`Photo de ${person.prenom || 'l’agent'}`} className="w-full h-full object-cover" /> : <span className="text-xs text-center px-2" style={{ color: 'var(--muted)' }}>Photo de l’agent</span>}</div></div>
+    <div className="mt-4 text-[10px]" style={{ color: 'var(--muted)' }}>Cette carte fait office de badge d’accès : scannez le QR code au portail.</div>
+  </div><div className="student-id-card-back sygenop-card p-6 text-center" style={{ border: '2px solid var(--gold, #b8862f)' }}><div className="font-bold text-lg" style={{ color: 'var(--green-d)' }}>{school}</div><div className="text-xs mb-5" style={{ color: 'var(--muted)' }}>CARTE PROFESSIONNELLE · VERSO</div><QRBadge value={qrValue} size={230} label="Identifiant permanent de l’agent" /><div className="mt-5 text-xs" style={{ color: 'var(--muted)' }}>Ce QR ne change jamais. Il sert de badge d’accès et d’identification du personnel dans le système.</div></div></div>;
+}
+
+function StudentCardVerification({ state: incomingState, updateState, notify }) {
   const state = incomingState || { classes: {}, header: {}, fees: {} };
   const [rawCode, setRawCode] = useState('');
   const [cameraError, setCameraError] = useState('');
@@ -4377,6 +4744,44 @@ function StudentCardVerification({ state: incomingState }) {
   async function startCamera() { try { setCameraError(''); if (!('BarcodeDetector' in window)) { setCameraError('Le navigateur ne prend pas en charge le scan caméra. Utilisez Chrome sur Android ou une douchette QR.'); return; } const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment' } }); streamRef.current = stream; if (videoRef.current) { videoRef.current.srcObject = stream; await videoRef.current.play(); } const detector = new window.BarcodeDetector({ formats: ['qr_code'] }); scanTimerRef.current = setInterval(async () => { if (!videoRef.current) return; const codes = await detector.detect(videoRef.current); if (codes[0]?.rawValue) { setRawCode(codes[0].rawValue); stopCamera(); } }, 500); } catch (_) { setCameraError('Impossible d’accéder à la caméra. Autorisez-la dans votre navigateur.'); } }
   useEffect(() => () => stopCamera(), []);
   const code = rawCode.includes('|') ? rawCode.split('|')[2] : rawCode.trim();
+  // Badge personnel (SYGENOP|STAFF|<matricule>|<id>) : le portail identifie
+  // l'agent et affiche son pointage du jour au lieu des mensualités élève.
+  const isStaffScan = rawCode.startsWith('SYGENOP|STAFF|');
+  const staffScanParts = isStaffScan ? rawCode.split('|') : null;
+  const staffFound = staffScanParts
+    ? (state.personnel || []).find((p) => p.id === staffScanParts[3] || staffCardCode(p) === (staffScanParts[2] || ''))
+    : null;
+  const staffRecord = staffFound ? getPointageRecord(state.pointage || {}, todayISO(), staffFound.id) : null;
+  const STAFF_POINTAGE_LABELS = { P: ['Présent', 'green'], A: ['Absent', 'red'], R: ['Retard', 'gold'], C: ['Congé', 'gold'] };
+  // Pointage automatique : le premier scan valide du badge marque l'agent
+  // « Présent » avec ses heures prévues. Un statut déjà saisi (A/R/C/P par
+  // la direction) n'est JAMAIS écrasé, et le pointage reste fermé les jours
+  // non ouvrés.
+  const lastStaffCheckRef = useRef('');
+  useEffect(() => {
+    if (!staffFound || typeof updateState !== 'function') return undefined;
+    const date = todayISO();
+    const key = `${date}|${staffFound.id}`;
+    if (lastStaffCheckRef.current === key) return undefined;
+    lastStaffCheckRef.current = key;
+    const daySettings = attendanceSettings(state);
+    const reason = nonWorkingDayReason(date, daySettings);
+    if (reason) { notify && notify(`Badge reconnu, mais pointage fermé aujourd'hui (${reason}).`, true); return undefined; }
+    if (getPointageRecord(state.pointage || {}, date, staffFound.id)) {
+      notify && notify(`${personFullName(staffFound)} déjà pointé(e) aujourd'hui — aucun changement.`);
+      return undefined;
+    }
+    const heures = heuresAttenduesDate(date, daySettings);
+    updateState((prev) => {
+      const pt = { ...(prev.pointage || {}) };
+      const dayRec = { ...(pt[date] || {}) };
+      dayRec[staffFound.id] = { statut: 'P', heures };
+      pt[date] = dayRec;
+      return { ...prev, pointage: pt };
+    });
+    notify && notify(`${personFullName(staffFound)} pointé(e) présent(e) — ${heures} h servies.`);
+    return undefined;
+  }, [staffFound, updateState, notify, state]);
   const found = Object.entries(state.classes || {}).flatMap(([classId, cls]) => (cls.students || []).map((student) => ({ classId, cls, student }))).find(({ student }) => student.cardCode === code || student.id === code || `ELV-${String(student.id || '').slice(-8).toUpperCase()}` === code);
   const monthlyRows = found ? (() => {
     const { cls, student } = found;
@@ -4395,7 +4800,7 @@ function StudentCardVerification({ state: incomingState }) {
     });
   })() : [];
   const access = monthlyRows.some((row) => row.status === 'Impayé') ? 'REFUSÉ — régularisation nécessaire' : monthlyRows.some((row) => row.status === 'Partiel') ? 'À RÉGULARISER' : 'AUTORISÉ — à jour';
-  return <div className="space-y-4"><div className="sygenop-card p-5"><div className="font-bold flex items-center gap-2"><ScanLine size={18} /> Contrôle portail / Vérifier une carte</div><p className="text-xs mt-1" style={{ color: 'var(--muted)' }}>Scannez avec la caméra du smartphone ou une douchette QR.</p><div className="flex gap-2 mt-3"><button onClick={startCamera} className="px-3 py-2 rounded-lg text-white text-sm" style={{ background: 'var(--green-d)' }}>Scanner avec la caméra</button><button onClick={stopCamera} className="px-3 py-2 rounded-lg text-sm" style={{ background: 'var(--bg)' }}>Arrêter</button></div><video ref={videoRef} muted playsInline className="mt-3 w-full max-w-sm rounded-lg" /><input autoFocus value={rawCode} onChange={(e) => setRawCode(e.target.value)} placeholder="Code QR scanné" className="mt-3 w-full px-3 py-2.5 rounded-lg border text-sm" style={{ borderColor: 'var(--line)', background: 'var(--panel)' }} />{cameraError && <div className="text-xs mt-2" style={{ color: 'var(--red)' }}>{cameraError}</div>}</div>{rawCode && !found && <div className="sygenop-card p-5 text-sm" style={{ color: 'var(--red)' }}>Aucun élève ne correspond à ce code.</div>}{found && <div className="sygenop-card p-5"><div className="font-bold text-center p-3 rounded-lg" style={{ background: access.startsWith('AUTORISÉ') ? 'var(--green-l)' : access.startsWith('À') ? 'var(--gold-l)' : '#fdecea', color: access.startsWith('AUTORISÉ') ? 'var(--green-d)' : 'var(--red)' }}>{access}</div><div className="mt-3 font-bold">{found.student.prenom} {found.student.nom} — {found.cls.name}</div><div className="overflow-x-auto mt-3"><table className="w-full text-sm"><tbody>{monthlyRows.map((row) => <tr key={row.label} style={{ borderTop: '1px solid var(--line)' }}><td className="p-2">{row.label}</td><td className="p-2 text-right">{fmtFCFA(row.paid)}</td><td className="p-2 text-right"><Pill tone={row.status === 'À jour' ? 'green' : row.status === 'Partiel' ? 'gold' : 'red'}>{row.status}</Pill></td></tr>)}</tbody></table></div></div>}</div>;
+  return <div className="space-y-4"><div className="sygenop-card p-5"><div className="font-bold flex items-center gap-2"><ScanLine size={18} /> Contrôle portail / Vérifier une carte</div><p className="text-xs mt-1" style={{ color: 'var(--muted)' }}>Scannez avec la caméra du smartphone ou une douchette QR.</p><div className="flex gap-2 mt-3"><button onClick={startCamera} className="px-3 py-2 rounded-lg text-white text-sm" style={{ background: 'var(--green-d)' }}>Scanner avec la caméra</button><button onClick={stopCamera} className="px-3 py-2 rounded-lg text-sm" style={{ background: 'var(--bg)' }}>Arrêter</button></div><video ref={videoRef} muted playsInline className="mt-3 w-full max-w-sm rounded-lg" /><input autoFocus value={rawCode} onChange={(e) => setRawCode(e.target.value)} placeholder="Code QR scanné" className="mt-3 w-full px-3 py-2.5 rounded-lg border text-sm" style={{ borderColor: 'var(--line)', background: 'var(--panel)' }} />{cameraError && <div className="text-xs mt-2" style={{ color: 'var(--red)' }}>{cameraError}</div>}</div>{rawCode && !found && !staffFound && <div className="sygenop-card p-5 text-sm" style={{ color: 'var(--red)' }}>Aucun élève ne correspond à ce code.</div>}{staffFound && <div className="sygenop-card p-5"><div className="font-bold text-center p-3 rounded-lg" style={{ background: staffRecord ? 'var(--green-l)' : 'var(--gold-l)', color: staffRecord ? 'var(--green-d)' : '#7a5a1f' }}>{staffRecord ? `BADGE RECONNU — ${STAFF_POINTAGE_LABELS[staffRecord.statut]?.[0] || staffRecord.statut}` : 'BADGE RECONNU — non pointé aujourd\u2019hui'}</div><div className="mt-3 font-bold">{personFullName(staffFound)} — {staffFound.role || ''}</div><div className="text-xs mt-1" style={{ color: 'var(--muted)' }}>Matricule {staffCardCode(staffFound)} · Statut administratif : {staffFound.statut || 'Actif'}</div>{staffRecord && <div className="mt-2 text-sm">Pointage du jour : <Pill tone={STAFF_POINTAGE_LABELS[staffRecord.statut]?.[1] || 'gold'}>{STAFF_POINTAGE_LABELS[staffRecord.statut]?.[0] || staffRecord.statut}</Pill> · {Number(staffRecord.heures) || 0} h</div>}</div>}{found && <div className="sygenop-card p-5"><div className="font-bold text-center p-3 rounded-lg" style={{ background: access.startsWith('AUTORISÉ') ? 'var(--green-l)' : access.startsWith('À') ? 'var(--gold-l)' : '#fdecea', color: access.startsWith('AUTORISÉ') ? 'var(--green-d)' : 'var(--red)' }}>{access}</div><div className="mt-3 font-bold">{found.student.prenom} {found.student.nom} — {found.cls.name}</div><div className="overflow-x-auto mt-3"><table className="w-full text-sm"><tbody>{monthlyRows.map((row) => <tr key={row.label} style={{ borderTop: '1px solid var(--line)' }}><td className="p-2">{row.label}</td><td className="p-2 text-right">{fmtFCFA(row.paid)}</td><td className="p-2 text-right"><Pill tone={row.status === 'À jour' ? 'green' : row.status === 'Partiel' ? 'gold' : 'red'}>{row.status}</Pill></td></tr>)}</tbody></table></div></div>}</div>;
 }
 
 function GradeGrid({ state, classId, cls, cfg, periodKey, periods, updateState, notify, readOnly, isPrivateSchool, maxStudentsPerClass }) {
@@ -4977,6 +5382,11 @@ function SynthView({ state, loading, teacherName }) {
   useEffect(() => {
     if (schoolPeriods.length && !schoolPeriods.some((item) => item.key === period)) setPeriod(schoolPeriods[0].key);
   }, [schoolPeriods.map((item) => item.key).join(','), period]);
+  // Suit la période activée globalement (barre du haut) quand elle change
+  const globalPeriode = state && state.header && state.header.periodeActif;
+  useEffect(() => {
+    if (globalPeriode && globalPeriode !== period && schoolPeriods.some((p) => p.key === globalPeriode)) setPeriod(globalPeriode);
+  }, [globalPeriode]);
 
   useEffect(() => {
     if (isTeacherScoped && availableLevels.length && !availableLevels.includes(level)) {
@@ -5260,6 +5670,11 @@ function BulletinView({ state, loading, teacherName }) {
   useEffect(() => {
     if (schoolPeriods.length && !schoolPeriods.some((item) => item.key === period)) setPeriod(schoolPeriods[0].key);
   }, [schoolPeriods.map((item) => item.key).join(','), period]);
+  // Suit la période activée globalement (barre du haut) quand elle change
+  const globalPeriode = state && state.header && state.header.periodeActif;
+  useEffect(() => {
+    if (globalPeriode && globalPeriode !== period && schoolPeriods.some((p) => p.key === globalPeriode)) setPeriod(globalPeriode);
+  }, [globalPeriode]);
   const schoolLevels = levelsForSchool(state);
   const sheets = Object.entries(classes)
     .filter(([, c]) => (c.students || []).length && schoolLevels.includes(c.level) && (!teacherName || c.teacher === teacherName))
@@ -5409,35 +5824,52 @@ function FeesModal({ level, fees, onSave, onClose }) {
     e.preventDefault();
     onSave({ rubriques: rubriques.filter((r) => r.label.trim()).map((r) => ({ ...r, label: r.label.trim(), montant: Math.max(0, Number(r.montant) || 0), actif: r.actif !== false })), mensualites: Math.max(1, Number(mensualites) || 10) });
   }
-  const total = rubriques.filter((r) => r.actif !== false).reduce((sum, r) => sum + (Number(r.montant) || 0), 0);
+  const actives = rubriques.filter((r) => r.actif !== false);
+  // Les montants « À l'entrée » sont réglés au moment de l'inscription :
+  // ils ne participent PAS au paiement mensuel (seules les rubriques
+  // à échéance annuelle sont étalées sur les mensualités).
+  const totalEntree = actives.reduce((sum, r) => sum + (r.nature === 'entree' ? Number(r.montant) || 0 : 0), 0);
+  const totalAnnuel = actives.reduce((sum, r) => sum + (r.nature !== 'entree' ? Number(r.montant) || 0 : 0), 0);
+  const total = totalEntree + totalAnnuel;
+  const nbMois = Math.max(1, Number(mensualites) || 10);
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4" style={{ background: 'rgba(10,20,15,.45)' }}>
-      <form onSubmit={submit} className="sygenop-card p-6 max-w-xl w-full sygenop-fade">
-        <div className="flex items-center justify-between mb-4">
+      <form onSubmit={submit} className="sygenop-card p-6 max-w-5xl w-full sygenop-fade flex flex-col" style={{ maxHeight: '90vh' }}>
+        <div className="flex items-center justify-between mb-2">
           <div className="font-bold" style={{ color: 'var(--ink)' }}>Frais de scolarité — {level}</div>
           <button type="button" onClick={onClose} style={{ color: 'var(--muted)' }}><X size={18} /></button>
         </div>
-        <div className="space-y-3"><p className="text-xs" style={{ color: 'var(--muted)' }}>Chaque rubrique est un montant annuel pour les élèves de {level}. Vous pouvez ajouter ou retirer des rubriques au cours de l’année.</p>
-          {rubriques.map((r, index) => <div key={r.id} className="grid grid-cols-[1fr_130px_130px_auto] gap-2 items-end"><label className="text-xs font-semibold">Rubrique<input value={r.label} onChange={(e) => setRubriques((list) => list.map((x, i) => i === index ? { ...x, label: e.target.value } : x))} className="mt-1 w-full px-3 py-2 rounded-lg border text-sm" style={{ borderColor: 'var(--line)' }} placeholder="Cantine, transport…" /></label><label className="text-xs font-semibold">Montant<input type="number" min="0" step="500" value={r.montant} onChange={(e) => setRubriques((list) => list.map((x, i) => i === index ? { ...x, montant: e.target.value } : x))} className="mt-1 w-full px-3 py-2 rounded-lg border text-sm" style={{ borderColor: 'var(--line)' }} /></label><label className="text-xs font-semibold">Échéance<select value={r.nature || 'annuel'} onChange={(e) => setRubriques((list) => list.map((x, i) => i === index ? { ...x, nature: e.target.value } : x))} className="mt-1 w-full px-2 py-2 rounded-lg border text-sm"><option value="annuel">Annuelle</option><option value="entree">À l'entrée</option></select></label><button type="button" onClick={() => setRubriques((list) => list.filter((_, i) => i !== index))} className="p-2 mb-0.5" style={{ color: 'var(--red)' }} title="Retirer"><Trash2 size={16} /></button></div>)}
-          <button type="button" onClick={() => setRubriques((list) => [...list, { id: uid('fee'), label: '', montant: 0, nature: 'annuel' }])} className="text-sm font-semibold flex items-center gap-1" style={{ color: 'var(--green-d)' }}><Plus size={15} /> Ajouter une rubrique</button>
-          <label className="block text-xs font-semibold">Nombre de mensualités<input type="number" min="1" max="12" value={mensualites} onChange={(e) => setMensualites(e.target.value)} className="mt-1 w-28 px-3 py-2 rounded-lg border text-sm" style={{ borderColor: 'var(--line)' }} /></label>
-          <div className="text-xs px-1" style={{ color: 'var(--muted)' }}>Total annuel : <b>{fmtFCFA(total)}</b> · Mensualité indicative : <b>{fmtFCFA(Math.round(total / Math.max(1, Number(mensualites) || 1)))}</b></div>
+        <p className="text-xs mb-3" style={{ color: 'var(--muted)' }}>Chaque rubrique est un montant annuel pour les élèves de {level}. Les rubriques « À l'entrée » sont payées à l'inscription et ne sont pas incluses dans les mensualités.</p>
+        <div className="overflow-y-auto pr-1">
+          <div className="grid md:grid-cols-2 xl:grid-cols-3 gap-3 items-start">
+            {rubriques.map((r, index) => <div key={r.id} className="grid grid-cols-[1fr_110px_110px_auto] gap-2 items-end"><label className="text-xs font-semibold">Rubrique<input value={r.label} onChange={(e) => setRubriques((list) => list.map((x, i) => i === index ? { ...x, label: e.target.value } : x))} className="mt-1 w-full px-3 py-2 rounded-lg border text-sm" style={{ borderColor: 'var(--line)' }} placeholder="Cantine, transport…" /></label><label className="text-xs font-semibold">Montant<input type="number" min="0" step="500" value={r.montant} onChange={(e) => setRubriques((list) => list.map((x, i) => i === index ? { ...x, montant: e.target.value } : x))} className="mt-1 w-full px-3 py-2 rounded-lg border text-sm" style={{ borderColor: 'var(--line)' }} /></label><label className="text-xs font-semibold">Échéance<select value={r.nature || 'annuel'} onChange={(e) => setRubriques((list) => list.map((x, i) => i === index ? { ...x, nature: e.target.value } : x))} className="mt-1 w-full px-2 py-2 rounded-lg border text-sm"><option value="annuel">Annuelle</option><option value="entree">À l'entrée</option></select></label><button type="button" onClick={() => setRubriques((list) => list.filter((_, i) => i !== index))} className="p-2 mb-0.5" style={{ color: 'var(--red)' }} title="Retirer"><Trash2 size={16} /></button></div>)}
+            <button type="button" onClick={() => setRubriques((list) => [...list, { id: uid('fee'), label: '', montant: 0, nature: 'annuel' }])} className="text-sm font-semibold flex items-center gap-1 self-end pb-2.5 justify-self-start" style={{ color: 'var(--green-d)' }}><Plus size={15} /> Ajouter une rubrique</button>
+          </div>
         </div>
-        <div className="flex justify-end gap-2 mt-6">
-          <button type="button" onClick={onClose} className="px-3.5 py-2 rounded-lg text-sm font-semibold" style={{ background: 'var(--bg)', color: 'var(--ink)' }}>Annuler</button>
-          <button type="submit" className="px-3.5 py-2 rounded-lg text-sm font-semibold text-white" style={{ background: 'var(--green-d)' }}>Enregistrer</button>
+        <div className="flex flex-wrap items-center justify-between gap-3 mt-4 pt-4" style={{ borderTop: '1px solid var(--line)' }}>
+          <div className="flex items-end gap-4">
+            <label className="text-xs font-semibold block">Nombre de mensualités<input type="number" min="1" max="12" value={mensualites} onChange={(e) => setMensualites(e.target.value)} className="mt-1 w-24 px-3 py-2 rounded-lg border text-sm" style={{ borderColor: 'var(--line)' }} /></label>
+            <div className="text-xs leading-relaxed" style={{ color: 'var(--muted)' }}>
+              Total annuel : <b style={{ color: 'var(--ink)' }}>{fmtFCFA(total)}</b> · Dont à l'entrée : <b style={{ color: 'var(--gold, #b8862f)' }}>{fmtFCFA(totalEntree)}</b><br />
+              Mensualité ({nbMois} mois, hors entrée) : <b style={{ color: 'var(--green-d)' }}>{fmtFCFA(Math.round(totalAnnuel / nbMois))}</b>
+            </div>
+          </div>
+          <div className="flex justify-end gap-2">
+            <button type="button" onClick={onClose} className="px-3.5 py-2 rounded-lg text-sm font-semibold" style={{ background: 'var(--bg)', color: 'var(--ink)' }}>Annuler</button>
+            <button type="submit" className="px-3.5 py-2 rounded-lg text-sm font-semibold text-white" style={{ background: 'var(--green-d)' }}>Enregistrer</button>
+          </div>
         </div>
       </form>
     </div>
   );
 }
 
-function PaymentModal({ student, payment, rubriques = [], onSave, onClose }) {
+function PaymentModal({ student, payment, rubriques = [], onSave, onClose, defaultMois }) {
   const isEdit = !!payment;
   const defaultLines = rubriques.map((r) => ({ id: r.id, label: r.label, montant: r.nature === 'entree' ? Number(r.montant) || 0 : Math.round((Number(r.montant) || 0) / Math.max(1, Number(r.mensualites) || 10)), checked: false }));
   const [form, setForm] = useState(() => (payment
     ? { date: payment.date || todayISO(), mois: payment.mois || (payment.date || todayISO()).slice(0, 7), montant: String(payment.montant ?? ''), mode: payment.mode || 'especes', lignes: payment.lignes || [], note: payment.note || '' }
-    : { date: todayISO(), mois: todayISO().slice(0, 7), montant: '', mode: 'especes', lignes: defaultLines, note: '' }));
+    : { date: todayISO(), mois: defaultMois || todayISO().slice(0, 7), montant: '', mode: 'especes', lignes: defaultLines, note: '' }));
   function submit(e) {
     e.preventDefault();
     const lignes = (form.lignes || []).filter((line) => line.checked || payment?.lignes).map((line) => ({ ...line, montant: Number(line.montant) || 0 })).filter((line) => line.montant > 0);
@@ -5447,65 +5879,75 @@ function PaymentModal({ student, payment, rubriques = [], onSave, onClose }) {
   }
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4" style={{ background: 'rgba(10,20,15,.45)' }}>
-      <form onSubmit={submit} className="sygenop-card p-6 max-w-xl w-full sygenop-fade">
+      <form onSubmit={submit} className="sygenop-card p-6 max-w-5xl w-full sygenop-fade flex flex-col" style={{ maxHeight: '90vh' }}>
         <div className="flex items-center justify-between mb-4">
           <div className="font-bold" style={{ color: 'var(--ink)' }}>
             {isEdit ? `Modifier le paiement — reçu ${payment.recu}` : `Nouveau paiement — ${student.prenom} ${student.nom}`}
           </div>
           <button type="button" onClick={onClose} style={{ color: 'var(--muted)' }}><X size={18} /></button>
         </div>
-        <div className="space-y-3">
-          <div className="grid grid-cols-2 gap-3">
-            <div>
-              <label className="text-xs font-semibold block mb-1" style={{ color: 'var(--muted)' }}>Montant (FCFA) *</label>
-              <input
-                autoFocus type="number" min="0" step="any" inputMode="decimal" value={form.montant}
-                onChange={(e) => setForm((f) => ({ ...f, montant: e.target.value }))}
-                className="w-full px-3 py-2.5 rounded-lg border text-sm"
-                style={{ borderColor: 'var(--line)', background: 'var(--panel)', color: 'var(--ink)' }}
-                placeholder="0"
-              />
-            </div>
-            <div>
-              <label className="text-xs font-semibold block mb-1" style={{ color: 'var(--muted)' }}>Date</label>
-              <input
-                type="date" value={form.date}
-                onChange={(e) => setForm((f) => ({ ...f, date: e.target.value }))}
-                className="w-full px-3 py-2.5 rounded-lg border text-sm"
-                style={{ borderColor: 'var(--line)', background: 'var(--panel)', color: 'var(--ink)' }}
-              />
-            </div>
-          </div>
-          <div className="grid grid-cols-2 gap-3">
-            <div>
-              <label className="text-xs font-semibold block mb-1" style={{ color: 'var(--muted)' }}>Mode de paiement</label>
-              <select
-                value={form.mode} onChange={(e) => setForm((f) => ({ ...f, mode: e.target.value }))}
-                className="w-full px-3 py-2.5 rounded-lg border text-sm"
-                style={{ borderColor: 'var(--line)', background: 'var(--panel)', color: 'var(--ink)' }}
-              >
-                {Object.entries(MODES_PAIEMENT).map(([k, v]) => <option key={k} value={k}>{v}</option>)}
-              </select>
-            </div>
-            <div><label className="text-xs font-semibold block mb-1" style={{ color: 'var(--muted)' }}>Montant total</label><input readOnly value={form.lignes?.filter((line) => line.checked).reduce((sum, line) => sum + (Number(line.montant) || 0), 0) || form.montant} className="w-full px-3 py-2.5 rounded-lg border text-sm" style={{ borderColor: 'var(--line)', background: 'var(--bg)', color: 'var(--ink)' }} /></div>
-          </div>
-          <div className="rounded-lg border p-3 space-y-2" style={{ borderColor: 'var(--line)' }}><div className="text-xs font-semibold" style={{ color: 'var(--muted)' }}>Rubriques à encaisser — cochez, puis ajustez le montant si paiement partiel</div>{(form.lignes || []).map((line, index) => <div key={line.id} className="grid grid-cols-[auto_1fr_130px] items-center gap-2 text-sm"><input type="checkbox" checked={!!line.checked} onChange={(e) => setForm((f) => ({ ...f, lignes: f.lignes.map((x, i) => i === index ? { ...x, checked: e.target.checked } : x) }))} /><span>{line.label}</span><input type="number" min="0" disabled={!line.checked} value={line.montant} onChange={(e) => setForm((f) => ({ ...f, lignes: f.lignes.map((x, i) => i === index ? { ...x, montant: e.target.value } : x) }))} className="px-2 py-1 rounded border" style={{ borderColor: 'var(--line)' }} /></div>)}</div>
-          <div><label className="text-xs font-semibold block mb-1" style={{ color: 'var(--muted)' }}>Mois concerné</label><input type="month" value={form.mois} onChange={(e) => setForm((f) => ({ ...f, mois: e.target.value }))} className="w-full px-3 py-2.5 rounded-lg border text-sm" style={{ borderColor: 'var(--line)', background: 'var(--panel)', color: 'var(--ink)' }} /></div>
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
           <div>
-            <label className="text-xs font-semibold block mb-1" style={{ color: 'var(--muted)' }}>Note (facultatif)</label>
+            <label className="text-xs font-semibold block mb-1" style={{ color: 'var(--muted)' }}>Montant (FCFA) *</label>
             <input
-              value={form.note} onChange={(e) => setForm((f) => ({ ...f, note: e.target.value }))}
+              autoFocus type="number" min="0" step="any" inputMode="decimal" value={form.montant}
+              onChange={(e) => setForm((f) => ({ ...f, montant: e.target.value }))}
               className="w-full px-3 py-2.5 rounded-lg border text-sm"
               style={{ borderColor: 'var(--line)', background: 'var(--panel)', color: 'var(--ink)' }}
-              placeholder="Ex : versement partiel"
+              placeholder="0"
             />
           </div>
+          <div>
+            <label className="text-xs font-semibold block mb-1" style={{ color: 'var(--muted)' }}>Date</label>
+            <input
+              type="date" value={form.date}
+              onChange={(e) => setForm((f) => ({ ...f, date: e.target.value }))}
+              className="w-full px-3 py-2.5 rounded-lg border text-sm"
+              style={{ borderColor: 'var(--line)', background: 'var(--panel)', color: 'var(--ink)' }}
+            />
+          </div>
+          <div>
+            <label className="text-xs font-semibold block mb-1" style={{ color: 'var(--muted)' }}>Mode de paiement</label>
+            <select
+              value={form.mode} onChange={(e) => setForm((f) => ({ ...f, mode: e.target.value }))}
+              className="w-full px-3 py-2.5 rounded-lg border text-sm"
+              style={{ borderColor: 'var(--line)', background: 'var(--panel)', color: 'var(--ink)' }}
+            >
+              {Object.entries(MODES_PAIEMENT).map(([k, v]) => <option key={k} value={k}>{v}</option>)}
+            </select>
+          </div>
+          <div>
+            <label className="text-xs font-semibold block mb-1" style={{ color: 'var(--muted)' }}>Mois concerné</label>
+            <input type="month" value={form.mois} onChange={(e) => setForm((f) => ({ ...f, mois: e.target.value }))} className="w-full px-3 py-2.5 rounded-lg border text-sm" style={{ borderColor: 'var(--line)', background: 'var(--panel)', color: 'var(--ink)' }} />
+          </div>
         </div>
-        <div className="flex justify-end gap-2 mt-6">
-          <button type="button" onClick={onClose} className="px-3.5 py-2 rounded-lg text-sm font-semibold" style={{ background: 'var(--bg)', color: 'var(--ink)' }}>Annuler</button>
-          <button type="submit" className="px-3.5 py-2 rounded-lg text-sm font-semibold text-white flex items-center gap-1.5" style={{ background: 'var(--green-d)' }}>
-            {isEdit ? <><Pencil size={14} /> Enregistrer les modifications</> : <><Receipt size={14} /> Encaisser &amp; générer le reçu</>}
-          </button>
+        <div className="overflow-y-auto pr-1 mt-4">
+          <div className="rounded-lg border p-3 space-y-2" style={{ borderColor: 'var(--line)' }}>
+            <div className="text-xs font-semibold" style={{ color: 'var(--muted)' }}>Rubriques à encaisser — cochez, puis ajustez le montant si paiement partiel</div>
+            <div className="grid md:grid-cols-2 xl:grid-cols-3 gap-x-4 gap-y-2">
+              {(form.lignes || []).map((line, index) => <div key={line.id} className="grid grid-cols-[auto_1fr_120px] items-center gap-2 text-sm"><input type="checkbox" checked={!!line.checked} onChange={(e) => setForm((f) => ({ ...f, lignes: f.lignes.map((x, i) => i === index ? { ...x, checked: e.target.checked } : x) }))} /><span>{line.label}</span><input type="number" min="0" disabled={!line.checked} value={line.montant} onChange={(e) => setForm((f) => ({ ...f, lignes: f.lignes.map((x, i) => i === index ? { ...x, montant: e.target.value } : x) }))} className="px-2 py-1 rounded border" style={{ borderColor: 'var(--line)' }} /></div>)}
+            </div>
+          </div>
+        </div>
+        <div className="mt-3">
+          <label className="text-xs font-semibold block mb-1" style={{ color: 'var(--muted)' }}>Note (facultatif)</label>
+          <input
+            value={form.note} onChange={(e) => setForm((f) => ({ ...f, note: e.target.value }))}
+            className="w-full px-3 py-2.5 rounded-lg border text-sm"
+            style={{ borderColor: 'var(--line)', background: 'var(--panel)', color: 'var(--ink)' }}
+            placeholder="Ex : versement partiel"
+          />
+        </div>
+        <div className="flex flex-wrap items-center justify-between gap-3 mt-4 pt-4" style={{ borderTop: '1px solid var(--line)' }}>
+          <div className="text-xs font-semibold" style={{ color: 'var(--muted)' }}>
+            Montant total : <b style={{ color: 'var(--green-d)' }}>{fmtFCFA(form.lignes?.filter((line) => line.checked).reduce((sum, line) => sum + (Number(line.montant) || 0), 0) || Number(String(form.montant).replace(',', '.')) || 0)}</b>
+          </div>
+          <div className="flex justify-end gap-2">
+            <button type="button" onClick={onClose} className="px-3.5 py-2 rounded-lg text-sm font-semibold" style={{ background: 'var(--bg)', color: 'var(--ink)' }}>Annuler</button>
+            <button type="submit" className="px-3.5 py-2 rounded-lg text-sm font-semibold text-white flex items-center gap-1.5" style={{ background: 'var(--green-d)' }}>
+              {isEdit ? <><Pencil size={14} /> Enregistrer les modifications</> : <><Receipt size={14} /> Encaisser &amp; générer le reçu</>}
+            </button>
+          </div>
         </div>
       </form>
     </div>
@@ -5577,10 +6019,15 @@ function ReceiptSheet({ state, cls, student, payment }) {
   );
 }
 
-function StudentHistoryModal({ student, cls, due, onClose, onPrint, onEdit, onDelete }) {
+function StudentHistoryModal({ state, student, cls, due, monthlyDue = 0, onClose, onPrint, onEdit, onDelete }) {
   const payments = studentPaiements(student).slice().sort((a, b) => (a.date || '').localeCompare(b.date || ''));
   const paid = studentTotalPaid(student);
   const solde = Math.max(0, due - paid);
+  const monthKeys = (() => {
+    const set = new Set(schoolYearMonths(state));
+    studentPaiements(student).forEach((p) => { const k = paymentMonthKey(p); if (k) set.add(k); });
+    return [...set].sort();
+  })();
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4" style={{ background: 'rgba(10,20,15,.45)' }}>
       <div className="sygenop-card p-6 max-w-lg w-full sygenop-fade max-h-[85vh] overflow-auto">
@@ -5588,11 +6035,40 @@ function StudentHistoryModal({ student, cls, due, onClose, onPrint, onEdit, onDe
           <div>
             <div className="font-bold" style={{ color: 'var(--ink)' }}>Historique — {student.prenom} {student.nom}</div>
             <div className="text-xs" style={{ color: 'var(--muted)' }}>
-              {cls.name} · Dû {fmtFCFA(due)} · Payé {fmtFCFA(paid)} · Solde {fmtFCFA(solde)}
+              {cls.name} · Mensualité {fmtFCFA(monthlyDue)} · Dû {fmtFCFA(due)} · Payé {fmtFCFA(paid)} · Solde {fmtFCFA(solde)}
             </div>
           </div>
           <button onClick={onClose} style={{ color: 'var(--muted)' }}><X size={18} /></button>
         </div>
+        {!!monthKeys.length && (
+          <div className="mb-4">
+            <div className="text-xs font-bold uppercase tracking-wide mb-2" style={{ color: 'var(--muted)' }}>Récap mensuel — versements &amp; reliquats</div>
+            <table className="w-full text-xs">
+              <thead>
+                <tr style={{ borderBottom: '1px solid var(--line)' }}>
+                  {['Mois', 'Versé', 'Situation', 'Reliquat'].map((hh) => (
+                    <th key={hh} className="py-1.5 px-1 text-left font-bold uppercase tracking-wide" style={{ color: 'var(--muted)' }}>{hh}</th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody>
+                {monthKeys.map((month) => {
+                  const paidM = studentPaidInMonth(student, month);
+                  const resteM = Math.max(0, monthlyDue - paidM);
+                  const stM = paidM <= 0 ? { label: 'Pas à jour', tone: 'red' } : (monthlyDue > 0 && paidM >= monthlyDue) ? { label: 'À jour', tone: 'green' } : { label: 'Partiel', tone: 'gold' };
+                  return (
+                    <tr key={month} style={{ borderBottom: '1px solid var(--line)' }}>
+                      <td className="py-1.5 px-1 font-semibold" style={{ color: 'var(--ink)' }}>{monthLabel(month)}</td>
+                      <td className="py-1.5 px-1" style={{ color: paidM > 0 ? 'var(--green-d)' : 'var(--muted)' }}>{paidM > 0 ? fmtFCFA(paidM) : '—'}</td>
+                      <td className="py-1.5 px-1"><Pill tone={stM.tone}>{stM.label}</Pill></td>
+                      <td className="py-1.5 px-1 font-semibold" style={{ color: resteM > 0 ? 'var(--red)' : 'var(--muted)' }}>{resteM > 0 ? fmtFCFA(resteM) : '—'}</td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+        )}
         {!payments.length ? (
           <div className="text-sm text-center py-8" style={{ color: 'var(--muted)' }}>Aucun paiement enregistré pour cet élève.</div>
         ) : (
@@ -5794,18 +6270,37 @@ function ExpenseModal({ expense, personnel = [], onSave, onClose }) {
   );
 }
 
-function DepensesTab({ depenses, onAdd, onEdit, onDelete, onPrint, readOnly, onExport }) {
+function DepensesTab({ depenses, onAdd, onEdit, onDelete, onPrint, readOnly, onExport, baseMonths = [] }) {
   const [q, setQ] = useState('');
+  const [month, setMonth] = useState('');
+  const [showAllYear, setShowAllYear] = useState(false);
+  const todayKey = todayISO().slice(0, 7);
+  const baseMonthList = [...new Set([...(baseMonths || []), ...depenses.map((d) => String(d.date || '').slice(0, 7)).filter(Boolean)])].sort();
+  const expenseMonths = [...new Set(depenses.map((d) => String(d.date || '').slice(0, 7)).filter(Boolean))].sort();
+  let activeMonth;
+  if (month && baseMonthList.includes(month)) activeMonth = month;
+  else if (expenseMonths.includes(todayKey)) activeMonth = todayKey;
+  else if (expenseMonths.length) activeMonth = expenseMonths[expenseMonths.length - 1];
+  else activeMonth = todayKey;
+  const monthOptions = baseMonthList.includes(activeMonth) ? baseMonthList : [...baseMonthList, activeMonth].sort();
   const sorted = [...depenses].sort((a, b) => String(b.date || '').localeCompare(String(a.date || '')));
+  // « Année entière » = année scolaire uniquement (mois de baseMonths, Oct → Juil)
+  const baseMonthSet = new Set(baseMonths || []);
+  const scoped = showAllYear
+    ? sorted.filter((d) => baseMonthSet.has(String(d.date || '').slice(0, 7)))
+    : sorted.filter((d) => String(d.date || '').slice(0, 7) === activeMonth);
   const filtered = q.trim()
-    ? sorted.filter((d) => `${d.libelle || ''} ${d.categorie || ''} ${d.beneficiaire || ''}`.toLowerCase().includes(q.trim().toLowerCase()))
-    : sorted;
-  const total = depenses.reduce((s, d) => s + (Number(d.montant) || 0), 0);
+    ? scoped.filter((d) => `${d.libelle || ''} ${d.categorie || ''} ${d.beneficiaire || ''}`.toLowerCase().includes(q.trim().toLowerCase()))
+    : scoped;
+  const total = filtered.reduce((s, d) => s + (Number(d.montant) || 0), 0);
   // Plus grosse dépense — calcul sûr même si le tableau est vide ou contient
   // des montants non numériques (évite "Cannot read properties of null").
-  const maxDep = depenses.length
-    ? depenses.reduce((m, d) => (Number(d.montant) || 0) > (Number(m.montant) || 0) ? d : m, depenses[0])
+  const maxDep = filtered.length
+    ? filtered.reduce((m, d) => (Number(d.montant) || 0) > (Number(m.montant) || 0) ? d : m, filtered[0])
     : null;
+  const byCategory = {};
+  scoped.forEach((d) => { const key = d.categorie || 'Autre'; byCategory[key] = (byCategory[key] || 0) + (Number(d.montant) || 0); });
+  const scopedTotal = scoped.reduce((s, d) => s + (Number(d.montant) || 0), 0);
 
   return (
     <div className="space-y-4">
@@ -5815,11 +6310,23 @@ function DepensesTab({ depenses, onAdd, onEdit, onDelete, onPrint, readOnly, onE
         </div>
       )}
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-        <StatCard icon={TrendingDown} label="Total des sorties" value={fmtFCFA(total)} tone="red" />
-        <StatCard icon={Receipt} label="Nombre de dépenses" value={depenses.length} tone="gold" />
+        <StatCard icon={TrendingDown} label={showAllYear ? 'Total des sorties' : `Sorties — ${monthLabel(activeMonth)}`} value={fmtFCFA(total)} tone="red" />
+        <StatCard icon={Receipt} label="Nombre de dépenses" value={filtered.length} tone="gold" />
         <StatCard icon={AlertTriangle} label="Plus grosse dépense" tone="red" value={maxDep ? fmtFCFA(maxDep.montant) : '—'} sub={maxDep ? maxDep.libelle : 'Aucune dépense'} />
       </div>
+      {!showAllYear && !!depenses.length && (
+        <div className="text-xs px-1 flex flex-wrap gap-x-4 gap-y-1 items-center" style={{ color: 'var(--muted)' }}>
+          <span>Récap <b style={{ color: 'var(--ink)' }}>{monthLabel(activeMonth)}</b> : <b style={{ color: 'var(--ink)' }}>{fmtFCFA(scopedTotal)}</b> en {scoped.length} opération(s)</span>
+          {Object.entries(byCategory).map(([cat, amount]) => <span key={cat}>{cat} : <b style={{ color: 'var(--ink)' }}>{fmtFCFA(amount)}</b></span>)}
+        </div>
+      )}
       <div className="sygenop-card p-4 flex flex-col sm:flex-row items-stretch sm:items-center gap-3">
+        <select value={activeMonth} onChange={(e) => setMonth(e.target.value)} className="px-3 py-2.5 rounded-lg border text-sm font-semibold whitespace-nowrap" style={{ borderColor: 'var(--line)', background: 'var(--bg)', color: 'var(--ink)' }}>
+          {monthOptions.map((m) => <option key={m} value={m}>{monthLabel(m)}</option>)}
+        </select>
+        <button onClick={() => setShowAllYear((v) => !v)} className="px-3 py-2.5 rounded-lg text-xs font-semibold whitespace-nowrap" style={{ background: 'var(--bg)', color: showAllYear ? 'var(--green-d)' : 'var(--muted)', border: '1px solid var(--line)' }}>
+          {showAllYear ? 'Année entière' : 'Mois sélectionné'}
+        </button>
         <div className="relative flex-1">
           <Search size={15} className="absolute left-3 top-1/2 -translate-y-1/2" style={{ color: 'var(--muted)' }} />
           <input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Rechercher une dépense (libellé, catégorie, bénéficiaire)…" className="w-full pl-9 pr-3 py-2.5 rounded-lg border text-sm" style={{ borderColor: 'var(--line)', background: 'var(--bg)', color: 'var(--ink)' }} />
@@ -5840,7 +6347,9 @@ function DepensesTab({ depenses, onAdd, onEdit, onDelete, onPrint, readOnly, onE
           Aucune dépense enregistrée pour le moment. Ajoutez la première dépense (sortie d'argent) de l'école.
         </div>
       ) : !filtered.length ? (
-        <div className="sygenop-card p-10 text-center text-sm" style={{ color: 'var(--muted)' }}>Aucun résultat pour cette recherche.</div>
+        <div className="sygenop-card p-10 text-center text-sm" style={{ color: 'var(--muted)' }}>
+          {showAllYear ? 'Aucun résultat pour cette recherche.' : `Aucune dépense enregistrée en ${monthLabel(activeMonth)}.`}
+        </div>
       ) : (
         <div className="sygenop-card overflow-x-auto">
           <table className="w-full text-sm">
@@ -5901,28 +6410,63 @@ function ExpenseReceipt({ state, expense }) {
 }
 
 function RecapTab({ state, notify, session, updateState }) {
+  const [month, setMonth] = useState('');
+  const [showAllYear, setShowAllYear] = useState(false);
   const incoming = schoolPaymentsSummary(state);
   const depenses = schoolDepenses(state);
   const totalOut = schoolTotalOut(state);
   const solde = incoming.totalPaid - totalOut;
+  const classesList = Object.values((state && state.classes) || {});
+  const months = (() => {
+    const set = new Set(schoolYearMonths(state));
+    classesList.forEach((cls) => (cls.students || []).forEach((s) => studentPaiements(s).forEach((p) => { const key = paymentMonthKey(p); if (key) set.add(key); })));
+    depenses.forEach((d) => { const key = String(d.date || '').slice(0, 7); if (key) set.add(key); });
+    return [...set].sort();
+  })();
+  const activeMonth = month && months.includes(month) ? month : (months.includes(todayISO().slice(0, 7)) ? todayISO().slice(0, 7) : (months[0] || ''));
+  const monthInRows = [];
+  classesList.forEach((cls) => (cls.students || []).forEach((s) => studentPaiements(s).forEach((p) => { if (paymentMonthKey(p) === activeMonth) monthInRows.push(p); })));
+  const monthIn = monthInRows.reduce((sum, p) => sum + (Number(p.montant) || 0), 0);
+  const monthOutRows = depenses.filter((d) => String(d.date || '').slice(0, 7) === activeMonth);
+  const monthOut = monthOutRows.reduce((sum, d) => sum + (Number(d.montant) || 0), 0);
+  // « Année entière » = année scolaire uniquement (Oct → Juil de header.annee),
+  // et non plus tous les mois depuis la création de l'école.
+  const schoolYearSet = new Set(schoolYearMonths(state));
+  const yearInRows = [];
+  classesList.forEach((cls) => (cls.students || []).forEach((s) => studentPaiements(s).forEach((p) => { if (schoolYearSet.has(paymentMonthKey(p))) yearInRows.push(p); })));
+  const yearIn = yearInRows.reduce((sum, p) => sum + (Number(p.montant) || 0), 0);
+  const yearOutRows = depenses.filter((d) => schoolYearSet.has(String(d.date || '').slice(0, 7)));
+  const yearOut = yearOutRows.reduce((sum, d) => sum + (Number(d.montant) || 0), 0);
+  const scopedIn = showAllYear ? yearIn : monthIn;
+  const scopedOut = showAllYear ? yearOut : monthOut;
+  const scopedDepenses = showAllYear ? yearOutRows : monthOutRows;
+  const expectedMonth = classesList.reduce((sum, cls) => sum + (cls.students || []).length * studentMonthlyDue(state, cls.level), 0);
+  // Année scolaire : encaissé de l'année (et non toutes années confondues)
+  const yearTaux = incoming.totalDue > 0 ? Math.min(1, yearIn / incoming.totalDue) : 0;
+  const reliquatAnnuel = Math.max(0, incoming.totalDue - yearIn);
 
   const byCategorie = {};
-  depenses.forEach((d) => {
+  scopedDepenses.forEach((d) => {
     const cat = d.categorie || 'Autres';
     byCategorie[cat] = (byCategorie[cat] || 0) + (Number(d.montant) || 0);
   });
   const catRows = Object.entries(byCategorie).sort((a, b) => b[1] - a[1]);
+  const periodLabel = showAllYear ? `année ${(state.header && state.header.annee) || ''}`.trim() : monthLabel(activeMonth);
 
   function exportRecap() {
     const header = ['Indicateur', 'Montant (FCFA)'];
     const rows = [
-      ['Total entrées (paiements encaissés)', incoming.totalPaid],
-      ['Total sorties (dépenses)', totalOut],
-      ['Solde de trésorerie', solde],
+      [`Période : ${periodLabel}`, ''],
+      [showAllYear ? 'Total entrées (paiements encaissés)' : `Entrées — ${monthLabel(activeMonth)}`, scopedIn],
+      [showAllYear ? 'Total sorties (dépenses)' : `Sorties — ${monthLabel(activeMonth)}`, scopedOut],
+      [showAllYear ? 'Solde de trésorerie' : 'Solde du mois', scopedIn - scopedOut],
+      ...(showAllYear
+        ? [['Reliquat annuel (à recouvrer)', reliquatAnnuel]]
+        : [['Mensualités attendues (mois)', expectedMonth], ['Reliquat du mois', Math.max(0, expectedMonth - monthIn)]]),
       ...catRows.map(([cat, mont]) => [`Sorties — ${cat}`, mont]),
     ];
     const ecole = (state.header && state.header.ecole) || 'ecole';
-    downloadCSV(`recap_entrees_sorties_${ecole}.csv`, [header, ...rows]);
+    downloadCSV(`recap_entrees_sorties_${showAllYear ? 'annee' : activeMonth}_${ecole}.csv`, [header, ...rows]);
   }
 
   function log(action, details) {
@@ -5933,50 +6477,89 @@ function RecapTab({ state, notify, session, updateState }) {
 
   return (
     <div className="space-y-4">
+      <div className="no-print sygenop-card p-4 flex flex-wrap items-end gap-4">
+        <div>
+          <label className="text-xs font-semibold block mb-1" style={{ color: 'var(--muted)' }}>Mois</label>
+          <select value={activeMonth} onChange={(event) => setMonth(event.target.value)} className="px-3 py-2 rounded-lg border text-sm font-semibold" style={{ borderColor: 'var(--line)', background: 'var(--panel)', color: 'var(--ink)' }}>
+            {months.map((m) => <option key={m} value={m}>{monthLabel(m)}</option>)}
+          </select>
+        </div>
+        <button onClick={() => setShowAllYear((v) => !v)} className="px-3 py-2 rounded-lg text-xs font-semibold" style={{ background: 'var(--bg)', color: showAllYear ? 'var(--green-d)' : 'var(--muted)', border: '1px solid var(--line)' }}>
+          {showAllYear ? 'Année entière' : 'Mois sélectionné'}
+        </button>
+        <span className="text-xs ml-auto" style={{ color: 'var(--muted)' }}>Période affichée : <b style={{ color: 'var(--ink)' }}>{periodLabel}</b></span>
+      </div>
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-        <StatCard icon={ArrowUpCircle} label="Total entrées (encaissé)" value={fmtFCFA(incoming.totalPaid)} sub={`${incoming.effectif} élève(s) · ${incoming.aJour} à jour`} tone="green" />
-        <StatCard icon={ArrowDownCircle} label="Total sorties (dépenses)" value={fmtFCFA(totalOut)} sub={`${depenses.length} dépense(s)`} tone="red" />
+        <StatCard icon={ArrowUpCircle} label={showAllYear ? 'Total entrées (encaissé)' : `Entrées — ${monthLabel(activeMonth)}`} value={fmtFCFA(scopedIn)} sub={showAllYear ? `${incoming.effectif} élève(s) · ${incoming.aJour} à jour` : `${monthInRows.length} versement(s)`} tone="green" />
+        <StatCard icon={ArrowDownCircle} label={showAllYear ? 'Total sorties (dépenses)' : `Sorties — ${monthLabel(activeMonth)}`} value={fmtFCFA(scopedOut)} sub={`${scopedDepenses.length} dépense(s)`} tone="red" />
         <StatCard
-          icon={Scale} tone={solde >= 0 ? 'green' : 'red'}
-          label="Solde de trésorerie"
-          value={fmtFCFA(solde)}
-          sub={solde >= 0 ? 'Situation positive' : 'Situation déficitaire'}
+          icon={Scale} tone={(scopedIn - scopedOut) >= 0 ? 'green' : 'red'}
+          label={showAllYear ? 'Solde de trésorerie' : 'Solde du mois'}
+          value={fmtFCFA(scopedIn - scopedOut)}
+          sub={(scopedIn - scopedOut) >= 0 ? 'Situation positive' : 'Situation déficitaire'}
         />
       </div>
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
         <div className="sygenop-card p-5 space-y-3">
           <div className="text-xs font-bold uppercase tracking-wide flex items-center gap-1.5" style={{ color: 'var(--muted)' }}>
-            <ArrowUpCircle size={13} /> Détail des entrées (paiements)
+            <ArrowUpCircle size={13} /> {showAllYear ? 'Détail des entrées (année)' : `Entrées — ${monthLabel(activeMonth)}`}
           </div>
           <div className="space-y-2 text-sm">
-            <div className="flex items-center justify-between px-3 py-2 rounded-lg" style={{ background: 'var(--green-l)' }}>
-              <span style={{ color: 'var(--green-d)' }}>Total dû (école)</span>
-              <b style={{ color: 'var(--green-d)' }}>{fmtFCFA(incoming.totalDue)}</b>
-            </div>
-            <div className="flex items-center justify-between px-3 py-2 rounded-lg" style={{ background: 'var(--green-l)' }}>
-              <span style={{ color: 'var(--green-d)' }}>Total encaissé</span>
-              <b style={{ color: 'var(--green-d)' }}>{fmtFCFA(incoming.totalPaid)}</b>
-            </div>
-            <div className="flex items-center justify-between px-3 py-2 rounded-lg" style={{ background: 'var(--bg)' }}>
-              <span style={{ color: 'var(--muted)' }}>Taux de recouvrement</span>
-              <b style={{ color: 'var(--ink)' }}>{Math.round(incoming.taux * 100)}%</b>
-            </div>
-            <div className="flex items-center justify-between px-3 py-2 rounded-lg" style={{ background: 'var(--bg)' }}>
-              <span style={{ color: 'var(--muted)' }}>Élèves à jour</span>
-              <b style={{ color: 'var(--ink)' }}>{incoming.aJour} / {incoming.effectif}</b>
-            </div>
+            {showAllYear ? (
+              <>
+                <div className="flex items-center justify-between px-3 py-2 rounded-lg" style={{ background: 'var(--green-l)' }}>
+                  <span style={{ color: 'var(--green-d)' }}>À payer (année, école)</span>
+                  <b style={{ color: 'var(--green-d)' }}>{fmtFCFA(incoming.totalDue)}</b>
+                </div>
+                <div className="flex items-center justify-between px-3 py-2 rounded-lg" style={{ background: 'var(--green-l)' }}>
+                  <span style={{ color: 'var(--green-d)' }}>Encaissé (année)</span>
+                  <b style={{ color: 'var(--green-d)' }}>{fmtFCFA(yearIn)}</b>
+                </div>
+                <div className="flex items-center justify-between px-3 py-2 rounded-lg" style={{ background: '#f7e8e5' }}>
+                  <span style={{ color: 'var(--red)' }}>Reliquat annuel (école)</span>
+                  <b style={{ color: 'var(--red)' }}>{fmtFCFA(reliquatAnnuel)}</b>
+                </div>
+                <div className="flex items-center justify-between px-3 py-2 rounded-lg" style={{ background: 'var(--bg)' }}>
+                  <span style={{ color: 'var(--muted)' }}>Taux de recouvrement</span>
+                  <b style={{ color: 'var(--ink)' }}>{Math.round(yearTaux * 100)}%</b>
+                </div>
+                <div className="flex items-center justify-between px-3 py-2 rounded-lg" style={{ background: 'var(--bg)' }}>
+                  <span style={{ color: 'var(--muted)' }}>Élèves à jour</span>
+                  <b style={{ color: 'var(--ink)' }}>{incoming.aJour} / {incoming.effectif}</b>
+                </div>
+              </>
+            ) : (
+              <>
+                <div className="flex items-center justify-between px-3 py-2 rounded-lg" style={{ background: 'var(--green-l)' }}>
+                  <span style={{ color: 'var(--green-d)' }}>Encaissé — {monthLabel(activeMonth)}</span>
+                  <b style={{ color: 'var(--green-d)' }}>{fmtFCFA(monthIn)}</b>
+                </div>
+                <div className="flex items-center justify-between px-3 py-2 rounded-lg" style={{ background: 'var(--bg)' }}>
+                  <span style={{ color: 'var(--muted)' }}>Versements du mois</span>
+                  <b style={{ color: 'var(--ink)' }}>{monthInRows.length}</b>
+                </div>
+                <div className="flex items-center justify-between px-3 py-2 rounded-lg" style={{ background: 'var(--gold-l)' }}>
+                  <span style={{ color: '#7a5a1f' }}>Mensualités attendues (mois)</span>
+                  <b style={{ color: '#7a5a1f' }}>{fmtFCFA(expectedMonth)}</b>
+                </div>
+                <div className="flex items-center justify-between px-3 py-2 rounded-lg" style={{ background: '#f7e8e5' }}>
+                  <span style={{ color: 'var(--red)' }}>Reliquat du mois</span>
+                  <b style={{ color: 'var(--red)' }}>{fmtFCFA(Math.max(0, expectedMonth - monthIn))}</b>
+                </div>
+              </>
+            )}
           </div>
         </div>
         <div className="sygenop-card p-5 space-y-3">
           <div className="text-xs font-bold uppercase tracking-wide flex items-center gap-1.5" style={{ color: 'var(--muted)' }}>
-            <ArrowDownCircle size={13} /> Détail des sorties par catégorie
+            <ArrowDownCircle size={13} /> {showAllYear ? 'Sorties par catégorie (année)' : `Sorties — ${monthLabel(activeMonth)}`}
           </div>
           {!catRows.length ? (
-            <div className="text-sm py-6 text-center" style={{ color: 'var(--muted)' }}>Aucune dépense enregistrée.</div>
+            <div className="text-sm py-6 text-center" style={{ color: 'var(--muted)' }}>{showAllYear ? 'Aucune dépense enregistrée.' : `Aucune dépense en ${monthLabel(activeMonth)}.`}</div>
           ) : (
             <div className="space-y-2 text-sm">
               {catRows.map(([cat, mont]) => {
-                const pct = totalOut > 0 ? (mont / totalOut) * 100 : 0;
+                const pct = scopedOut > 0 ? (mont / scopedOut) * 100 : 0;
                 return (
                   <div key={cat}>
                     <div className="flex items-center justify-between mb-1">
@@ -6089,6 +6672,9 @@ function PaiementsView({ state, loading, updateState, notify, activeSchoolId, ro
   const [editingAffectation, setEditingAffectation] = useState(null);
   const [toDeleteAffectation, setToDeleteAffectation] = useState(null);
   const [q, setQ] = useState('');
+  const [payView, setPayView] = useState('mois');
+  const [selectedMonth, setSelectedMonth] = useState('');
+  const [presetMois, setPresetMois] = useState(null);
 
   const classes = (state && state.classes) || {};
   const schoolLevels = levelsForSchool(state);
@@ -6120,6 +6706,27 @@ function PaiementsView({ state, loading, updateState, notify, activeSchoolId, ro
   const filteredStudents = q.trim()
     ? students.filter((s) => `${s.prenom || ''} ${s.nom || ''}`.toLowerCase().includes(q.trim().toLowerCase()))
     : students;
+  const monthlyDue = studentMonthlyDue(state, level);
+  const allMonths = (() => {
+    const set = new Set(schoolYearMonths(state));
+    students.forEach((s) => studentPaiements(s).forEach((p) => { const key = paymentMonthKey(p); if (key) set.add(key); }));
+    return [...set].sort();
+  })();
+  const effectiveMonth = selectedMonth && allMonths.includes(selectedMonth) ? selectedMonth : (allMonths.includes(todayISO().slice(0, 7)) ? todayISO().slice(0, 7) : (allMonths[0] || ''));
+  const monthPayments = [];
+  filteredStudents.forEach((s) => studentPaiements(s).forEach((p) => { if (paymentMonthKey(p) === effectiveMonth) monthPayments.push({ student: s, payment: p }); }));
+  const monthTotal = monthPayments.reduce((sum, x) => sum + (Number(x.payment.montant) || 0), 0);
+  const monthPaymentCount = monthPayments.length;
+  const monthModes = {};
+  monthPayments.forEach((x) => { const label = MODES_PAIEMENT[x.payment.mode] || x.payment.mode || 'Autre'; monthModes[label] = (monthModes[label] || 0) + (Number(x.payment.montant) || 0); });
+  const monthStats = filteredStudents.reduce((acc, s) => {
+    const paidMonth = studentPaidInMonth(s, effectiveMonth);
+    acc.reste += Math.max(0, monthlyDue - paidMonth);
+    if (paidMonth <= 0) acc.sans += 1;
+    else if (monthlyDue > 0 && paidMonth >= monthlyDue) acc.couvert += 1;
+    else acc.partiel += 1;
+    return acc;
+  }, { couvert: 0, partiel: 0, sans: 0, reste: 0 });
 
   function updateStudent(studentId, patch) {
     updateState((prev) => {
@@ -6154,6 +6761,7 @@ function PaiementsView({ state, loading, updateState, notify, activeSchoolId, ro
     });
     notify(`Paiement enregistré — reçu ${numero}`);
     setPaymentModalStudent(null);
+    setPresetMois(null);
     setPrinting({ studentId: student.id, paymentId: payment.id });
   }
 
@@ -6254,12 +6862,12 @@ function PaiementsView({ state, loading, updateState, notify, activeSchoolId, ro
 
   function exportCSVClasse() {
     if (!currentClass) return;
-    const header = ['Élève', 'Classe', 'Téléphone tuteur', 'Total dû', 'Total payé', 'Solde', 'Statut'];
+    const header = ['Élève', 'Classe', 'Téléphone tuteur', 'Dû annuel', ...allMonths.map(monthLabel), 'Total payé', 'Solde', 'Statut'];
     const rows = students.map((s) => {
       const paid = studentTotalPaid(s);
-      const solde = due - paid;
+      const solde = Math.max(0, due - paid);
       const st = paymentStatus(due, paid);
-      return [`${s.prenom || ''} ${s.nom || ''}`, currentClass.name, s.tuteurTel || '', due, paid, solde, st.label];
+      return [`${s.prenom || ''} ${s.nom || ''}`, currentClass.name, s.tuteurTel || '', due, ...allMonths.map((month) => studentPaidInMonth(s, month)), paid, solde, st.label];
     });
     downloadCSV(`paiements_${currentClass.name}_${level}.csv`, [header, ...rows]);
   }
@@ -6310,6 +6918,25 @@ function PaiementsView({ state, loading, updateState, notify, activeSchoolId, ro
     const rows = (state.depenses || []).map((d) => [d.date, d.libelle, d.categorie, d.mode, d.beneficiaire, d.montant, d.note || '']);
     const ecole = (state.header && state.header.ecole) || 'ecole';
     downloadCSV(`depenses_${ecole}.csv`, [header, ...rows]);
+  }
+
+  function printMonthRecap() {
+    if (!currentClass) return;
+    const esc = (value) => String(value ?? '').replace(/[&<>"']/g, (char) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[char]));
+    const rows = filteredStudents.map((s) => {
+      const paidMonth = studentPaidInMonth(s, effectiveMonth);
+      const resteMois = Math.max(0, monthlyDue - paidMonth);
+      const st = paidMonth <= 0 ? 'Pas à jour' : (monthlyDue > 0 && paidMonth >= monthlyDue) ? 'À jour' : 'Partiel';
+      return `<tr><td>${esc(`${s.prenom || ''} ${s.nom || ''}`)}</td><td>${esc(currentClass.name)}</td><td class="num">${new Intl.NumberFormat('fr-FR').format(paidMonth)}</td><td class="num">${new Intl.NumberFormat('fr-FR').format(resteMois)}</td><td>${st}</td></tr>`;
+    }).join('');
+    const modeRows = Object.entries(monthModes).map(([label, amount]) => `<tr><td>${esc(label)}</td><td class="num">${fmtFCFA(amount)}</td></tr>`).join('');
+    const popup = window.open('', '_blank', 'width=900,height=700,scrollbars=yes');
+    if (!popup) { notify('Autorisez les fenêtres pop-up pour générer le PDF.', true); return; }
+    popup.document.open();
+    popup.document.write(`<!doctype html><html lang="fr"><head><meta charset="utf-8"><title>Récap paiements ${esc(monthLabel(effectiveMonth))}</title><style>html,body{background:#fff}body{font-family:Arial,sans-serif;color:#17251d;margin:0;padding:15mm}h1{font-size:20px;margin:0 0 4px}.meta{font-size:12px;color:#637269;margin-bottom:18px}table{width:100%;border-collapse:collapse;font-size:12px;margin-bottom:18px}th,td{border:1px solid #cfd8d2;padding:8px;text-align:left}th{background:#e8f3ed}td.num{text-align:right}th.num{text-align:right}h2{font-size:14px;margin:16px 0 8px;color:#176b49}@media print{body{margin:0;padding:15mm}@page{size:A4 portrait;margin:0}}</style></head><body><h1>Récapitulatif des paiements — ${esc(monthLabel(effectiveMonth))}</h1><div class="meta"><strong>${esc(state?.header?.ecole || '')}</strong> · Classe ${esc(currentClass.name)} (${esc(level)}) · Année ${esc(state?.header?.annee || '')} · Mensualité de référence : ${fmtFCFA(monthlyDue)}</div><table><thead><tr><th>Élève</th><th>Classe</th><th>Versé</th><th>Reliquat</th><th>Situation du mois</th></tr></thead><tbody>${rows}</tbody><tfoot><tr><th colspan="2">Totaux</th><th class="num">${fmtFCFA(monthTotal)}</th><th class="num">${fmtFCFA(monthStats.reste)}</th><th>${monthPaymentCount} versement(s)</th></tr></tfoot></table>${modeRows ? `<h2>Répartition par mode de paiement</h2><table><thead><tr><th>Mode</th><th>Montant</th></tr></thead><tbody>${modeRows}</tbody></table>` : ''}</body></html>`);
+    popup.document.close();
+    popup.focus();
+    setTimeout(() => { try { popup.print(); } catch (_) { popup.focus(); } }, 900);
   }
 
   // ---- Mode impression d'un reçu (remplace toute la vue, comme pour les bulletins) ----
@@ -6390,11 +7017,31 @@ function PaiementsView({ state, loading, updateState, notify, activeSchoolId, ro
           </div>
           {(() => {
             const sum = schoolPaymentsSummary(state);
+            if (viewMode === 'suivi' && payView === 'mois' && effectiveMonth) {
+              let attenduEcole = 0, encaisseEcole = 0, aJourMois = 0;
+              Object.values(classes).forEach((c) => {
+                const mdue = studentMonthlyDue(state, c.level);
+                (c.students || []).forEach((st) => {
+                  attenduEcole += mdue;
+                  const paidM = studentPaidInMonth(st, effectiveMonth);
+                  encaisseEcole += paidM;
+                  if (mdue > 0 && paidM >= mdue) aJourMois += 1;
+                });
+              });
+              return (
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+                  <StatCard icon={Users} label="Élèves" value={sum.effectif} tone="green" />
+                  <StatCard icon={Wallet} label={`Mensualités attendues — ${monthLabel(effectiveMonth)}`} value={fmtFCFA(attenduEcole)} tone="gold" />
+                  <StatCard icon={CheckCircle2} label={`Encaissé — ${monthLabel(effectiveMonth)}`} value={fmtFCFA(encaisseEcole)} tone="green" />
+                  <StatCard icon={AlertTriangle} label="Reliquat du mois (école)" value={fmtFCFA(Math.max(0, attenduEcole - encaisseEcole))} sub={`${aJourMois}/${sum.effectif} élève(s) à jour`} tone="red" />
+                </div>
+              );
+            }
             return (
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
                 <StatCard icon={Users} label="Élèves" value={sum.effectif} tone="green" />
-                <StatCard icon={Wallet} label="Total dû (école)" value={fmtFCFA(sum.totalDue)} tone="gold" />
-                <StatCard icon={CheckCircle2} label="Total encaissé" value={fmtFCFA(sum.totalPaid)} tone="green" />
+                <StatCard icon={Wallet} label="À payer (école, année)" value={fmtFCFA(sum.totalDue)} tone="gold" />
+                <StatCard icon={CheckCircle2} label="Total encaissé (année)" value={fmtFCFA(sum.totalPaid)} tone="green" />
                 <StatCard
                   icon={TrendingUp} label="Taux de recouvrement" tone={sum.taux >= 0.8 ? 'green' : sum.taux >= 0.5 ? 'gold' : 'red'}
                   value={`${Math.round(sum.taux * 100)}%`} sub={`${sum.aJour}/${sum.effectif} élève(s) à jour`}
@@ -6419,6 +7066,7 @@ function PaiementsView({ state, loading, updateState, notify, activeSchoolId, ro
       ) : viewMode === 'depenses' ? (
         <DepensesTab
           depenses={state.depenses || []}
+          baseMonths={schoolYearMonths(state)}
           onAdd={() => setExpenseModal(null)}
           onEdit={(d) => setExpenseModal(d)}
           onDelete={(d) => setToDeleteExpense(d)}
@@ -6427,7 +7075,7 @@ function PaiementsView({ state, loading, updateState, notify, activeSchoolId, ro
           onExport={exportDepenses}
         />
       ) : viewMode === 'verification' ? (
-        <StudentCardVerification state={state} />
+        <StudentCardVerification state={state} updateState={updateState} notify={notify} />
       ) : viewMode === 'recap' ? (
         <RecapTab state={state} notify={notify} session={session} updateState={updateState} />
       ) : viewMode === 'classement' && canSeeRanking ? (
@@ -6462,7 +7110,7 @@ function PaiementsView({ state, loading, updateState, notify, activeSchoolId, ro
               className="px-3 py-1.5 rounded-full text-xs font-semibold flex items-center gap-1.5"
               style={{ background: 'var(--green-l)', color: 'var(--green-d)' }}
             >
-              <Wallet size={13} /> Frais {level} : {fmtFCFA(due)}
+              <Wallet size={13} /> {payView === 'mois' ? `Mensualité ${level} : ${fmtFCFA(monthlyDue)}` : `Frais ${level} : ${fmtFCFA(due)}`}
             </button>
             )}
             <input
@@ -6495,17 +7143,23 @@ function PaiementsView({ state, loading, updateState, notify, activeSchoolId, ro
             </div>
           </div>
 
-          {currentClass && (
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-              <StatCard icon={Wallet} label="Total dû (classe)" value={fmtFCFA(due * students.length)} tone="gold" />
-              <StatCard icon={CheckCircle2} label="Total encaissé" value={fmtFCFA(students.reduce((s, st) => s + studentTotalPaid(st), 0))} tone="green" />
+          {currentClass && payView !== 'mois' && (
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-4">
+              <StatCard icon={Wallet} label="À payer (classe, année)" value={fmtFCFA(due * students.length)} tone="gold" />
+              <StatCard icon={CheckCircle2} label="Versé (année)" value={fmtFCFA(students.reduce((s, st) => s + studentTotalPaid(st), 0))} tone="green" />
+              <StatCard icon={AlertTriangle} label="Reliquat annuel (classe)" value={fmtFCFA(students.reduce((s, st) => s + Math.max(0, due - studentTotalPaid(st)), 0))} tone="red" />
               <StatCard
                 icon={TrendingUp} label="Taux de recouvrement" tone="green"
                 value={`${due * students.length > 0 ? Math.round((students.reduce((s, st) => s + Math.min(studentTotalPaid(st), due), 0) / (due * students.length)) * 100) : 0}%`}
               />
-              <StatCard icon={AlertTriangle} label="Élèves sans versement" tone="red" value={students.filter((st) => paymentStatus(due, studentTotalPaid(st)).key === 'retard').length} />
+              <StatCard icon={Users} label="Élèves sans versement" tone="red" value={students.filter((st) => paymentStatus(due, studentTotalPaid(st)).key === 'retard').length} />
             </div>
           )}
+
+          <div className="no-print flex gap-1 p-1 rounded-lg w-fit" style={{ background: 'var(--panel)', border: '1px solid var(--line)' }}>
+            <button onClick={() => setPayView('mois')} className="px-3 py-1.5 rounded-md text-xs font-semibold flex items-center gap-1" style={payView === 'mois' ? { background: 'var(--green-d)', color: '#fff' } : { color: 'var(--muted)' }}><CalendarDays size={13} /> Par mois</button>
+            <button onClick={() => setPayView('annuel')} className="px-3 py-1.5 rounded-md text-xs font-semibold flex items-center gap-1" style={payView !== 'mois' ? { background: 'var(--green-d)', color: '#fff' } : { color: 'var(--muted)' }}><Wallet size={13} /> Résumé annuel</button>
+          </div>
 
           {!currentClass ? (
             <div className="sygenop-card p-10 text-center text-sm" style={{ color: 'var(--muted)' }}>
@@ -6515,12 +7169,91 @@ function PaiementsView({ state, loading, updateState, notify, activeSchoolId, ro
             <div className="sygenop-card p-10 text-center text-sm" style={{ color: 'var(--muted)' }}>
               Aucun élève {q ? 'ne correspond à la recherche' : `dans ${currentClass.name}`}.
             </div>
+          ) : payView === 'mois' ? (
+            <>
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                <StatCard icon={CalendarDays} label={`Attendu — ${monthLabel(effectiveMonth)}`} value={fmtFCFA(filteredStudents.length * monthlyDue)} sub={`${filteredStudents.length} élève(s)`} tone="gold" />
+                <StatCard icon={CheckCircle2} label={`Versements — ${monthLabel(effectiveMonth)}`} value={fmtFCFA(monthTotal)} sub={`${monthPaymentCount} versement(s)`} tone="green" />
+                <StatCard icon={AlertTriangle} label={`Reliquat mensuel — ${monthLabel(effectiveMonth)}`} value={fmtFCFA(monthStats.reste)} sub={`${monthStats.couvert} à jour · ${monthStats.partiel} partiel(s) · ${monthStats.sans} pas à jour`} tone="red" />
+              </div>
+              <div className="no-print sygenop-card p-4 flex flex-col sm:flex-row items-stretch sm:items-center gap-3">
+                <label className="text-xs font-semibold whitespace-nowrap" style={{ color: 'var(--muted)' }}>Mois</label>
+                <select value={effectiveMonth} onChange={(event) => setSelectedMonth(event.target.value)} className="px-3 py-2.5 rounded-lg border text-sm font-semibold" style={{ borderColor: 'var(--line)', background: 'var(--panel)', color: 'var(--ink)' }}>
+                  {allMonths.map((month) => <option key={month} value={month}>{monthLabel(month)}</option>)}
+                </select>
+                <div className="flex-1"></div>
+                <button type="button" onClick={printMonthRecap} className="px-3.5 py-2.5 rounded-lg text-sm font-semibold text-white flex items-center justify-center gap-1.5 whitespace-nowrap" style={{ background: 'var(--green-d)' }}>
+                  <Printer size={15} /> Récap du mois (PDF)
+                </button>
+              </div>
+              {Object.keys(monthModes).length > 0 && (
+                <div className="no-print text-xs px-1 flex flex-wrap gap-x-4 gap-y-1" style={{ color: 'var(--muted)' }}>
+                  {Object.entries(monthModes).map(([label, amount]) => <span key={label}>{label} : <b style={{ color: 'var(--ink)' }}>{fmtFCFA(amount)}</b></span>)}
+                </div>
+              )}
+              <div className="sygenop-card overflow-x-auto">
+                <table className="w-full text-sm">
+                  <thead>
+                    <tr className="text-left" style={{ borderBottom: '1px solid var(--line)' }}>
+                      {['Élève', `Versement — ${monthLabel(effectiveMonth)}`, 'Situation du mois', `Reliquat — ${monthLabel(effectiveMonth)}`, 'Actions'].map((hh) => (
+                        <th key={hh} className="px-4 py-3 text-[11px] font-bold uppercase tracking-wide whitespace-nowrap" style={{ color: 'var(--muted)' }}>{hh}</th>
+                      ))}
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {filteredStudents.map((s) => {
+                      const paid = studentTotalPaid(s);
+                      const solde = Math.max(0, due - paid);
+                      const paidMonth = studentPaidInMonth(s, effectiveMonth);
+                      const resteMois = Math.max(0, monthlyDue - paidMonth);
+                      const covered = monthlyDue > 0 && paidMonth >= monthlyDue;
+                      const status = paidMonth <= 0 ? { label: 'Pas à jour', tone: 'red' } : covered ? { label: 'À jour', tone: 'green' } : { label: 'Partiel', tone: 'gold' };
+                      return (
+                        <tr key={s.id} style={{ borderBottom: '1px solid var(--line)' }}>
+                          <td className="px-4 py-3 font-semibold whitespace-nowrap" style={{ color: 'var(--ink)' }}>{s.prenom || ''} {s.nom || ''}</td>
+                          <td className="px-4 py-3 whitespace-nowrap font-semibold" style={{ color: paidMonth > 0 ? 'var(--green-d)' : 'var(--muted)' }}>{paidMonth > 0 ? fmtFCFA(paidMonth) : '—'}</td>
+                          <td className="px-4 py-3"><Pill tone={status.tone}>{status.label}</Pill></td>
+                          <td className="px-4 py-3 whitespace-nowrap font-semibold" style={{ color: resteMois > 0 ? 'var(--red)' : 'var(--muted)' }}>{resteMois > 0 ? fmtFCFA(resteMois) : '—'}</td>
+                          <td className="px-4 py-3">
+                            <div className="flex items-center gap-1.5 flex-wrap">
+                              {!readOnly && (
+                                <button onClick={() => { setPresetMois(effectiveMonth); setPaymentModalStudent(s); }} className="px-2.5 py-1.5 rounded-lg text-xs font-semibold flex items-center gap-1" style={{ background: 'var(--green-l)', color: 'var(--green-d)' }} title={`Encaisser pour ${monthLabel(effectiveMonth)}`}>
+                                  <Plus size={13} /> Encaisser
+                                </button>
+                              )}
+                              <button onClick={() => setHistoryStudent(s)} className="p-1.5 rounded-lg" style={{ background: 'var(--bg)', color: 'var(--muted)' }} title="Historique">
+                                <History size={14} />
+                              </button>
+                              <button
+                                onClick={() => sendWhatsappReminder(s, solde)} disabled={solde <= 0}
+                                className="p-1.5 rounded-lg disabled:opacity-30" style={{ background: 'var(--green-l)', color: 'var(--green-d)' }} title="Rappel WhatsApp"
+                              >
+                                <MessageCircle size={14} />
+                              </button>
+                            </div>
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                  <tfoot>
+                    <tr style={{ borderTop: '2px solid var(--line)' }}>
+                      <td className="px-4 py-3 text-[11px] font-bold uppercase tracking-wide" style={{ color: 'var(--muted)' }}>Totaux — {monthLabel(effectiveMonth)}</td>
+                      <td className="px-4 py-3 font-bold whitespace-nowrap" style={{ color: 'var(--green-d)' }}>{fmtFCFA(monthTotal)}</td>
+                      <td></td>
+                      <td className="px-4 py-3 font-bold whitespace-nowrap" style={{ color: monthStats.reste > 0 ? 'var(--red)' : 'var(--muted)' }}>{fmtFCFA(monthStats.reste)}</td>
+                      <td></td>
+                    </tr>
+                  </tfoot>
+                </table>
+              </div>
+            </>
           ) : (
             <div className="sygenop-card overflow-x-auto">
               <table className="w-full text-sm">
                 <thead>
                   <tr className="text-left" style={{ borderBottom: '1px solid var(--line)' }}>
-                    {['Élève', 'Téléphone tuteur', 'Dû', 'Payé', 'Solde', 'Statut', 'Actions'].map((hh) => (
+                    {['Élève', 'Téléphone tuteur', 'À payer (année)', 'Versé (année)', 'Reliquat (année)', 'Statut', 'Actions'].map((hh) => (
                       <th key={hh} className="px-4 py-3 text-[11px] font-bold uppercase tracking-wide whitespace-nowrap" style={{ color: 'var(--muted)' }}>{hh}</th>
                     ))}
                   </tr>
@@ -6572,6 +7305,11 @@ function PaiementsView({ state, loading, updateState, notify, activeSchoolId, ro
               </table>
             </div>
           )}
+          {payView === 'mois' && currentClass && !!filteredStudents.length && (
+            <div className="text-xs px-1" style={{ color: 'var(--muted)' }}>
+              Mensualité de référence ({level}) : <b>{fmtFCFA(monthlyDue)}</b>. Le bouton « Encaisser » crée un paiement avec le mois sélectionné déjà renseigné.
+            </div>
+          )}
         </>
       )}
 
@@ -6579,7 +7317,7 @@ function PaiementsView({ state, loading, updateState, notify, activeSchoolId, ro
         <FeesModal level={level} fees={feeForLevel(state, level)} onSave={saveFees} onClose={() => setFeesModalOpen(false)} />
       )}
       {paymentModalStudent && (
-        <PaymentModal student={paymentModalStudent} rubriques={feeForLevel(state, level).rubriques.map((r) => ({ ...r, mensualites: feeForLevel(state, level).mensualites }))} onSave={savePayment} onClose={() => setPaymentModalStudent(null)} />
+        <PaymentModal student={paymentModalStudent} defaultMois={presetMois || undefined} rubriques={feeForLevel(state, level).rubriques.map((r) => ({ ...r, mensualites: feeForLevel(state, level).mensualites }))} onSave={savePayment} onClose={() => { setPaymentModalStudent(null); setPresetMois(null); }} />
       )}
       {editingPayment && (
         <PaymentModal
@@ -6592,9 +7330,11 @@ function PaiementsView({ state, loading, updateState, notify, activeSchoolId, ro
       )}
       {historyStudent && currentClass && (
         <StudentHistoryModal
+          state={state}
           student={historyStudent}
           cls={currentClass}
           due={due}
+          monthlyDue={monthlyDue}
           onClose={() => setHistoryStudent(null)}
           onPrint={(payment) => { setHistoryStudent(null); setPrinting({ studentId: historyStudent.id, paymentId: payment.id }); }}
           onEdit={readOnly ? undefined : (payment) => { setEditingPayment({ student: historyStudent, payment }); setHistoryStudent(null); }}
@@ -6924,7 +7664,162 @@ const cleanDomains = domains
 /* ---------------------------------------------------------------
    Onglet « Établissement » — informations affichées sur bulletins/reçus
    --------------------------------------------------------------- */
-function EtablissementTab({ state, updateState, notify, readOnly, session }) {
+/* Champ de formulaire stable (défini hors du composant) : un composant créé
+   dans le corps d'un autre est recréé à chaque rendu, ce qui fait perdre le
+   focus de l'input après chaque caractère saisi. */
+function EtabField({ label, value, onChange, placeholder, type = 'text', disabled }) {
+  return (
+    <div>
+      <label className="text-xs font-semibold block mb-1" style={{ color: 'var(--muted)' }}>{label}</label>
+      <input
+        type={type}
+        value={value}
+        disabled={disabled}
+        onChange={(e) => onChange(e.target.value)}
+        className="w-full px-3 py-2.5 rounded-lg border text-sm"
+        style={{ borderColor: 'var(--line)', background: 'var(--panel)', color: 'var(--ink)' }}
+        placeholder={placeholder}
+      />
+    </div>
+  );
+}
+
+/* ---- Carte « Horaires et jours ouvrés » (Administration → Établissement) ----
+   Paramétrage hebdomadaire de l'établissement : jours de la semaine ouverts
+   et heures à servir par jour ouvert. Réservé au chef d'établissement
+   (Directeur/Directrice, Principal, Censeur et Proviseur selon le cycle)
+   et au Super Admin ; les autres rôles autorisés sur l'onglet (secrétaire)
+   le voient en lecture seule. Stocké dans config.pointage — partagé avec
+   les règles de pointage existantes. */
+function HorairesJoursOuvresCard({ state, updateState, notify, readOnly, session }) {
+  const cycle = state?.header?.cycle;
+  const headLabel = cycleTerminology(cycle).head;
+  const canEdit = !readOnly && (session?.role === 'school' || session?.role === 'admin');
+  const raw = state?.config?.pointage || {};
+  const [jours, setJours] = useState(() => attendanceSettings(state).joursOuvres);
+  const [heures, setHeures] = useState(() => attendanceSettings(state).heuresParJour);
+  const [dirty, setDirty] = useState(false);
+
+  useEffect(() => {
+    if (dirty) return;
+    const s = attendanceSettings(state);
+    setJours(s.joursOuvres);
+    setHeures(s.heuresParJour);
+  }, [raw.joursOuvres, raw.heuresParJour]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  function toggleJour(key) {
+    if (!canEdit) return;
+    setJours((prev) => {
+      // On garde toujours au moins un jour ouvré.
+      if (prev.includes(key)) return prev.length > 1 ? prev.filter((d) => d !== key) : prev;
+      return [...prev, key].sort((a, b) => a - b);
+    });
+    setDirty(true);
+  }
+  function setHeure(key, value) {
+    if (!canEdit) return;
+    const v = Math.max(0, Math.min(24, Number(value) || 0));
+    setHeures((prev) => ({ ...prev, [key]: v }));
+    setDirty(true);
+  }
+  function save() {
+    if (!canEdit) return;
+    updateState((prev) => {
+      const kept = (prev.config && prev.config.pointage) || {};
+      const heuresParJour = Object.fromEntries(
+        JOURS_SEMAINE.map(({ key }) => [key, Math.max(0, Math.min(24, Number(heures[key]) || 0))])
+      );
+      const pointage = { ...kept, planningVersion: 2, joursOuvres: [...jours].sort((a, b) => a - b), heuresParJour };
+      const next = { ...prev, config: { ...(prev.config || {}), pointage } };
+      next.auditLog = pushAuditEntry(prev.auditLog, {
+        actor: actorLabel(session, prev), role: session && session.role,
+        action: 'Modification des horaires et jours ouvrés',
+        details: `${jours.length} jour(s) ouvré(s) (${libelleJoursOuvres(jours)})`,
+      });
+      return next;
+    });
+    notify('Horaires et jours ouvrés enregistrés');
+    setDirty(false);
+  }
+
+  const totalHeuresSemaine = jours.reduce((s, key) => s + (Number(heures[key]) || 0), 0);
+  const fieldStyle = { borderColor: 'var(--line)', background: 'var(--panel)', color: 'var(--ink)' };
+
+  return (
+    <div className="sygenop-card p-5 space-y-4">
+      <div className="flex items-center gap-2">
+        <Clock size={18} style={{ color: 'var(--green-d)' }} />
+        <div>
+          <div className="font-bold text-sm" style={{ color: 'var(--ink)' }}>Horaires et jours ouvrés</div>
+          <div className="text-xs" style={{ color: 'var(--muted)' }}>
+            Semaine type de l'établissement — utilisée par le pointage, la paie et les objectifs horaires.
+          </div>
+        </div>
+      </div>
+      {!canEdit && (
+        <div className="px-3 py-2 rounded-lg text-xs font-semibold flex items-center gap-2" style={{ background: 'var(--gold-l)', color: '#7a5a1f' }}>
+          <Eye size={13} /> Réservé {/^[aeiouyéè]/i.test(headLabel) ? "à l'" : 'au '} {headLabel.toLowerCase()} (consultation seule).
+        </div>
+      )}
+      <div>
+        <div className="text-xs font-semibold mb-2" style={{ color: 'var(--muted)' }}>Jours ouvrés de la semaine</div>
+        <div className="flex flex-wrap gap-2">
+          {JOURS_SEMAINE.map(({ key, label }) => {
+            const actif = jours.includes(key);
+            return (
+              <button
+                key={key}
+                type="button"
+                disabled={!canEdit}
+                onClick={() => toggleJour(key)}
+                className="px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors disabled:opacity-60"
+                style={actif
+                  ? { background: 'var(--green-d)', color: '#fff', border: '1px solid var(--green-d)' }
+                  : { background: 'var(--bg)', color: 'var(--muted)', border: '1px solid var(--line)' }}
+              >
+                {label}
+              </button>
+            );
+          })}
+        </div>
+      </div>
+      <div>
+        <div className="text-xs font-semibold mb-2" style={{ color: 'var(--muted)' }}>Heures à servir par jour ouvert</div>
+        <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+          {JOURS_SEMAINE.filter(({ key }) => jours.includes(key)).map(({ key, label }) => (
+            <label key={key} className="text-xs font-semibold" style={{ color: 'var(--ink)' }}>
+              {label}
+              <input
+                type="number"
+                min="0"
+                max="24"
+                step="0.5"
+                disabled={!canEdit}
+                value={heures[key]}
+                onChange={(e) => setHeure(key, e.target.value)}
+                className="mt-1 w-full px-3 py-2 rounded-lg border text-sm"
+                style={fieldStyle}
+              />
+            </label>
+          ))}
+        </div>
+      </div>
+      <div className="text-xs" style={{ color: 'var(--muted)' }}>
+        Semaine actuelle : {jours.length} jour(s) ouvré(s) ({libelleJoursOuvres(jours)}) · {totalHeuresSemaine} h attendues par agent.
+        Les jours fériés ponctuels se gèrent dans Pointage (jours non ouvrés).
+      </div>
+      {canEdit && (
+        <div className="flex justify-end">
+          <button onClick={save} disabled={!dirty} className="px-4 py-2 rounded-lg text-sm font-semibold text-white flex items-center gap-1.5 disabled:opacity-50" style={{ background: 'var(--green-d)' }}>
+            <Save size={15} /> Enregistrer
+          </button>
+        </div>
+      )}
+    </div>
+  );
+}
+
+ function EtablissementTab({ state, updateState, notify, readOnly, session }) {
   const h = (state && state.header) || {};
   const [form, setForm] = useState({
     ecole: h.ecole || '', type: h.type || 'École Publique', ia: h.ia || '',
@@ -6961,20 +7856,6 @@ function EtablissementTab({ state, updateState, notify, readOnly, session }) {
   }
 
   const fieldStyle = { borderColor: 'var(--line)', background: 'var(--panel)', color: 'var(--ink)' };
-  const Field = ({ label, k, placeholder, type = 'text' }) => (
-    <div>
-      <label className="text-xs font-semibold block mb-1" style={{ color: 'var(--muted)' }}>{label}</label>
-      <input
-        type={type}
-        value={form[k]}
-        disabled={readOnly}
-        onChange={(e) => set(k, e.target.value)}
-        className="w-full px-3 py-2.5 rounded-lg border text-sm"
-        style={fieldStyle}
-        placeholder={placeholder}
-      />
-    </div>
-  );
 
   return (
     <div className="space-y-4">
@@ -6985,18 +7866,18 @@ function EtablissementTab({ state, updateState, notify, readOnly, session }) {
       )}
       <div className="sygenop-card p-5 space-y-3">
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-          <Field label="Nom de l'école *" k="ecole" placeholder="Ex : École Élémentaire Liberté 6" />
+          <EtabField label="Nom de l'école *" value={form.ecole} onChange={(v) => set('ecole', v)} disabled={readOnly} placeholder="Ex : École Élémentaire Liberté 6" />
           <div>
             <label className="text-xs font-semibold block mb-1" style={{ color: 'var(--muted)' }}>Type</label>
             <select value={form.type} disabled={readOnly} onChange={(e) => set('type', e.target.value)} className="w-full px-3 py-2.5 rounded-lg border text-sm" style={fieldStyle}>
               {SCHOOL_TYPES.map((t) => <option key={t.value} value={t.label}>{t.label}</option>)}
             </select>
           </div>
-          <Field label="Inspection d'Académie (IA)" k="ia" placeholder="Ex : DAKAR" />
-          <Field label="Inspection de l'Éducation et de la Formation (IEF)" k="ief" placeholder="Ex : GRAND DAKAR" />
-          <Field label={cycleTerminology(form.cycle || state.header?.cycle).head} k="directeur" placeholder={`Nom du/de la ${cycleTerminology(form.cycle || state.header?.cycle).head.toLowerCase()}`} />
-          <Field label="Téléphone" k="tel" placeholder="Ex : 77 000 00 00" />
-          <Field label="Année scolaire" k="annee" placeholder="Ex : 2025/2026" />
+          <EtabField label="Inspection d'Académie (IA)" value={form.ia} onChange={(v) => set('ia', v)} disabled={readOnly} placeholder="Ex : DAKAR" />
+          <EtabField label="Inspection de l'Éducation et de la Formation (IEF)" value={form.ief} onChange={(v) => set('ief', v)} disabled={readOnly} placeholder="Ex : GRAND DAKAR" />
+          <EtabField label={cycleTerminology(form.cycle || state.header?.cycle).head} value={form.directeur} onChange={(v) => set('directeur', v)} disabled={readOnly} placeholder={`Nom du/de la ${cycleTerminology(form.cycle || state.header?.cycle).head.toLowerCase()}`} />
+          <EtabField label="Téléphone" value={form.tel} onChange={(v) => set('tel', v)} disabled={readOnly} placeholder="Ex : 77 000 00 00" />
+          <EtabField label="Année scolaire" value={form.annee} onChange={(v) => set('annee', v)} disabled={readOnly} placeholder="Ex : 2026/2027" />
         </div>
         <div className="pt-2" style={{ borderTop: '1px solid var(--line)' }}>
           <label className="flex items-start gap-2.5 text-sm cursor-pointer" style={{ color: 'var(--ink)' }}>
@@ -7018,6 +7899,7 @@ function EtablissementTab({ state, updateState, notify, readOnly, session }) {
           </label>
         </div>
       </div>
+      <HorairesJoursOuvresCard state={state} updateState={updateState} notify={notify} readOnly={readOnly} session={session} />
       {!readOnly && (
         <div className="flex justify-end">
           <button
@@ -7661,10 +8543,13 @@ function ComingSoonView({ view }) {
 function IEFSchoolsView({ onOpenSchool, session }) {
   const role = session && session.role;
   const sessionIefId = session && session.iefId;
-  // Un admin IEF (lecture seule) est TOUJOURS verrouillé sur sa propre IEF :
-  // il ne doit jamais voir les autres IEF. GRAND DAKAR (code historique partagé)
-  // n'a pas de ief_id en session → on le verrouille sur la sentinelle.
-  const isLocked = role === 'ief';
+  // Un compte IEF (lecture seule) ET un administrateur d'IEF décentralisé
+  // (connecté via l'onglet Super Admin avec son propre code) sont TOUJOURS
+  // verrouillés sur leur propre IEF : ils ne doivent jamais voir les autres
+  // IEF ni les écoles hors de leur circonscription. La sentinelle GRAND DAKAR
+  // ne sert plus qu'aux vieilles sessions sans ief_id (avant
+  // migration_ief_grand_dakar.sql).
+  const isLocked = role === 'ief' || !!(role === 'admin' && sessionIefId);
   const lockedIefId = sessionIefId || (isLocked ? GRAND_DAKAR_FAKE_ID : null);
   const [selectedIefId, setSelectedIefId] = useState(isLocked ? lockedIefId : '');
   const [iefList, setIefList] = useState([]);
@@ -7693,6 +8578,10 @@ function IEFSchoolsView({ onOpenSchool, session }) {
   // IEF effective = celle de la session (verrouillée) sinon celle choisie dans le sélecteur
   const effectiveIefId = isLocked ? lockedIefId : selectedIefId;
   const isGrandDakar = effectiveIefId === GRAND_DAKAR_FAKE_ID;
+  // Si une VRAIE IEF « GRAND DAKAR » existe en base (post-migration
+  // ief_grand_dakar), la sentinelle virtuelle (écoles ief_id null) ne doit
+  // plus apparaître dans le sélecteur : elle n'a plus aucune école.
+  const hasRealGrandDakar = (iefList || []).some((i) => (i.nom || '').toUpperCase().includes('GRAND DAKAR'));
   const selectedIefName = isLocked
     ? (isGrandDakar ? 'IEF GRAND DAKAR' : (session.iefName || 'Votre IEF'))
     : (isGrandDakar
@@ -7712,7 +8601,12 @@ function IEFSchoolsView({ onOpenSchool, session }) {
             : `order=name.asc&ief_id=eq.${effectiveIefId}`;
         }
         const rows = (await sb('GET', 'schools', params)) || [];
-        const datas = (await sb('GET', 'school_data', 'select=school_id,payload')) || [];
+        // Isolement strict : on ne télécharge QUE les payloads des écoles
+        // de la circonscription affichée — jamais ceux des autres IEF.
+        const ids = rows.map((r) => r && r.id).filter(Boolean);
+        const datas = ids.length
+          ? ((await sb('GET', 'school_data', `select=school_id,payload&school_id=in.(${ids.join(',')})`)) || [])
+          : [];
         const byId = {};
         datas.forEach((d) => { byId[d.school_id] = d.payload; });
         if (!cancelled) { setSchools(rows); setPayloadsById(byId); }
@@ -7855,7 +8749,7 @@ const barData = cycleSchoolStats
           >
             <option value="">— Toutes les IEF (vue globale) —</option>
             {iefList.map((i) => <option key={i.id} value={i.id}>{i.nom}</option>)}
-            <option value={GRAND_DAKAR_FAKE_ID}>IEF GRAND DAKAR</option>
+            {!hasRealGrandDakar && <option value={GRAND_DAKAR_FAKE_ID}>IEF GRAND DAKAR</option>}
           </select>
         )}
         <div className="text-xs font-semibold ml-auto" style={{ color: 'var(--muted)' }}>
@@ -8343,6 +9237,8 @@ function EcolesAdminTab({ notify, onOpenSchool, session, iefIdOverride }) {
   const [modal, setModal] = useState(null); // null | 'new' | school object
   const [restrictionsModal, setRestrictionsModal] = useState(null); // null | school object
   const [attendanceSchool, setAttendanceSchool] = useState(null);
+  const [holidaysModal, setHolidaysModal] = useState(false);
+  const [applyingHolidays, setApplyingHolidays] = useState(null); // null | {done,total}
   const [toDelete, setToDelete] = useState(null);
   const [revealed, setRevealed] = useState({});
 
@@ -8379,14 +9275,17 @@ async function refresh() {
       }
       // Les valeurs récentes sont aussi conservées dans school_data.header,
       // ce qui garde la liste utilisable avant l'exécution de la migration.
+      // PERF : on ne télécharge QUE le sous-champ payload->header (quelques
+      // octets par école) — jamais les payloads complets (élèves, notes…),
+      // sinon la liste devient très lente dès quelques dizaines d'écoles.
       if (rows.length && rows.some((s) => s.directeur === undefined || !s.directeur || !s.cycle)) {
         try {
-          const datas = (await sb('GET', 'school_data', 'select=school_id,payload')) || [];
+          const datas = (await sb('GET', 'school_data', 'select=school_id,payload->header')) || [];
           const byId = {};
           datas.forEach((d) => { byId[d.school_id] = d.payload; });
           rows.forEach((s) => {
-            if (!s.directeur && byId[s.id] && byId[s.id].header) s.directeur = byId[s.id].header.directeur || '';
-            s.cycle = resolvedSchoolCycle(s, byId[s.id]);
+            if (!s.directeur && byId[s.id]) s.directeur = byId[s.id].directeur || '';
+            s.cycle = resolvedSchoolCycle(s, { header: byId[s.id] });
           });
 } catch (_) {}
       }
@@ -8472,6 +9371,39 @@ const st = await loadSchoolData(modal.id);
     } catch (e) { notify('Erreur : ' + sbErrMsg(e), true); }
   }
 
+  // Applique la même liste de jours non ouvrés/fériés en un seul geste.
+  // Super Admin racine : TOUTES les écoles actives du système (même si une
+  // IEF est sélectionnée dans le filtre d'affichage). Admin d'IEF : les
+  // écoles de son périmètre affichées. Les autres réglages de pointage de
+  // chaque école sont préservés.
+  async function applyHolidaysToAll(dates) {
+    const racine = session?.role === 'admin' && !(session && session.iefId);
+    let targets = schools.filter((s) => s.actif !== false);
+    if (racine) {
+      try {
+        const rows = (await sb('GET', 'schools', 'select=id,name&actif=neq.false&order=name.asc')) || [];
+        if (rows.length) targets = rows;
+      } catch (_) { /* filtre actif absent ou hors-ligne : garde la liste affichée */ }
+    }
+    if (!targets.length) { notify('Aucune école active.', true); return; }
+    setApplyingHolidays({ done: 0, total: targets.length });
+    let okCount = 0; let failCount = 0;
+    for (const s of targets) {
+      try {
+        const st = await loadSchoolData(s.id);
+        const pointage = { ...((st.config && st.config.pointage) || {}), joursNonOuvres: dates };
+        await saveSchoolData(s.id, { ...st, config: { ...(st.config || {}), pointage } });
+        okCount++;
+      } catch (_) { failCount++; }
+      setApplyingHolidays((p) => ({ done: (p ? p.done : 0) + 1, total: targets.length }));
+    }
+    setApplyingHolidays(null);
+    setHolidaysModal(false);
+    notify(failCount
+      ? `Jours non ouvrés appliqués à ${okCount}/${targets.length} école(s) — ${failCount} échec(s).`
+      : `Jours non ouvrés et fériés appliqués aux ${okCount} école(s).`);
+  }
+
   async function saveRestrictions(restrictions) {
     if (!restrictionsModal) return;
     try {
@@ -8523,6 +9455,16 @@ const st = await loadSchoolData(modal.id);
         >
           <Plus size={15} /> Nouvelle école
         </button>
+        {session?.role === 'admin' && (
+          <button
+            onClick={() => setHolidaysModal(true)}
+            className="px-3.5 py-2.5 rounded-lg text-sm font-semibold flex items-center gap-1.5 justify-center whitespace-nowrap"
+            style={{ background: 'var(--gold-l)', color: 'var(--gold)', border: '1px solid var(--gold)' }}
+            title="Définir les jours non ouvrés et fériés pour toutes les écoles d'un coup"
+          >
+            <CalendarDays size={15} /> Jours fériés (toutes)
+          </button>
+        )}
       </div>
 
       {loading && (
@@ -8640,6 +9582,15 @@ const st = await loadSchoolData(modal.id);
           school={attendanceSchool}
           onSave={saveAttendanceSettings}
           onClose={() => setAttendanceSchool(null)}
+        />
+      )}
+      {holidaysModal && (
+        <JoursFeriesGlobauxModal
+          isRacine={session?.role === 'admin' && !(session && session.iefId)}
+          nbEcoles={schools.filter((s) => s.actif !== false).length}
+          applying={applyingHolidays}
+          onApply={applyHolidaysToAll}
+          onClose={() => setHolidaysModal(false)}
         />
       )}
       {restrictionsModal && (
@@ -8786,21 +9737,24 @@ create table if not exists public.ief_config (
   updated_at timestamptz not null default now()
 );
 
--- 5) Row Level Security — accès via l'API anon (même modèle
---    que le reste de l'application SYGENOP)
+-- 5) Row Level Security — AUCUN accès direct pour le rôle anon.
+--    ⚠️ NE PAS créer de politique "anon ... using (true)" : la clé anon
+--    est publique par conception, quiconque pourrait alors lire/écrire
+--    ces tables et récupérer tous les codes d'accès.
 alter table public.iefs enable row level security;
 drop policy if exists "iefs_anon_all" on public.iefs;
-create policy "iefs_anon_all" on public.iefs for all to anon using (true) with check (true);
+drop policy if exists "iefs_anon_read" on public.iefs;
 
 alter table public.admins enable row level security;
 drop policy if exists "admins_anon_all" on public.admins;
-create policy "admins_anon_all" on public.admins for all to anon using (true) with check (true);
+drop policy if exists "admins_anon_read" on public.admins;
 
 alter table public.ief_config enable row level security;
 drop policy if exists "ief_config_anon_all" on public.ief_config;
-create policy "ief_config_anon_all" on public.ief_config for all to anon using (true) with check (true);
+drop policy if exists "ief_config_anon_read" on public.ief_config;
 
--- 6) Valeurs par défaut (à personnaliser)
+-- 6) Valeurs par défaut — PROVISOIRES, à changer immédiatement après
+--    installation depuis l'application (Super Admin → Gestion des IEF).
 insert into public.ief_config (key, value) values ('admin_code', 'ADMIN-2025') on conflict (key) do nothing;
 insert into public.ief_config (key, value) values ('ief_code', 'IEF-DAKAR') on conflict (key) do nothing;
 
@@ -8811,7 +9765,14 @@ insert into public.iefs (nom, code_lecture, code_admin, actif)
 select 'IEF GRAND DAKAR', 'IEF-DAKAR', 'ADMIN-2025', true
 where not exists (
   select 1 from public.iefs where upper(nom) like upper('%GRAND DAKAR%')
-);`;
+);
+
+-- ============================================================
+--  8) SÉCURISATION OBLIGATOIRE — à exécuter ensuite, dans l'ordre :
+--     sql/migration_securite_rpc.sql   (vérif de codes sans exposition)
+--     sql/migration_securite_data.sql  (RLS stricte + RPC données)
+--     sql/migration_rate_limit.sql     (anti brute-force serveur)
+-- ============================================================`;
 
 function IEFAccountsTab({ notify, session, iefIdOverride }) {
   const iefId = iefIdOverride !== undefined && iefIdOverride !== null ? iefIdOverride : (session && session.iefId);
@@ -9453,6 +10414,10 @@ export default function SygenopApp() {
       }
 setSession(saved);
       if (saved.expiresAt) setAbsTarget(new Date(saved.expiresAt).getTime());
+      // Restaure la rubrique consultée avant l'actualisation : on reste sur
+      // la même page, sauf si elle n'existe plus / est hors périmètre du rôle.
+      const last = loadJSON(LS_ACTIVE, null);
+      const restored = last && allowedPagesFor(saved).has(last) ? last : homePageFor(saved.role);
       if (['school', 'teacher', 'guard', 'accountant', 'secretary'].includes(saved.role)) {
         if (saved.schoolId) {
           setActiveSchoolId(saved.schoolId);
@@ -9462,10 +10427,12 @@ setSession(saved);
             '';
           if (name) setActiveSchoolName(name);
         }
-        setActive(saved.role === 'guard' ? 'gate' : 'dash');
+        setActive(restored);
       } else {
-        setActive('ief');
+        setActive(restored);
       }
+    } else {
+      setActive(homePageFor(''));
     }
   }, []);
 
@@ -9473,11 +10440,11 @@ setSession(saved);
     if (!session) return;
     if (['school', 'teacher', 'guard', 'accountant', 'secretary'].includes(session.role)) {
       setActiveSchoolId(session.schoolId);
-      setActive(session.role === 'guard' ? 'gate' : 'dash');
-    } else {
-      setActive('ief');
     }
   }, [session]);
+
+  // Mémorise la rubrique active pour la restaurer après une actualisation.
+  useEffect(() => { saveJSON(LS_ACTIVE, active); }, [active]);
 
   const [syncStatus, setSyncStatus] = useState({ online: true, pendingCount: 0, syncing: false });
 
@@ -9496,7 +10463,7 @@ setSession(saved);
     // en silence (l'utilisateur sait qu'il doit refaire l'action après
     // reconnexion).
     const onRejected = () => {
-      notify("Une modification n'a pas pu être synchronisée (session expirée ou école différente) : merci de vérifier et de resaisir si besoin.", true);
+      notify("Une modification n'a pas pu être synchronisée (accès refusé ou code d'accès introuvable). Elle reste enregistrée sur cet appareil : reconnectez-vous avec le bon compte, puis effectuez une nouvelle modification pour tout renvoyer.", true);
     };
     window.addEventListener('offline-sync-rejected', onRejected);
     return () => { unsub(); window.removeEventListener('offline-sync-rejected', onRejected); };
@@ -9578,7 +10545,10 @@ setSession(saved);
     setSchoolState((prev) => {
       if (!prev) return prev;
       const draft = mutator(prev);
-      queueSave(activeSchoolId, draft, { saveSchoolData, loadSchoolData, notify });
+      // Snapshot des codes d'accès à l'instant de la saisie : persisté avec
+      // l'élément de la file pour permettre la synchro même si la session
+      // change ou expire avant le retour du réseau.
+      queueSave(activeSchoolId, draft, { saveSchoolData, loadSchoolData, notify, access: buildAccessSnapshot() });
       return draft;
     });
   }, [activeSchoolId, notify]);
@@ -9590,6 +10560,8 @@ function handleLogin(sessionData) {
     setSession(withExpiry);
     saveJSON(LS_SESSION, withExpiry);
     setAbsTarget(Date.now() + SESSION_ABS_TIMEOUT_MS);
+    // Nouvelle connexion : on repart de la page d'accueil du rôle.
+    setActive(homePageFor(sessionData.role));
     if (['school', 'teacher', 'guard', 'accountant', 'secretary'].includes(sessionData.role)) {
       saveJSON(LS_SCHOOL_ID, sessionData.schoolId);
       // Persiste le code d'accès de l'école : indispensable pour que admin-write
@@ -9760,7 +10732,7 @@ function openSchool(id, name, actif) {
       />
     );
   } else if (active === 'gate') {
-    body = <StudentCardVerification state={schoolState} />;
+    body = <StudentCardVerification state={schoolState} updateState={updateState} notify={notify} />;
   } else if (active === 'actualites') {
     body = (
       <ActualitesView
@@ -9834,7 +10806,7 @@ function openSchool(id, name, actif) {
           hasActiveSchool={!!activeSchoolId}
         />
         <div className="flex-1 min-w-0 flex flex-col">
-<Topbar
+          <Topbar
             title={activeSchoolName && active !== 'ief' ? `${title} — ${activeSchoolName}` : title}
             sub={sub}
             session={session}
@@ -9843,6 +10815,17 @@ function openSchool(id, name, actif) {
             setDark={setDark}
             onLogout={handleLogout}
             setMobileOpen={setMobileOpen}
+            annee={(schoolState && schoolState.header && schoolState.header.annee) || ''}
+            periodeKey={(schoolState && schoolState.header && schoolState.header.periodeActif) || 'T1'}
+            periodeLabel={(() => {
+              const opts = schoolState ? periodsForSchool(schoolState) : [];
+              const k = (schoolState && schoolState.header && schoolState.header.periodeActif) || 'T1';
+              const found = opts.find((p) => p.key === k);
+              return found ? found.label : k;
+            })()}
+            periodeOptions={schoolState ? periodsForSchool(schoolState) : []}
+            canEditPeriode={session.role === 'school'}
+            onPeriodeChange={(k) => updateState((prev) => ({ ...prev, header: { ...(prev.header || {}), periodeActif: k } }))}
             countdownMs={session ? (() => {
               const candidates = [];
               if (idleTarget != null) candidates.push(idleTarget - now);
@@ -9855,7 +10838,7 @@ function openSchool(id, name, actif) {
             <ActualitesTicker actualites={schoolState.actualites} onOpen={() => setActive('actualites')} />
           )}
           <main id="sygenop-print-area" className="flex-1 p-4 md:p-6 lg:p-8 max-w-[1500px] w-full">
-            {body}
+            <ErrorBoundary>{body}</ErrorBoundary>
           </main>
         </div>
       </div>
@@ -9896,6 +10879,20 @@ function OfflineBanner({ status, onRetry }) {
           <span>{status.pendingCount} école(s) avec des données non encore synchronisées.</span>
           {status.lastError && <span style={{ color: '#8a2f24' }}>Erreur : {status.lastError}</span>}
           {onRetry && <button type="button" onClick={onRetry} className="px-2 py-1 rounded font-semibold" style={{ background: 'var(--panel)', color: 'var(--green-d)', border: '1px solid var(--line)' }}>Réessayer</button>}
+          {status.lastError && (
+            <button
+              type="button"
+              onClick={async () => {
+                if (!window.confirm('Abandonner la synchronisation des données en attente ? Les saisies restent enregistrées sur cet appareil mais ne seront pas envoyées au serveur.')) return;
+                await clearQueue();
+                onRetry && onRetry();
+              }}
+              className="px-2 py-1 rounded font-semibold"
+              style={{ background: 'transparent', color: '#8a2f24', border: '1px solid #8a2f24' }}
+            >
+              Abandonner la synchro
+            </button>
+          )}
         </>
       )}
     </div>
