@@ -16,7 +16,7 @@ import {
 } from 'recharts';
 import {
   initOfflineSync, subscribeSyncStatus, queueSave,
-  getInstantCache, primeCacheFromServer, retrySync, clearQueue,
+  getInstantCache, primeCacheFromServer, retrySync, clearQueue, pendingSchools, blockedSchools,
 } from './offline/syncManager';
 import ChesterWidget from './components/Chester';
 import flagSenegal from './assets/flag-senegal.webp';
@@ -1098,7 +1098,7 @@ function buildAccessSnapshot() {
   return {
     schoolId: s.schoolId ?? null,
     role: s.role || '',
-    schoolCode: s.schoolCode || '',
+    schoolCode: s.schoolCode || getActiveSchoolCode() || '',
     staffId: s.staffId ?? null,
     staffCode: s.staffCode || '',
     adminCode: s.adminCode || s.iefAdminCode || '',
@@ -1119,7 +1119,8 @@ async function saveSchoolData(id, state, access) {
   const snapIsStaff = snapMatchesSchool && ['teacher', 'guard', 'accountant', 'secretary'].includes(snap.role);
   const ownsSchool = session?.schoolId === id;
   let schoolCode = (ownsSchool ? (session.schoolCode || getActiveSchoolCode()) : '')
-    || (snapMatchesSchool ? (snap.schoolCode || '') : '') || null;
+    || (snapMatchesSchool ? (snap.schoolCode || '') : '')
+    || getActiveSchoolCode() || null;
   const staffRole = ['teacher', 'guard', 'accountant', 'secretary'].includes(session?.role);
   const staffId = (staffRole && ownsSchool) ? session.staffId : (snapIsStaff ? snap.staffId : null);
   const staffCode = (staffRole && ownsSchool) ? (session.staffCode || '')
@@ -10469,6 +10470,44 @@ setSession(saved);
     return () => { unsub(); window.removeEventListener('offline-sync-rejected', onRejected); };
   }, [notify]);
 
+  // CORRECTIF : quand une save échoue précisément parce qu'aucun code d'accès
+  // n'est disponible (élément resté bloqué dans la file, souvent issu d'une
+  // ancienne session), on prévient l'utilisateur immédiatement au lieu de
+  // re-tenter silencieusement 20 fois : il sait qu'il doit se reconnecter pour
+  // débloquer la synchronisation. Une seule alerte par « épisode » (on évite de
+  // spammer à chaque cycle de 15 s).
+  const lastCodeErrorNotified = useRef('');
+  useEffect(() => {
+    const err = syncStatus.lastError || '';
+    const codeAbsent = /Code d’accès absent|Code d'accès absent|accès introuvable/i.test(err);
+    if (codeAbsent && err !== lastCodeErrorNotified.current) {
+      lastCodeErrorNotified.current = err;
+      notify("Synchronisation en attente : le code d'accès de l'école est introuvable sur cet appareil. Reconnectez-vous avec le bon compte (école ou personnel) pour envoyer les saisies enregistrées.", true);
+    }
+  }, [syncStatus, notify]);
+
+  // CORRECTIF : dès qu'une synchronisation en arrière-plan a réussi et vidé la
+  // file d'attente (pendingCount → 0), on recharge la vue de l'école active.
+  // Sans cela, même après une synchro réussie, l'écran restait figé sur
+  // l'ancienne version serveur (les saisies semblaient « disparues »).
+  const prevPendingRef = useRef(syncStatus.pendingCount);
+  useEffect(() => {
+    const prev = prevPendingRef.current;
+    prevPendingRef.current = syncStatus.pendingCount;
+    if (syncStatus.syncing) return;
+    const drained = prev > 0 && syncStatus.pendingCount === 0 && prevPendingRef.current === 0;
+    if (drained && activeSchoolId) {
+      // On ne recharge que si l'école active n'est pas « bloquée » : une école
+      // bloquée a des saisies locales restées non synchronisées (rejet serveur)
+      // — un rechargement depuis le serveur (ancienne version) les écraserait.
+      blockedSchools().then((blocked) => {
+        if (!blocked || !blocked.has(activeSchoolId)) {
+          setLoadNonce((n) => n + 1);
+        }
+      }).catch(() => setLoadNonce((n) => n + 1));
+    }
+  }, [syncStatus, activeSchoolId]);
+
   const transferSnapshotRef = useRef(null);
 
   useEffect(() => {
@@ -10518,11 +10557,39 @@ setSession(saved);
     //    hors ligne et qu'on avait un cache, on continue avec le cache sans
     //    afficher d'erreur. Si aucun cache n'existe et pas de réseau, on
     //    affiche alors l'erreur.
-    loadSchoolData(activeSchoolId)
-      .then((st) => {
+    //    CORRECTIF : on capture le cache local AVANT d'interroger le serveur
+    //    (loadSchoolData écrit la version serveur dans le cache, donc il faut
+    //    mémoriser la version locale au préalable pour la comparaison).
+    getInstantCache(activeSchoolId)
+      .then(async (localCache) => {
+        const st = await loadSchoolData(activeSchoolId);
         if (cancelled) return;
-        setSchoolState(st);
-        setSchoolLoadError('');
+        // Ne jamais écraser une saisie locale plus récente ou encore en attente
+        // de synchronisation (ex. saisie hors-ligne puis retour) par l'ancienne
+        // version renvoyée par le serveur. Deux signaux indiquent que le local
+        // est à conserver :
+        //   - le cache local est « plus récent » (__version supérieure) ;
+        //   - ou il existe des éléments NON synchronisés dans la file pour
+        //     cette école (saisies en attente → la version serveur est périmée).
+        // Dans ces cas on garde la version locale (et on re-signe le cache) au
+        // lieu de l'écraser — évite la « disparition » des données saisies.
+        const localVersion = (localCache && localCache.__version) || 0;
+        const serverVersion = (st && st.__version) || 0;
+        const [pending, blocked] = await Promise.all([
+          pendingSchools().catch(() => new Set()),
+          blockedSchools().catch(() => new Set()),
+        ]);
+        const keepLocal = pending.has(activeSchoolId) || blocked.has(activeSchoolId);
+        if (localCache && (localVersion > serverVersion || keepLocal)) {
+          setSchoolState(localCache);
+          setSchoolLoadError('');
+          // Re-prime le cache avec la version locale pour la garantir face à
+          // la version serveur plus ancienne déjà écrite par loadSchoolData.
+          await primeCacheFromServer(activeSchoolId, localCache).catch(() => {});
+        } else {
+          setSchoolState(st);
+          setSchoolLoadError('');
+        }
       })
       .catch((e) => {
         if (cancelled) return;
@@ -10867,6 +10934,11 @@ function OfflineBanner({ status, onRetry }) {
         <>
           <AlertCircle size={14} />
           Mode hors ligne — vos saisies sont enregistrées sur cet appareil et seront envoyées automatiquement dès le retour du réseau.
+          {status.storagePersistent === false && (
+            <span style={{ color: '#8a2f24' }}>
+              ⚠ Stockage local non persistant : ne pas effacer les données du site tant que la synchronisation n'est pas faite.
+            </span>
+          )}
         </>
       ) : status.syncing ? (
         <>

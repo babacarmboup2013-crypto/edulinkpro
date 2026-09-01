@@ -14,7 +14,7 @@ const STORE = 'school_state';
 
 let dbPromise = null;
 const listeners = new Set();
-let status = { online: typeof navigator !== 'undefined' ? navigator.onLine : true, pendingCount: 0, syncing: false, lastError: '' };
+let status = { online: typeof navigator !== 'undefined' ? navigator.onLine : true, pendingCount: 0, syncing: false, lastError: '', storagePersistent: null };
 
 /* ---------- Base IndexedDB ---------- */
 function openDB() {
@@ -100,6 +100,43 @@ function removeQueue(id) {
    et la prochaine écriture réussie renvoie l'état complet de l'école. */
 const MAX_SYNC_ATTEMPTS = 20;
 
+// Écoles dont des éléments en file ont été ABANDONNÉS (rejet définitif du
+// serveur, ou échec répété au-delà de MAX_SYNC_ATTEMPTS) : leur version locale
+// est restée NON synchronisée et la version serveur est périmée. L'app garde
+// alors l'affichage local (ne le fait pas écraser par le serveur) tant que
+// l'élément n'a pas été ré-synchronisé avec succès après reconnexion.
+const blockedSchoolsSet = new Set();
+const BLOCKED_LS_KEY = 'sygenop_blocked_schools';
+
+// Restaure l'état « bloqué » persistant (survit à un rechargement de la page),
+// afin qu'une école dont des saisies locales sont restées non synchronisées
+// ne soit jamais écrasée par l'ancienne version serveur après une actualisation.
+try {
+  const saved = typeof localStorage !== 'undefined' ? localStorage.getItem(BLOCKED_LS_KEY) : null;
+  if (saved) {
+    const arr = JSON.parse(saved);
+    if (Array.isArray(arr)) arr.forEach((id) => { if (id) blockedSchoolsSet.add(id); });
+  }
+} catch (_) {}
+
+function persistBlocked() {
+  try {
+    if (typeof localStorage !== 'undefined') {
+      localStorage.setItem(BLOCKED_LS_KEY, JSON.stringify([...blockedSchoolsSet]));
+    }
+  } catch (_) {}
+}
+
+function blockSchool(schoolId) {
+  if (schoolId) { blockedSchoolsSet.add(schoolId); persistBlocked(); }
+}
+function unblockSchool(schoolId) {
+  if (schoolId) { blockedSchoolsSet.delete(schoolId); persistBlocked(); }
+}
+export async function blockedSchools() {
+  return new Set(blockedSchoolsSet);
+}
+
 function isDefinitiveSyncError(message) {
   const m = String(message || '');
   // Les pannes réseau (« Failed to fetch », timeout, « connexion refusée »…)
@@ -113,8 +150,21 @@ function isDefinitiveSyncError(message) {
   );
 }
 
+// « Code d'accès absent pour cette école » : l'élément n'a AUCUNE credential
+// exploitable (session expirée/absente, snapshot sans code, école inconnue).
+// Ce n'est ni définitif (l'utilisateur peut se reconnecter avec le bon compte)
+// ni passager (les retries ne font rien) : re-tenter en boucle est inutile et
+// maintenait la bande d'alerte « Code d'accès absent » de façon permanente.
+// On retire l'élément de la file (données conservées dans le cache local) et
+// on prévient l'utilisateur une seule fois ; la reconnexion débloquera.
+function isCodeAbsentError(message) {
+  const m = String(message || '');
+  return /Code d’accès absent pour cette école|Code d'accès absent pour cette école/i.test(m);
+}
+
 function reportRejected(schoolId, message) {
   try {
+    blockSchool(schoolId);
     window.dispatchEvent(new CustomEvent('offline-sync-rejected', { detail: { schoolId, message: String(message || '') } }));
   } catch (_) {}
 }
@@ -142,11 +192,43 @@ export function setSaveHandler(fn) {
   saveFnRef = typeof fn === 'function' ? fn : null;
 }
 
+/* ---------- Stockage persistant ----------
+   Par défaut, le navigateur peut ÉVINCER (supprimer) la base IndexedDB sans
+   prévenir quand l'espace manque — ce qui perdrait les saisies hors-ligne.
+   navigator.storage.persist() demande un stockage persistant (non évincable) :
+   selon les navigateurs, la demande est accordée sans interaction ou refusée
+   (l'app ne fait alors rien de bloquant). On enrichit en plus le statut pour
+   que l'app puisse informer l'utilisateur si la couche hors-ligne n'est pas
+   pérenne sur cet appareil. */
+let persistentResolved = false;
+export function requestPersistentStorage() {
+  if (persistentResolved) return;
+  persistentResolved = true;
+  try {
+    if (typeof navigator === 'undefined' || !navigator.storage || typeof navigator.storage.persist !== 'function') {
+      setStatus({ storagePersistent: false });
+      return;
+    }
+    navigator.storage.persist()
+      .then((granted) => {
+        setStatus({ storagePersistent: granted });
+        console.info('[sygenop] stockage persistant', granted ? 'accordé ✓' : 'refusé');
+      })
+      .catch(() => setStatus({ storagePersistent: false }));
+  } catch (_) {
+    setStatus({ storagePersistent: false });
+  }
+}
+
 /* ---------- Détection réseau ---------- */
 let stopPing = null;
 export function initOfflineSync({ pingUrl, pingHeaders, saveSchoolData } = {}) {
   if (saveSchoolData) setSaveHandler(saveSchoolData);
   if (stopPing) return stopPing;
+  // Demande un stockage persistant (non évincable) pour la base IndexedDB :
+  // protège les saisies hors-ligne contre la suppression automatique par le
+  // navigateur quand l'espace disque vient à manquer.
+  requestPersistentStorage();
   const updateOnline = () => {
     const online = typeof navigator !== 'undefined' ? navigator.onLine : true;
     setStatus({ online });
@@ -206,14 +288,20 @@ async function drainQueue() {
       try {
         await saveFnRef(item.schoolId, item.draft, item.access);
         await removeQueue(item.id);
+        unblockSchool(item.schoolId);
         setStatus({ lastError: '' });
       } catch (e) {
         const message = e?.message || 'Erreur de synchronisation serveur';
         console.error('queueSave sync failed:', e);
         const attempts = (item.attempts || 0) + 1;
-        if (isDefinitiveSyncError(message) || attempts >= MAX_SYNC_ATTEMPTS) {
-          // Abandon définitif : on sort l'élément de la file au lieu de le
-          // retenter à l'infini, et on prévient l'application une seule fois.
+        // « Code d'accès absent » : aucune credential n'est disponible. Les
+        // retries ne résoudront rien (contrairement aux pannes réseau), ils ne
+        // faisaient que maintenir la bande d'alerte en boucle. On retire donc
+        // l'élément immédiatement (données conservées dans le cache local) et
+        // on prévient l'utilisateur une seule fois ; la reconnexion le débloquera.
+        if (isCodeAbsentError(message) || isDefinitiveSyncError(message) || attempts >= MAX_SYNC_ATTEMPTS) {
+          // Abandon : on sort l'élément de la file au lieu de le retenter à
+          // l'infini, et on prévient l'application une seule fois.
           await removeQueue(item.id).catch(() => {});
           reportRejected(item.schoolId, message);
         } else {
@@ -250,6 +338,9 @@ export async function clearQueue(schoolId) {
     const q = await listQueue();
     const toRemove = schoolId ? q.filter((item) => item.schoolId === schoolId) : q;
     for (const item of toRemove) { await removeQueue(item.id); }
+    // L'utilisateur a explicitement choisi d'abandonner la synchronisation :
+    // l'école n'est plus « bloquée » — le serveur redevient la source de vérité.
+    if (schoolId) unblockSchool(schoolId);
   } catch (_) {}
   setStatus({ lastError: '', pendingCount: await countPending() });
 }
@@ -258,6 +349,16 @@ export async function getInstantCache(schoolId) {
   try {
     return await readCache(schoolId);
   } catch (_) { return null; }
+}
+
+// Retourne l'ensemble des identifiants d'écoles ayant des données NON encore
+// synchronisées dans la file d'attente. Utile à l'app pour ne PAS écraser un
+// cache local plus récent (saisies en attente) par une vieille version serveur.
+export async function pendingSchools() {
+  try {
+    const q = await listQueue();
+    return new Set(q.map((i) => i && i.schoolId));
+  } catch (_) { return new Set(); }
 }
 
 export async function primeCacheFromServer(schoolId, state) {
@@ -285,18 +386,21 @@ export async function queueSave(schoolId, draft, opts) {
     setStatus({ syncing: true });
     try {
       await opts.saveSchoolData(schoolId, draft, access);
+      // Sauvegarde directe réussie : l'école n'est plus « bloquée » (elle a pu
+      // se re-synchroniser avec le serveur).
+      unblockSchool(schoolId);
     } catch (e) {
       console.error('save failed, queueing:', e);
       const message = e?.message || 'Erreur de synchronisation serveur';
-      if (isDefinitiveSyncError(message)) {
-        // Rejet définitif du serveur : inutile d'encombrer la file avec un
-        // élément qui ne partira jamais. Prévention unique + cache local
-        // conservé (writeCache a déjà été appelé plus haut).
+      if (isDefinitiveSyncError(message) || isCodeAbsentError(message)) {
+        // Rejet définitif OU code d'accès absent : inutile d'encombrer la file
+        // avec un élément qui ne partira pas par des retries. Prévention unique
+        // + cache local conservé (writeCache a déjà été appelé plus haut).
         reportRejected(schoolId, message);
       } else {
-        // « Code d'accès absent », réseau instable… : on met en file — une
-        // reconnexion ou un changement de session peut fournir des codes
-        // valides ; drainQueue plafonnera les tentatives si rien ne change.
+        // Réseau instable… : on met en file — une reconnexion ou un changement
+        // de session peut fournir des codes valides ; drainQueue plafonnera les
+        // tentatives si rien ne change.
         try { await pushQueue({ schoolId, draft, access, ts: Date.now(), attempts: 1 }); } catch (_) {}
       }
     }
@@ -320,5 +424,8 @@ export default {
   setSaveHandler,
   retrySync,
   clearQueue,
+  pendingSchools,
+  blockedSchools,
+  requestPersistentStorage,
 };
 
