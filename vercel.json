@@ -1,8 +1,15 @@
 {
+  "redirects": [
+    {
+      "source": "/",
+      "destination": "/home.html",
+      "permanent": true
+    }
+  ],
   "rewrites": [
     {
       "source": "/((?!.*\\.(?:jpg|jpeg|png|svg|gif|webp|ico|json|webmanifest|js|css|woff2?)$).*)",
-      "destination": "/index.html"
+      "destination": "/home.html"
     }
   ]
 }
