@@ -1923,7 +1923,13 @@ const entered = String(code).trim();
       backgroundImage: `radial-gradient(circle at 12% 8%, rgba(16,163,116,.13), transparent 42%), radial-gradient(circle at 92% 4%, rgba(184,134,47,.12), transparent 38%)`,
     }}>
       <GlobalStyles dark={dark} />
-      <div className="w-full max-w-6xl flex flex-col lg:flex-row items-center justify-center lg:justify-center gap-10 lg:gap-24">
+      <div aria-hidden="true" style={{
+        position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center',
+        pointerEvents: 'none', overflow: 'hidden', zIndex: 0, opacity: dark ? 0.05 : 0.06,
+      }}>
+        <img src={`${import.meta.env.BASE_URL}edulink-favicon.svg`} alt="" style={{ width: 760, maxWidth: '92vw', height: 'auto' }} />
+      </div>
+      <div className="w-full max-w-6xl flex flex-col lg:flex-row items-center justify-center lg:justify-center gap-10 lg:gap-24" style={{ position: 'relative', zIndex: 1 }}>
 
         {/* Bloc de présentation — grand écran uniquement */}
         <div className="hidden lg:flex flex-col w-full max-w-md space-y-4">
@@ -1957,7 +1963,11 @@ const entered = String(code).trim();
           </p>
         </div>
 
-        <div className="sygenop-card px-8 py-10">
+        <div className="sygenop-card px-8 py-10" style={{ position: 'relative', overflow: 'hidden' }}>
+          <div aria-hidden="true" style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', pointerEvents: 'none', opacity: 0.06, zIndex: 0 }}>
+            <img src={`${import.meta.env.BASE_URL}edulink-favicon.svg`} alt="" style={{ width: 300, maxWidth: '80%', height: 'auto' }} />
+          </div>
+          <div className="relative" style={{ position: 'relative', zIndex: 1 }}>
           <div className="grid grid-cols-4 gap-1 mb-6 p-1 rounded-xl" style={{ background: 'var(--bg)' }}>
             {tabs.map((t) => (
               <button
@@ -2036,6 +2046,7 @@ const entered = String(code).trim();
               <SubmitBtn busy={busy}>Accéder en Super Admin</SubmitBtn>
             </form>
           )}
+          </div>
         </div>
 
         <button

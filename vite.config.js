@@ -7,6 +7,15 @@ const base = process.env.VERCEL ? '/' : '/JSX1/';
 export default defineConfig({
   base,
   plugins: [react(), tailwindcss()],
+  build: {
+    rollupOptions: {
+      input: {
+        main: 'index.html',
+        home: 'home.html',
+        connect: 'connect.html',
+      },
+    },
+  },
   server: {
     port: 5173,
     open: true,
