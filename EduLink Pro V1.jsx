@@ -8,7 +8,7 @@ import {
   Phone, Wallet, Clock, Search, Download, ChevronLeft, UserRound,
   MessageCircle, Receipt, History, Trophy, Building2, Printer, FileSpreadsheet,
   Upload, Save, RotateCcw, AlertCircle, Globe, TrendingDown, ArrowUpCircle,
-  ArrowDownCircle, Scale, Package, ScanLine
+  ArrowDownCircle, Scale, Package, ScanLine, FileText, Award
 } from 'lucide-react';
 import {
   ResponsiveContainer, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip,
@@ -1560,6 +1560,9 @@ function GlobalStyles({ dark }) {
         #student-card-print .student-id-card-front .text-xs, #student-card-print .student-id-card-back .text-xs, #staff-card-print .student-id-card-front .text-xs, #staff-card-print .student-id-card-back .text-xs{ font-size:9pt !important; }
         #student-card-print .student-id-card-front img, #staff-card-print .student-id-card-front img{ max-height:38mm !important; }
         #student-card-print .student-id-card-back svg, #staff-card-print .student-id-card-back svg{ width:58mm !important; height:58mm !important; }
+        #student-cert-print, #student-cert-print *{ visibility:visible; }
+        #student-cert-print{ position:absolute !important; left:0 !important; top:0 !important; width:100% !important; height:auto !important; padding:0 !important; margin:0 !important; overflow:visible !important; background:#fff !important; }
+        #student-cert-print > div{ margin:0 auto !important; max-width:none !important; }
         @page{ margin:0; size:A4 portrait; }
       }
     `}</style>
@@ -1702,7 +1705,7 @@ function ActualitesTicker({ actualites, onOpen }) {
 /* ============================================================
    ÉCRAN DE CONNEXION — 4 rôles (École / Enseignant / IEF / Admin)
    ============================================================ */
-function LoginScreen({ onLogin, dark, setDark, notify }) {
+function LoginScreen({ onLogin, dark, setDark, notify, onBack }) {
   const [tab, setTab] = useState('school'); // school | personnel | ief | admin
   const [schools, setSchools] = useState([]);
   const [loadingSchools, setLoadingSchools] = useState(true);
@@ -1923,6 +1926,23 @@ const entered = String(code).trim();
       backgroundImage: `radial-gradient(circle at 12% 8%, rgba(16,163,116,.13), transparent 42%), radial-gradient(circle at 92% 4%, rgba(184,134,47,.12), transparent 38%)`,
     }}>
       <GlobalStyles dark={dark} />
+      {onBack && (
+        <button
+          type="button"
+          onClick={onBack}
+          title="Retour à l'accueil"
+          className="absolute"
+          style={{
+            top: 18, left: 18, zIndex: 70, cursor: 'pointer',
+            width: 42, height: 42, display: 'flex', alignItems: 'center', justifyContent: 'center',
+            borderRadius: '50%', border: '2px solid var(--green-d, #0a4f3a)',
+            background: 'rgba(255,255,255,.92)', backdropFilter: 'blur(6px)',
+            boxShadow: '0 6px 16px -6px rgba(10,79,58,.35)', color: 'var(--green-d, #0a4f3a)',
+          }}
+        >
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M3 10.5 12 3l9 7.5" /><path d="M5 9.5V21h5v-6h4v6h5V9.5" /></svg>
+        </button>
+      )}
       <div aria-hidden="true" style={{
         position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center',
         pointerEvents: 'none', overflow: 'hidden', zIndex: 0, opacity: dark ? 0.05 : 0.06,
@@ -4508,15 +4528,26 @@ function saveClass(form) {
   );
 }
 
+function ageFromBirth(dateNaissance) {
+  if (!dateNaissance) return '';
+  const d = new Date(dateNaissance);
+  if (isNaN(d.getTime())) return '';
+  const now = new Date();
+  let age = now.getFullYear() - d.getFullYear();
+  const m = now.getMonth() - d.getMonth();
+  if (m < 0 || (m === 0 && now.getDate() < d.getDate())) age--;
+  return String(age);
+}
+
 function AddStudentModal({ onSave, onClose }) {
-  const [form, setForm] = useState({ prenom: '', nom: '', age: '', genre: '' });
+  const [form, setForm] = useState({ prenom: '', nom: '', dateNaissance: '', lieuNaissance: '', genre: '' });
   const fieldStyle = { borderColor: 'var(--line)', background: 'var(--panel)', color: 'var(--ink)' };
   function set(k, v) { setForm((f) => ({ ...f, [k]: v })); }
   function submit(e) {
     e.preventDefault();
     if (!form.nom.trim() && !form.prenom.trim()) { return; }
     const id = uid('stu');
-    onSave({ id, cardCode: `ELV-${id.slice(-8).toUpperCase()}`, prenom: form.prenom.trim(), nom: form.nom.trim(), age: form.age.trim(), genre: form.genre.trim().toUpperCase().slice(0, 1), scores: {}, validated: {} });
+    onSave({ id, cardCode: `ELV-${id.slice(-8).toUpperCase()}`, prenom: form.prenom.trim(), nom: form.nom.trim(), dateNaissance: form.dateNaissance, lieuNaissance: form.lieuNaissance.trim(), age: ageFromBirth(form.dateNaissance), genre: form.genre.trim().toUpperCase().slice(0, 1), scores: {}, validated: {} });
   }
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4" style={{ background: 'rgba(10,20,15,.45)' }}>
@@ -4538,19 +4569,24 @@ function AddStudentModal({ onSave, onClose }) {
           </div>
           <div className="grid grid-cols-2 gap-3">
             <div>
-              <label className="text-xs font-semibold block mb-1" style={{ color: 'var(--muted)' }}>Âge</label>
-              <input value={form.age} onChange={(e) => set('age', e.target.value)}
-                className="w-full px-3 py-2.5 rounded-lg border text-sm" style={fieldStyle} placeholder="Ex: 7" />
+              <label className="text-xs font-semibold block mb-1" style={{ color: 'var(--muted)' }}>Date de naissance</label>
+              <input type="date" value={form.dateNaissance} onChange={(e) => set('dateNaissance', e.target.value)}
+                className="w-full px-3 py-2.5 rounded-lg border text-sm" style={fieldStyle} />
             </div>
             <div>
-              <label className="text-xs font-semibold block mb-1" style={{ color: 'var(--muted)' }}>Genre</label>
-              <select value={form.genre} onChange={(e) => set('genre', e.target.value)}
-                className="w-full px-3 py-2.5 rounded-lg border text-sm" style={fieldStyle}>
-                <option value="">—</option>
-                <option value="M">Masculin</option>
-                <option value="F">Féminin</option>
-              </select>
+              <label className="text-xs font-semibold block mb-1" style={{ color: 'var(--muted)' }}>Lieu de naissance</label>
+              <input value={form.lieuNaissance} onChange={(e) => set('lieuNaissance', e.target.value)}
+                className="w-full px-3 py-2.5 rounded-lg border text-sm" style={fieldStyle} placeholder="Ex : Dakar" />
             </div>
+          </div>
+          <div>
+            <label className="text-xs font-semibold block mb-1" style={{ color: 'var(--muted)' }}>Genre</label>
+            <select value={form.genre} onChange={(e) => set('genre', e.target.value)}
+              className="w-full px-3 py-2.5 rounded-lg border text-sm" style={fieldStyle}>
+              <option value="">—</option>
+              <option value="M">Masculin</option>
+              <option value="F">Féminin</option>
+            </select>
           </div>
         </div>
         <div className="flex justify-end gap-2 mt-6">
@@ -4562,11 +4598,60 @@ function AddStudentModal({ onSave, onClose }) {
   );
 }
 
+function StudentFicheModal({ student, clsName, onCard, onCert, onEdit, onClose }) {
+  const birthDate = student.dateNaissance
+    ? (() => { const d = new Date(student.dateNaissance.split('-').length === 3 ? student.dateNaissance + 'T00:00:00' : student.dateNaissance); return isNaN(d.getTime()) ? student.dateNaissance : d.toLocaleDateString('fr-FR', { day: 'numeric', month: 'long', year: 'numeric' }); })()
+    : '';
+  const row = (label, value, action) => (
+    <div className="flex items-center justify-between py-2.5" style={{ borderBottom: '1px solid var(--line)' }}>
+      <span className="text-xs font-semibold" style={{ color: 'var(--muted)' }}>{label}</span>
+      <span className="text-sm font-medium" style={{ color: 'var(--ink)' }}>{value || '—'}</span>
+    </div>
+  );
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4" style={{ background: 'rgba(10,20,15,.45)' }}>
+      <div className="sygenop-card p-8 max-w-2xl w-full sygenop-fade">
+        <div className="flex items-center justify-between mb-5">
+          <div className="font-bold text-lg" style={{ color: 'var(--ink)' }}>Fiche élève</div>
+          <button type="button" onClick={onClose} style={{ color: 'var(--muted)' }}><X size={20} /></button>
+        </div>
+        <div className="flex items-center gap-4 mb-5">
+          <span style={{ display: 'inline-flex', lineHeight: 0 }}>
+            {isFemale(student.genre) ? <AvatarGirl size={64} /> : <AvatarBoy size={64} />}
+          </span>
+          <div>
+            <div className="font-bold text-xl" style={{ color: 'var(--ink)' }}>
+              {((student.prenom || '') + ' ' + (student.nom || '')).trim() || <span className="italic text-sm" style={{ color: 'var(--muted)' }}>Élève sans nom</span>}
+            </div>
+            <div className="text-sm mt-0.5" style={{ color: 'var(--muted)' }}>{clsName || ''}</div>
+          </div>
+        </div>
+        <div>
+          {row('Prénom', student.prenom)}
+          {row('Nom', student.nom)}
+          {row('Date de naissance', birthDate)}
+          {row('Lieu de naissance', student.lieuNaissance)}
+          {row('Sexe', student.genre === 'F' ? 'Féminin' : student.genre === 'M' ? 'Masculin' : student.genre)}
+          {row('Tuteur / Responsable', student.tuteurNom)}
+          {row('Contact tuteur', student.tuteurTel)}
+        </div>
+        <div className="grid gap-3 mt-6" style={{ gridTemplateColumns: onEdit ? '1fr 1fr' : '1fr 1fr 1fr' }}>
+          <button type="button" onClick={onCard} className="px-3 py-2.5 rounded-lg text-sm font-semibold text-white flex items-center justify-center gap-1.5" style={{ background: 'var(--gold, #b8862f)' }}><CreditCard size={16} /> Carte d’identité</button>
+          <button type="button" onClick={onCert} className="px-3 py-2.5 rounded-lg text-sm font-semibold text-white flex items-center justify-center gap-1.5" style={{ background: 'var(--green-d)' }}><FileText size={16} /> Certificat de scolarité</button>
+          <button type="button" onClick={onClose} className="px-3 py-2.5 rounded-lg text-sm font-semibold" style={{ background: 'var(--bg)', color: 'var(--muted)' }}>Fermer</button>
+          {onEdit && <button type="button" onClick={onEdit} className="px-3 py-2.5 rounded-lg text-sm font-semibold flex items-center justify-center gap-1.5" style={{ background: 'var(--panel)', color: 'var(--ink)' }}><Pencil size={16} /> Modifier</button>}
+        </div>
+      </div>
+    </div>
+  );
+}
+
 function EditStudentModal({ student, onSave, onClose }) {
   const [form, setForm] = useState({
     prenom: student.prenom || '',
     nom: student.nom || '',
-    age: student.age || '',
+    dateNaissance: student.dateNaissance || '',
+    lieuNaissance: student.lieuNaissance || '',
     genre: student.genre || '',
     tuteurNom: student.tuteurNom || '',
     tuteurTel: student.tuteurTel || '',
@@ -4580,7 +4665,9 @@ function EditStudentModal({ student, onSave, onClose }) {
     onSave({
       prenom: form.prenom.trim(),
       nom: form.nom.trim(),
-      age: form.age.trim(),
+      dateNaissance: form.dateNaissance,
+      lieuNaissance: form.lieuNaissance.trim(),
+      age: ageFromBirth(form.dateNaissance),
       genre: form.genre.trim().toUpperCase().slice(0, 1),
       tuteurNom: form.tuteurNom.trim(),
       tuteurTel: form.tuteurTel.trim(),
@@ -4609,19 +4696,24 @@ function EditStudentModal({ student, onSave, onClose }) {
           </div>
           <div className="grid grid-cols-2 gap-3">
             <div>
-              <label className="text-xs font-semibold block mb-1" style={{ color: 'var(--muted)' }}>Âge</label>
-              <input value={form.age} onChange={(e) => set('age', e.target.value)}
-                className="w-full px-3 py-2.5 rounded-lg border text-sm" style={fieldStyle} placeholder="Ex: 7" />
+              <label className="text-xs font-semibold block mb-1" style={{ color: 'var(--muted)' }}>Date de naissance</label>
+              <input type="date" value={form.dateNaissance} onChange={(e) => set('dateNaissance', e.target.value)}
+                className="w-full px-3 py-2.5 rounded-lg border text-sm" style={fieldStyle} />
             </div>
             <div>
-              <label className="text-xs font-semibold block mb-1" style={{ color: 'var(--muted)' }}>Genre</label>
-              <select value={form.genre} onChange={(e) => set('genre', e.target.value)}
-                className="w-full px-3 py-2.5 rounded-lg border text-sm" style={fieldStyle}>
-                <option value="">—</option>
-                <option value="M">Masculin</option>
-                <option value="F">Féminin</option>
-              </select>
+              <label className="text-xs font-semibold block mb-1" style={{ color: 'var(--muted)' }}>Lieu de naissance</label>
+              <input value={form.lieuNaissance} onChange={(e) => set('lieuNaissance', e.target.value)}
+                className="w-full px-3 py-2.5 rounded-lg border text-sm" style={fieldStyle} placeholder="Ex : Dakar" />
             </div>
+          </div>
+          <div>
+            <label className="text-xs font-semibold block mb-1" style={{ color: 'var(--muted)' }}>Genre</label>
+            <select value={form.genre} onChange={(e) => set('genre', e.target.value)}
+              className="w-full px-3 py-2.5 rounded-lg border text-sm" style={fieldStyle}>
+              <option value="">—</option>
+              <option value="M">Masculin</option>
+              <option value="F">Féminin</option>
+            </select>
           </div>
           <div className="pt-1" style={{ borderTop: '1px solid var(--line)' }}>
             <div className="text-[11px] font-bold uppercase tracking-wide mb-2 mt-2" style={{ color: 'var(--muted)' }}>Tuteur / Responsable</div>
@@ -4721,10 +4813,13 @@ function staffGenderSummary(personnel) {
 function StudentIdentityCard({ state, cls, student }) {
   const code = student.cardCode || `ELV-${String(student.id || '').slice(-8).toUpperCase()}`;
   const school = state.header?.ecole || 'Établissement scolaire';
+  const birthDate = student.dateNaissance
+    ? (() => { const d = new Date((student.dateNaissance || '').replace(/(\d{4})-(\d{2})-(\d{2})/, '$2/$3/$1')); return isNaN(d.getTime()) ? student.dateNaissance : d.toLocaleDateString('fr-FR', { day: 'numeric', month: 'long', year: 'numeric' }); })()
+    : '';
   const qrValue = `SYGENOP|CARTE|${code}|${student.id}`;
   return <div className="student-id-card-sheet"><div className="student-id-card-front sygenop-card p-5" style={{ border: '2px solid var(--green-d)' }}>
     <div className="flex items-start justify-between gap-4"><SenegalFlag className="w-16 h-auto flex-shrink-0" /><div><div className="text-lg font-bold" style={{ color: 'var(--green-d)' }}>{school}</div><div className="text-xs" style={{ color: 'var(--muted)' }}>CARTE D’IDENTITÉ SCOLAIRE · RECTO · Année {state.header?.annee || 'en cours'}</div></div><QRBadge value={qrValue} size={72} label="" /></div>
-    <div className="grid grid-cols-[1fr_120px] gap-4 mt-4 pt-4" style={{ borderTop: '1px solid var(--line)' }}><div className="space-y-2 text-sm"><div><b>Élève :</b> {student.prenom || '—'} {student.nom || ''}</div><div><b>Identifiant :</b> {code}</div><div><b>Classe :</b> {cls.name} · {cls.level}</div><div><b>Âge / Genre :</b> {student.age || '—'} / {student.genre || '—'}</div><div><b>Tuteur / Responsable :</b> {student.tuteurNom || 'Non renseigné'}</div><div><b>Contact tuteur :</b> {student.tuteurTel || 'Non renseigné'}</div></div><div className="border rounded-lg flex items-center justify-center overflow-hidden" style={{ borderColor: 'var(--line)', minHeight: 145, background: 'var(--bg)' }}>{student.photoData ? <img src={student.photoData} alt={`Photo de ${student.prenom || 'l’élève'}`} className="w-full h-full object-cover" /> : <span className="text-xs text-center px-2" style={{ color: 'var(--muted)' }}>Photo de l’élève</span>}</div></div>
+    <div className="grid grid-cols-[1fr_120px] gap-4 mt-4 pt-4" style={{ borderTop: '1px solid var(--line)' }}><div className="space-y-2 text-sm"><div><b>Élève :</b> {student.prenom || '—'} {student.nom || ''}</div><div><b>Identifiant :</b> {code}</div><div><b>Classe :</b> {cls.name} · {cls.level}</div><div><b>Né(e) le :</b> {birthDate || '—'}</div><div><b>Lieu de naissance :</b> {student.lieuNaissance || '—'}</div><div><b>Genre :</b> {student.genre === 'F' ? 'Féminin' : student.genre === 'M' ? 'Masculin' : (student.genre || '—')}</div><div><b>Tuteur / Responsable :</b> {student.tuteurNom || 'Non renseigné'}</div><div><b>Contact tuteur :</b> {student.tuteurTel || 'Non renseigné'}</div></div><div className="border rounded-lg flex items-center justify-center overflow-hidden" style={{ borderColor: 'var(--line)', minHeight: 145, background: 'var(--bg)' }}>{student.photoData ? <img src={student.photoData} alt={`Photo de ${student.prenom || 'l’élève'}`} className="w-full h-full object-cover" /> : <span className="text-xs text-center px-2" style={{ color: 'var(--muted)' }}>Photo de l’élève</span>}</div></div>
     <div className="mt-4 text-[10px]" style={{ color: 'var(--muted)' }}>Scannez le QR code pour vérifier la situation des mensualités dans l’application.</div>
   </div><div className="student-id-card-back sygenop-card p-6 text-center" style={{ border: '2px solid var(--green-d)' }}><div className="font-bold text-lg" style={{ color: 'var(--green-d)' }}>{school}</div><div className="text-xs mb-5" style={{ color: 'var(--muted)' }}>CARTE D’IDENTITÉ SCOLAIRE · VERSO</div><QRBadge value={qrValue} size={230} label="Identifiant permanent de l’élève" /><div className="mt-5 text-xs" style={{ color: 'var(--muted)' }}>Ce QR ne change jamais. La comptabilité le scanne pour consulter les mensualités à jour dans le système.</div></div></div>;
 }
@@ -4745,6 +4840,58 @@ function StaffIdentityCard({ state, person }) {
   </div><div className="student-id-card-back sygenop-card p-6 text-center" style={{ border: '2px solid var(--gold, #b8862f)' }}><div className="font-bold text-lg" style={{ color: 'var(--green-d)' }}>{school}</div><div className="text-xs mb-5" style={{ color: 'var(--muted)' }}>CARTE PROFESSIONNELLE · VERSO</div><QRBadge value={qrValue} size={230} label="Identifiant permanent de l’agent" /><div className="mt-5 text-xs" style={{ color: 'var(--muted)' }}>Ce QR ne change jamais. Il sert de badge d’accès et d’identification du personnel dans le système.</div></div></div>;
 }
 
+function StudentSchoolCertificate({ state, cls, student }) {
+  const school = state.header?.ecole || 'Établissement scolaire';
+  const directeur = state.header?.directeur || '';
+  const code = student.cardCode || `ELV-${String(student.id || '').slice(-8).toUpperCase()}`;
+  const annee = state.header?.annee || 'année scolaire en cours';
+  const today = new Date();
+  const dateStr = today.toLocaleDateString('fr-FR', { day: 'numeric', month: 'long', year: 'numeric' });
+  const localite = state.header?.localite || state.header?.adresse || 'à Dakar';
+  const nomComplet = `${student.prenom || ''} ${student.nom || ''}`.trim() || 'l’élève désigné ci-dessous';
+  const birthDate = student.dateNaissance
+    ? (() => { const d = new Date((student.dateNaissance || '').split('/').length === 3 ? student.dateNaissance : student.dateNaissance + 'T00:00:00'); return isNaN(d.getTime()) ? student.dateNaissance : d.toLocaleDateString('fr-FR', { day: 'numeric', month: 'long', year: 'numeric' }); })()
+    : '';
+  const niveau = cls.level ? `${cls.level}` : '';
+  const num = `N° ${String((state.certCounter || 0) + (student.cardCode ? 1 : 0)).padStart(4, '0')}/${annee}`;
+  return (
+    <div className="mx-auto bg-white" style={{ color: '#11231b', width: '210mm', minHeight: '148mm' }}>
+      <div className="relative h-full border-4 p-1.5" style={{ borderColor: 'var(--green-d, #0a4f3a)' }}>
+        <div className="h-full border-2 px-7 py-6 flex flex-col" style={{ borderColor: 'var(--green-d, #0a4f3a)' }}>
+          {/* En-tête */}
+          <div className="flex items-center justify-between border-b-2 pb-3" style={{ borderColor: 'var(--green-d, #0a4f3a)' }}>
+            <SenegalFlag className="w-12 h-auto" />
+            <div className="text-center">
+              <div className="text-base font-extrabold leading-tight" style={{ color: 'var(--green-d, #0a4f3a)' }}>{school}</div>
+              <div className="text-[10px]" style={{ color: '#4b6a5c' }}>République du Sénégal · Un Peuple, Un But, Une Foi</div>
+              <div className="text-[10px]" style={{ color: '#4b6a5c' }}>Adresse : {localite} — {num}</div>
+            </div>
+            <svg width="38" height="38" viewBox="0 0 24 24" fill="none" stroke="#b8862f" strokeWidth="1.5"><circle cx="12" cy="12" r="9" /><path d="M8 7h8M8 12h8M8 17h5" /></svg>
+          </div>
+          <div className="mt-3 text-center">
+            <div className="inline-block px-5 py-1 font-extrabold text-base tracking-wide" style={{ border: '2px solid var(--green-d, #0a4f3a)', color: 'var(--green-d, #0a4f3a)' }}>CERTIFICAT DE SCOLARITÉ</div>
+          </div>
+          <p className="mt-3 text-[13px] leading-relaxed">Je soussigné(e), <b>{directeur || 'le Directeur(trice)'}</b>, Directeur(trice) de l’établissement <b>{school}</b>, situé(e) {localite}, atteste que l’élève&nbsp;:</p>
+          <div className="mt-3 text-center">
+            <div className="font-extrabold text-lg" style={{ color: '#11231b' }}>{nomComplet}</div>
+            <div className="text-xs mt-0.5" style={{ color: '#4b6a5c' }}>Identifiant scolaire : {code} · Né(e) le : {birthDate || '—'} · Lieu : {student.lieuNaissance || '—'} · Sexe : {student.genre ? (student.genre === 'F' ? 'Féminin' : 'Masculin') : '—'}</div>
+          </div>
+          <p className="mt-3 text-[13px] leading-relaxed">est régulièrement inscrit(e) et entièrement pris(e) en charge dans l’effectif de notre établissement, dans la classe <b>{cls.name}{niveau ? ` — ${niveau}` : ''}</b>, pour l’{annee}.</p>
+          <p className="text-[13px] leading-relaxed mt-2">Le présent certificat, délivré(e) à la demande de l’intéressé, en son père, sa mère ou tuteur, sert et vaudra pour tous droits et usages légaux, notamment pour l’inscription, la réinscription et toute démarche administrative.</p>
+          <div className="mt-3 flex-1"></div>
+          <p className="text-[13px] leading-relaxed">Fait {localite}, le {dateStr}.</p>
+          <div className="mt-4 flex items-end justify-between">
+            <div>
+              <div className="text-[13px] font-semibold">{directeur || 'Le Directeur(trice)'}</div>
+              <div className="mt-2 text-[10px]" style={{ color: '#4b6a5c' }}>Le Directeur(trice) — cachet officiel</div>
+            </div>
+            <QRBadge value={`SYGENOP|CERT|${code}|${student.id}`} size={72} label="Vérifier le certificat" />
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
 function StudentCardVerification({ state: incomingState, updateState, notify }) {
   const state = incomingState || { classes: {}, header: {}, fees: {} };
   const [rawCode, setRawCode] = useState('');
@@ -4821,6 +4968,9 @@ function GradeGrid({ state, classId, cls, cfg, periodKey, periods, updateState, 
   const [addModalOpen, setAddModalOpen] = useState(false);
   const [editStudent, setEditStudent] = useState(null); // élève en cours de modification des informations
   const [cardStudent, setCardStudent] = useState(null);
+  const [certStudent, setCertStudent] = useState(null);
+  const [ficheStudent, setFicheStudent] = useState(null);
+  const [searchText, setSearchText] = useState('');
   const [gradingIdx, setGradingIdx] = useState(null); // index de l'élève en cours de notation (null = modal fermé)
   const [draft, setDraft] = useState({}); // notes en cours de saisie dans le modal
   const timerRef = useRef(null);
@@ -4960,17 +5110,32 @@ function addStudent(student) {
             {maxStudentsPerClass && <span style={{ color: 'var(--gold)' }}> · Limite privée : {students.length}/{maxStudentsPerClass} élèves</span>}
           </div>
         </div>
-        {!readOnly && (
-          <button
-            onClick={() => setAddModalOpen(true)}
-            disabled={maxStudentsPerClass && students.length >= maxStudentsPerClass}
-            title={maxStudentsPerClass && students.length >= maxStudentsPerClass ? `Limite atteinte : cette classe privée ne peut compter que ${maxStudentsPerClass} élèves.` : 'Ajouter un élève'}
-            className="ml-auto px-3.5 py-2 rounded-lg text-sm font-semibold text-white flex items-center gap-1.5 disabled:opacity-40 disabled:cursor-not-allowed"
-            style={{ background: 'var(--green-d)' }}
-          >
-            <Plus size={16} /> Ajouter un élève
-          </button>
-        )}
+        <div className="flex items-center gap-2 ml-auto">
+          <div className="relative">
+            <Search size={15} className="absolute left-3 top-1/2 -translate-y-1/2" style={{ color: 'var(--muted)' }} />
+            <input
+              value={searchText}
+              onChange={(e) => setSearchText(e.target.value)}
+              placeholder="Rechercher un élève…"
+              className="pl-9 pr-3 py-2 rounded-lg border text-sm w-56"
+              style={{ borderColor: 'var(--line)', background: 'var(--panel)', color: 'var(--ink)' }}
+            />
+            {searchText && (
+              <button onClick={() => setSearchText('')} className="absolute right-2 top-1/2 -translate-y-1/2" style={{ color: 'var(--muted)' }}><X size={14} /></button>
+            )}
+          </div>
+          {!readOnly && (
+            <button
+              onClick={() => setAddModalOpen(true)}
+              disabled={maxStudentsPerClass && students.length >= maxStudentsPerClass}
+              title={maxStudentsPerClass && students.length >= maxStudentsPerClass ? `Limite atteinte : cette classe privée ne peut compter que ${maxStudentsPerClass} élèves.` : 'Ajouter un élève'}
+              className="px-3.5 py-2 rounded-lg text-sm font-semibold text-white flex items-center gap-1.5 disabled:opacity-40 disabled:cursor-not-allowed whitespace-nowrap"
+              style={{ background: 'var(--green-d)' }}
+            >
+              <Plus size={16} /> Ajouter un élève
+            </button>
+          )}
+        </div>
       </div>
 
       {!doms.length ? (
@@ -4994,7 +5159,9 @@ function addStudent(student) {
               </tr>
             </thead>
             <tbody>
-              {students.map((st, i) => {
+              {students
+                .filter((st) => !searchText.trim() || `${st.prenom || ''} ${st.nom || ''} ${st.tuteurNom || ''}`.toLowerCase().includes(searchText.trim().toLowerCase()))
+                .map((st, i) => {
                 const isValidated = !!(st.validated && st.validated[periodKey]);
                 return (
                   <tr key={st.id} style={{ borderBottom: '1px solid var(--line)' }}>
@@ -5002,8 +5169,8 @@ function addStudent(student) {
                       <div className="flex items-center gap-2">
                         {!readOnly ? (
                           <button
-                            onClick={() => setEditStudent(st)}
-                            title={isFemale(st.genre) ? 'Femme — cliquer pour modifier les informations' : isMale(st.genre) ? 'Homme — cliquer pour modifier les informations' : 'Genre non défini — cliquer pour modifier les informations'}
+                            onClick={() => setFicheStudent(st)}
+                            title={isFemale(st.genre) ? `Voir la fiche de ${st.prenom || ''} ${st.nom || ''}` : `Voir la fiche de ${st.prenom || ''} ${st.nom || ''}`}
                             className="flex-shrink-0 p-1 rounded-full hover:bg-black/5 transition-colors"
                             style={{ cursor: 'pointer', lineHeight: 0 }}
                           >
@@ -5026,7 +5193,6 @@ function addStudent(student) {
                     </td>
                     <td className="px-4 py-3">
                       <div className="flex items-center justify-end gap-1.5">
-                        <button onClick={() => setCardStudent(st)} className="p-1.5 rounded-lg hover:bg-black/5" style={{ color: 'var(--gold)' }} title="Carte d'identité scolaire"><CreditCard size={15} /></button>
                         {!readOnly && (
                           <button
                             onClick={() => openGrading(i)}
@@ -5172,6 +5338,17 @@ function addStudent(student) {
         />
       )}
 
+      {ficheStudent && (
+        <StudentFicheModal
+          student={ficheStudent}
+          clsName={cls.name}
+          onCard={() => { setCardStudent(ficheStudent); setFicheStudent(null); }}
+          onCert={() => { setCertStudent(ficheStudent); setFicheStudent(null); }}
+          onEdit={readOnly ? null : () => { setEditStudent(ficheStudent); setFicheStudent(null); }}
+          onClose={() => setFicheStudent(null)}
+        />
+      )}
+
       {editStudent && !readOnly && (
         <EditStudentModal
           student={editStudent}
@@ -5182,6 +5359,10 @@ function addStudent(student) {
 
       {cardStudent && (
         <div id="student-card-print" className="fixed inset-0 z-50 overflow-auto p-4" style={{ background: 'rgba(10,20,15,.45)' }}><div className="max-w-2xl mx-auto mt-4"><div className="no-print flex flex-wrap justify-end gap-2 mb-2"><label className="px-3 py-2 rounded-lg text-sm font-semibold cursor-pointer" style={{ background: 'var(--gold-l)', color: 'var(--gold)' }}>Ajouter / changer la photo<input type="file" accept="image/*" className="hidden" onChange={(e) => { const file = e.target.files?.[0]; if (!file) return; const reader = new FileReader(); reader.onload = () => { const photoData = String(reader.result || ''); const next = students.map((s) => s.id === cardStudent.id ? { ...s, photoData } : s); updateStudents(next); setCardStudent((s) => ({ ...s, photoData })); }; reader.readAsDataURL(file); }} /></label><button onClick={() => window.print()} className="px-3 py-2 rounded-lg text-white flex items-center gap-1" style={{ background: 'var(--green-d)' }}><Printer size={14} /> Imprimer / PDF</button><button onClick={() => setCardStudent(null)} className="px-3 py-2 rounded-lg" style={{ background: 'var(--panel)' }}>Fermer</button></div><StudentIdentityCard state={state} cls={cls} student={cardStudent} /></div></div>
+      )}
+
+      {certStudent && (
+        <div id="student-cert-print" className="fixed inset-0 z-50 overflow-auto p-4" style={{ background: 'rgba(10,20,15,.45)' }}><div className="max-w-[220mm] mx-auto mt-4"><div className="no-print flex flex-wrap justify-end gap-2 mb-2"><button onClick={() => window.print()} className="px-3 py-2 rounded-lg text-white flex items-center gap-1" style={{ background: 'var(--green-d)' }}><Printer size={14} /> Imprimer / PDF</button><button onClick={() => setCertStudent(null)} className="px-3 py-2 rounded-lg" style={{ background: 'var(--panel)' }}>Fermer</button></div><StudentSchoolCertificate state={state} cls={cls} student={certStudent} /></div></div>
       )}
 
       {toDelete && (
@@ -10394,7 +10575,7 @@ const [iefList, setIefList] = useState([]);
 /* ============================================================
    APP RACINE
    ============================================================ */
-export default function SygenopApp() {
+export default function SygenopApp({ onBack, connectHome }) {
   const [dark, setDark] = useState(loadJSON(LS_THEME, false));
   const [session, setSession] = useState(null); // {role, schoolId?, staffId?}
   const [activeSchoolId, setActiveSchoolId] = useState(loadJSON(LS_SCHOOL_ID, null));
@@ -10766,7 +10947,7 @@ function openSchool(id, name, actif) {
   if (!session) {
     return (
       <>
-        <LoginScreen onLogin={handleLogin} dark={dark} setDark={setDark} notify={notify} />
+        <LoginScreen onLogin={handleLogin} dark={dark} setDark={setDark} notify={notify} onBack={connectHome ? onBack : null} />
         <ChesterWidget dark={dark} />
       </>
     );
