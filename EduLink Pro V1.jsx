@@ -55,7 +55,7 @@ async function sb(method, table, params = '', body = null) {
   if (ADMIN_SECURED_TABLES.has(table)) {
     // admins / iefs / ief_config : GET compris, tout passe par admin-write
     // (auth + périmètre serveur), jamais d'appel REST anon direct.
-    const session = loadJSON(LS_SESSION, null);
+    const session = loadSessionJSON(LS_SESSION, null);
     const isRootAdmin = session && session.role === 'admin' && !session.iefId;
     const isIefAdmin = session && session.role === 'admin' && !!session.iefId;
     const adminCode = isRootAdmin ? (session.adminCode || '') : '';
@@ -87,7 +87,7 @@ async function sb(method, table, params = '', body = null) {
     // ief_id + ief_admin_code ; un admin d'école envoie school_id + school_code.
     // Les trois sont vérifiés côté serveur (jamais fait confiance à la
     // session côté client seule).
-    const session = loadJSON(LS_SESSION, null);
+    const session = loadSessionJSON(LS_SESSION, null);
     const isRootAdmin = session && session.role === 'admin' && !session.iefId;
     const isIefAdmin = session && session.role === 'admin' && !!session.iefId;
     const adminCode = isRootAdmin ? (session.adminCode || '') : '';
@@ -176,6 +176,29 @@ function saveJSON(key, value) {
 }
 function clearJSON(key) {
   try { localStorage.removeItem(key); } catch (_) {}
+}
+
+// ---- Stockage dédié à la session active (sessionStorage, pas localStorage) ----
+// La session peut contenir des codes d'accès sensibles (adminCode, iefCode,
+// iefAdminCode) dont la portée dépasse une seule école — un code IEF ou
+// Admin fuité donne accès en lecture (IEF) ou en écriture (Admin) à
+// plusieurs écoles, voire à tout le système. sessionStorage est effacé à la
+// fermeture de l'onglet/navigateur et n'est jamais partagé entre onglets,
+// ce qui réduit fortement la fenêtre d'exposition sur un appareil partagé
+// par rapport à localStorage (qui persiste indéfiniment jusqu'à
+// déconnexion manuelle). Un rechargement de page dans le même onglet reste
+// inchangé pour l'utilisateur.
+function loadSessionJSON(key, fallback) {
+  try {
+    const raw = sessionStorage.getItem(key);
+    return raw ? JSON.parse(raw) : fallback;
+  } catch (_) { return fallback; }
+}
+function saveSessionJSON(key, value) {
+  try { sessionStorage.setItem(key, JSON.stringify(value)); } catch (_) {}
+}
+function clearSessionJSON(key) {
+  try { sessionStorage.removeItem(key); } catch (_) {}
 }
 
 /* ---- Durée restante d'une session ---- */
@@ -1026,7 +1049,7 @@ function cachedSchoolCode(id) {
 }
 
 async function loadSchoolData(id) {
-  const session = loadJSON(LS_SESSION, null);
+  const session = loadSessionJSON(LS_SESSION, null);
   const ownsSchool = session?.schoolId === id;
   const staffRole = ['teacher', 'guard', 'accountant', 'secretary'].includes(session?.role);
   let schoolCode = (ownsSchool ? (session.schoolCode || getActiveSchoolCode()) : '') || null;
@@ -1093,7 +1116,7 @@ async function loadSchoolData(id) {
 // il permet la synchronisation différée même si la session a changé ou expiré
 // d'ici là (autre école, autre rôle, timeout).
 function buildAccessSnapshot() {
-  const s = loadJSON(LS_SESSION, null);
+  const s = loadSessionJSON(LS_SESSION, null);
   if (!s) return null;
   return {
     schoolId: s.schoolId ?? null,
@@ -1106,7 +1129,7 @@ function buildAccessSnapshot() {
 }
 
 async function saveSchoolData(id, state, access) {
-  const session = loadJSON(LS_SESSION, null);
+  const session = loadSessionJSON(LS_SESSION, null);
   // Le snapshot capturé à la saisie ne vaut que pour l'école d'origine pour
   // les codes ÉCOLE et PERSONNEL (vérifiés contre cette école précise).
   // Les codes ADMIN, eux, ne sont pas liés à une école côté client : leur
@@ -10595,11 +10618,11 @@ export default function SygenopApp({ onBack, connectHome }) {
 
 // Rétablit la session sauvegardée au rechargement (mode hors-ligne).
   useEffect(() => {
-    const saved = loadJSON(LS_SESSION, null);
+    const saved = loadSessionJSON(LS_SESSION, null);
     if (saved && saved.role) {
       // Session expirée : on la purge et on force une nouvelle connexion.
       if (isSessionExpired(saved)) {
-        clearJSON(LS_SESSION);
+        clearSessionJSON(LS_SESSION);
         clearJSON(LS_SCHOOL_ID);
         clearJSON(LS_SCHOOL_NAME);
         setActiveSchoolCode(null);
@@ -10817,7 +10840,7 @@ function handleLogin(sessionData) {
     // forcer une reconnexion régulière et limiter l'accès sur appareil partagé.
     const withExpiry = { ...sessionData, expiresAt: new Date(Date.now() + SESSION_ABS_TIMEOUT_MS).toISOString() };
     setSession(withExpiry);
-    saveJSON(LS_SESSION, withExpiry);
+    saveSessionJSON(LS_SESSION, withExpiry);
     setAbsTarget(Date.now() + SESSION_ABS_TIMEOUT_MS);
     // Nouvelle connexion : on repart de la page d'accueil du rôle.
     setActive(homePageFor(sessionData.role));
@@ -10865,7 +10888,7 @@ function handleLogout() {
     setAbsTarget(null);
     setIdleTarget(null);
     setActive('dash');
-    clearJSON(LS_SESSION);
+    clearSessionJSON(LS_SESSION);
     clearJSON(LS_SCHOOL_ID);
     clearJSON(LS_SCHOOL_NAME);
     setActiveSchoolCode(null);
