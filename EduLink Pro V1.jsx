@@ -1730,55 +1730,104 @@ function ActualitesTicker({ actualites, onOpen }) {
    ============================================================ */
 function LoginScreen({ onLogin, dark, setDark, notify, onBack }) {
   const [tab, setTab] = useState('school'); // school | personnel | ief | admin
-  const [schools, setSchools] = useState([]);
-  const [loadingSchools, setLoadingSchools] = useState(true);
-  const [schoolId, setSchoolId] = useState('');
   const [code, setCode] = useState('');
   const [showCode, setShowCode] = useState(false);
-  const [staffId, setStaffId] = useState('');
-  const [staffOptions, setStaffOptions] = useState([]);
   const [busy, setBusy] = useState(false);
 
-  useEffect(() => {
-    (async () => {
-      // Affichage immédiat depuis le cache local (permet de se connecter hors-ligne)
-      setSchools(loadJSON(LS_SCHOOLS, []));
-      try {
-        const rows = (await sb('GET', 'public_schools', 'order=name.asc')) || [];
-        setSchools(rows);
-        saveJSON(LS_SCHOOLS, rows);
-      } catch (e) {
-        // Pas de réseau : on garde le cache. Si vide, on signale.
-        if (!loadJSON(LS_SCHOOLS, []).length) {
-          notify('Hors ligne : impossible de charger la liste des écoles. Reconnectez-vous au réseau.', true);
-        }
-      } finally {
-        setLoadingSchools(false);
-      }
-    })();
-  }, []);
+  // ---- Recherche d'école (remplace le menu déroulant listant tout) ----
+  const [schoolQuery, setSchoolQuery] = useState('');
+  const [schoolResults, setSchoolResults] = useState([]);
+  const [schoolSearching, setSchoolSearching] = useState(false);
+  const [selectedSchool, setSelectedSchool] = useState(null);
+  const schoolId = selectedSchool?.id || '';
 
   useEffect(() => {
-    if (tab !== 'personnel' || !schoolId) { setStaffOptions([]); return; }
-    (async () => {
+    const q = schoolQuery.trim();
+    if (q.length < 2) { setSchoolResults([]); return; }
+    let cancelled = false;
+    setSchoolSearching(true);
+    const t = setTimeout(async () => {
       try {
-        try {
-          const res = await sb('POST', 'rpc/get_school_personnel', '', { p_school_id: schoolId });
-          setStaffOptions(res?.personnel || []);
-        } catch (_) {
-          const st = await loadSchoolData(schoolId);
-          setStaffOptions(st.personnel || []);
+        const rows = (await sb('POST', 'rpc/search_public_schools', '', { p_query: q })) || [];
+        if (!cancelled) {
+          setSchoolResults(rows);
+          // Cache local incrémental (uniquement ce qui a été explicitement
+          // recherché), pour permettre une reconnexion hors-ligne ultérieure
+          // — jamais un dump complet de l'annuaire.
+          const cache = loadJSON(LS_SCHOOLS, []);
+          const merged = [...rows, ...cache.filter((c) => !rows.some((r) => r.id === c.id))].slice(0, 30);
+          saveJSON(LS_SCHOOLS, merged);
         }
-      } catch (e) {
-        // Hors-ligne : le personnel n'est pas disponible ; l'enseignant ne peut pas se connecter.
-        notify('Impossible de charger le personnel (hors-ligne ?). Réessayez avec une connexion internet.', true);
+      } catch (_) {
+        // Hors-ligne : on retombe sur le cache local (déjà limité aux
+        // écoles précédemment recherchées sur CET appareil).
+        if (!cancelled) {
+          const cache = loadJSON(LS_SCHOOLS, []);
+          setSchoolResults(cache.filter((s) => (s.name || '').toLowerCase().includes(q.toLowerCase())).slice(0, 8));
+        }
+      } finally {
+        if (!cancelled) setSchoolSearching(false);
       }
-    })();
-}, [tab, schoolId]);
+    }, 300);
+    return () => { cancelled = true; clearTimeout(t); };
+  }, [schoolQuery]);
+
+  function pickSchool(s) {
+    setSelectedSchool(s);
+    setSchoolQuery('');
+    setSchoolResults([]);
+    clearStaffSelection();
+  }
+  function clearSchoolSelection() {
+    setSelectedSchool(null);
+    clearStaffSelection();
+  }
+
+  // ---- Recherche de personnel (remplace le menu déroulant listant tout) ----
+  const [staffQuery, setStaffQuery] = useState('');
+  const [staffResults, setStaffResults] = useState([]);
+  const [staffSearching, setStaffSearching] = useState(false);
+  const [selectedStaff, setSelectedStaff] = useState(null);
+  const staffId = selectedStaff?.id || '';
+
+  function clearStaffSelection() {
+    setSelectedStaff(null);
+    setStaffQuery('');
+    setStaffResults([]);
+  }
+
+  useEffect(() => {
+    const q = staffQuery.trim();
+    if (tab !== 'personnel' || !schoolId || q.length < 2) { setStaffResults([]); return; }
+    let cancelled = false;
+    setStaffSearching(true);
+    const t = setTimeout(async () => {
+      try {
+        const res = await sb('POST', 'rpc/search_school_personnel', '', { p_school_id: schoolId, p_query: q });
+        if (!cancelled) setStaffResults(res?.personnel || []);
+      } catch (_) {
+        // Hors-ligne : dernier recours, données scolaires déjà en cache
+        // localement (ne fonctionne que si CET appareil s'est déjà
+        // connecté à cette école auparavant).
+        try {
+          const st = await loadSchoolData(schoolId);
+          const list = (st.personnel || []).filter((p) =>
+            `${p.prenom || ''} ${p.nom || ''}`.toLowerCase().includes(q.toLowerCase())
+          ).slice(0, 8);
+          if (!cancelled) setStaffResults(list);
+        } catch (_e) {
+          if (!cancelled) notify('Impossible de charger le personnel (hors-ligne ?). Réessayez avec une connexion internet.', true);
+        }
+      } finally {
+        if (!cancelled) setStaffSearching(false);
+      }
+    }, 300);
+    return () => { cancelled = true; clearTimeout(t); };
+  }, [tab, schoolId, staffQuery]);
 
   async function submitSchool(e) {
     e.preventDefault();
-    const s = schools.find((x) => x.id === schoolId);
+    const s = selectedSchool;
     if (!s) { notify('Sélectionnez une école', true); return; }
     if (s.actif === false) { notify('Cette école est désactivée. Contactez l\u2019administration (Super Admin).', true); return; }
     const lock = loginLockInfo('school:' + s.id);
@@ -1817,10 +1866,10 @@ recordLoginSuccess('school:' + s.id);
 async function submitTeacher(e) {
     e.preventDefault();
     if (!schoolId) { notify('Sélectionnez une école', true); return; }
-    const school = schools.find((x) => x.id === schoolId);
+    const school = selectedSchool;
     if (school && school.actif === false) { notify('Cette école est désactivée. Contactez l\u2019administration (Super Admin).', true); return; }
     if (!staffId) { notify('Sélectionnez votre nom', true); return; }
-    const p = staffOptions.find((x) => x.id === staffId);
+    const p = selectedStaff;
     if (!p) { notify('Personnel introuvable', true); return; }
     const accessRole = staffAccessRole(p.role);
     if (!accessRole) { notify('Cet agent n’a pas encore de profil de connexion. Configurez son accès dans Personnel.', true); return; }
@@ -2027,18 +2076,19 @@ const entered = String(code).trim();
 
           {tab === 'school' && (
             <form onSubmit={submitSchool} className="space-y-4">
-              <div>
-                <label className="text-xs font-semibold block mb-1" style={{ color: 'var(--muted)' }}>École</label>
-                <select
-                  value={schoolId}
-                  onChange={(e) => setSchoolId(e.target.value)}
-                  className="w-full px-3 py-3 rounded-lg border text-sm"
-                  style={{ borderColor: 'var(--line)', background: 'var(--panel)', color: 'var(--ink)' }}
-                >
-<option value="">{loadingSchools ? 'Chargement…' : 'Sélectionner une école'}</option>
-                  {schools.map((s) => <option key={s.id} value={s.id}>{s.name}{s.actif === false ? ' (désactivée)' : ''}</option>)}
-                </select>
-              </div>
+              <SearchPicker
+                label="École"
+                placeholder="Tapez le nom de l'école…"
+                query={schoolQuery}
+                setQuery={setSchoolQuery}
+                results={schoolResults}
+                loading={schoolSearching}
+                selected={selectedSchool}
+                onSelect={pickSchool}
+                onClear={clearSchoolSelection}
+                getKey={(s) => s.id}
+                renderOption={(s) => `${s.name}${s.actif === false ? ' (désactivée)' : ''}`}
+              />
               <CodeField code={code} setCode={setCode} show={showCode} setShow={setShowCode} label="Code d'accès" />
               <SubmitBtn busy={busy}>Se connecter</SubmitBtn>
             </form>
@@ -2046,31 +2096,34 @@ const entered = String(code).trim();
 
           {tab === 'personnel' && (
             <form onSubmit={submitTeacher} className="space-y-4">
-              <div>
-                <label className="text-xs font-semibold block mb-1" style={{ color: 'var(--muted)' }}>École</label>
-                <select
-                  value={schoolId}
-                  onChange={(e) => { setSchoolId(e.target.value); setStaffId(''); }}
-                  className="w-full px-3 py-3 rounded-lg border text-sm"
-                  style={{ borderColor: 'var(--line)', background: 'var(--panel)', color: 'var(--ink)' }}
-                >
-<option value="">Sélectionner une école</option>
-                  {schools.map((s) => <option key={s.id} value={s.id}>{s.name}{s.actif === false ? ' (désactivée)' : ''}</option>)}
-                </select>
-              </div>
-              <div>
-                <label className="text-xs font-semibold block mb-1" style={{ color: 'var(--muted)' }}>Votre nom</label>
-                <select
-                  value={staffId}
-                  onChange={(e) => setStaffId(e.target.value)}
-                  disabled={!schoolId}
-                  className="w-full px-3 py-3 rounded-lg border text-sm disabled:opacity-50"
-                  style={{ borderColor: 'var(--line)', background: 'var(--panel)', color: 'var(--ink)' }}
-                >
-                  <option value="">{schoolId ? (staffOptions.length ? 'Sélectionner' : 'Aucun personnel enregistré') : 'Choisissez d\u2019abord une école'}</option>
-                  {staffOptions.map((p) => <option key={p.id} value={p.id}>{personFullName(p) || p.nom} — {displayStaffRole(p.role)}</option>)}
-                </select>
-              </div>
+              <SearchPicker
+                label="École"
+                placeholder="Tapez le nom de l'école…"
+                query={schoolQuery}
+                setQuery={setSchoolQuery}
+                results={schoolResults}
+                loading={schoolSearching}
+                selected={selectedSchool}
+                onSelect={pickSchool}
+                onClear={clearSchoolSelection}
+                getKey={(s) => s.id}
+                renderOption={(s) => `${s.name}${s.actif === false ? ' (désactivée)' : ''}`}
+              />
+              <SearchPicker
+                label="Votre nom"
+                placeholder="Tapez votre nom de famille…"
+                query={staffQuery}
+                setQuery={setStaffQuery}
+                results={staffResults}
+                loading={staffSearching}
+                selected={selectedStaff}
+                onSelect={setSelectedStaff}
+                onClear={() => { setSelectedStaff(null); setStaffQuery(''); }}
+                disabled={!schoolId}
+                emptyHint="Choisissez d'abord une école"
+                getKey={(p) => p.id}
+                renderOption={(p) => `${personFullName(p) || p.nom} — ${displayStaffRole(p.role)}`}
+              />
               <CodeField code={code} setCode={setCode} show={showCode} setShow={setShowCode} label="Code d'accès personnel" />
               <SubmitBtn busy={busy}>Se connecter</SubmitBtn>
             </form>
@@ -2129,6 +2182,72 @@ function CodeField({ code, setCode, show, setShow, label }) {
           {show ? <EyeOff size={15} /> : <Eye size={15} />}
         </button>
       </div>
+    </div>
+  );
+}
+
+/* ---- Champ de recherche "à la frappe" (min. 2 caractères) ----
+   Remplace les anciens menus déroulants qui affichaient la liste
+   complète des écoles / du personnel à un visiteur non authentifié
+   (fuite de données). Ici, aucune suggestion n'apparaît tant que
+   l'utilisateur n'a pas tapé au moins 2 caractères, et le nombre de
+   résultats renvoyés par le serveur est plafonné (voir
+   search_public_schools / search_school_personnel côté Supabase). */
+function SearchPicker({ label, placeholder, query, setQuery, results, loading, selected, onSelect, onClear, disabled, emptyHint, getKey, renderOption }) {
+  return (
+    <div>
+      <label className="text-xs font-semibold block mb-1" style={{ color: 'var(--muted)' }}>{label}</label>
+      {selected ? (
+        <div
+          className="w-full px-3 py-3 rounded-lg border text-sm flex items-center justify-between gap-2"
+          style={{ borderColor: 'var(--line)', background: 'var(--panel)', color: 'var(--ink)' }}
+        >
+          <span className="truncate">{renderOption(selected)}</span>
+          <button type="button" onClick={onClear} className="text-xs font-semibold flex-shrink-0" style={{ color: 'var(--green-d)' }}>
+            Changer
+          </button>
+        </div>
+      ) : (
+        <div className="relative">
+          <input
+            type="text"
+            value={query}
+            disabled={disabled}
+            onChange={(e) => setQuery(e.target.value)}
+            className="w-full px-3 py-3 rounded-lg border text-sm disabled:opacity-50"
+            style={{ borderColor: 'var(--line)', background: 'var(--panel)', color: 'var(--ink)' }}
+            placeholder={disabled ? emptyHint : placeholder}
+            autoComplete="off"
+          />
+          {!disabled && query.trim().length >= 2 && (
+            <div
+              className="absolute left-0 right-0 mt-1 rounded-lg border shadow-lg z-10 max-h-56 overflow-auto"
+              style={{ borderColor: 'var(--line)', background: 'var(--panel)' }}
+            >
+              {loading ? (
+                <div className="px-3 py-2 text-xs" style={{ color: 'var(--muted)' }}>Recherche…</div>
+              ) : results.length ? (
+                results.map((opt) => (
+                  <button
+                    type="button"
+                    key={getKey(opt)}
+                    onClick={() => onSelect(opt)}
+                    className="w-full text-left px-3 py-2 text-sm hover:opacity-80"
+                    style={{ color: 'var(--ink)' }}
+                  >
+                    {renderOption(opt)}
+                  </button>
+                ))
+              ) : (
+                <div className="px-3 py-2 text-xs" style={{ color: 'var(--muted)' }}>Aucun résultat</div>
+              )}
+            </div>
+          )}
+          {!disabled && query.trim().length > 0 && query.trim().length < 2 && (
+            <div className="text-[11px] mt-1" style={{ color: 'var(--muted)' }}>Continuez à taper (2 caractères min.)</div>
+          )}
+        </div>
+      )}
     </div>
   );
 }
