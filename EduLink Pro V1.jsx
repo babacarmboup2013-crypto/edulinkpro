@@ -1557,6 +1557,51 @@ function studentDayStatus(state, date, studentId, classId, nowHHMM) {
 }
 const STUDENT_PRESENCE_LABELS = { P: ['Présent', 'green'], R: ['Retard', 'gold'], A: ['Absent', 'red'], attente: ['Non arrivé', 'gold'], 'non-ouvre': ['Jour non ouvré', 'gold'] };
 
+// Liste des dates ISO (AAAA-MM-JJ) entre deux bornes incluses, ordre chronologique.
+function listDatesBetween(startISO, endISO) {
+  const out = [];
+  let d = new Date(`${startISO}T00:00:00`);
+  const end = new Date(`${endISO}T00:00:00`);
+  while (d <= end) { out.push(d.toISOString().slice(0, 10)); d.setDate(d.getDate() + 1); }
+  return out;
+}
+// Statistiques de présence agrégées sur une période, pour un ensemble de
+// classes. Les jours non ouvrés sont exclus du décompte. Un jour « en
+// attente » (aujourd'hui, avant l'heure limite/fin de séance) n'est compté
+// ni présent ni absent, pour ne jamais afficher une fausse absence en cours
+// de journée.
+function computeAttendanceStats(state, classIds, startISO, endISO) {
+  const dates = listDatesBetween(startISO, endISO);
+  const settings = attendanceSettings(state);
+  const nowHHMM = new Date().toTimeString().slice(0, 5);
+  const perClassDaily = {};
+  const perClassTotals = {};
+  const perStudentTotals = {};
+  let joursComptabilises = 0;
+  dates.forEach((date) => {
+    if (nonWorkingDayReason(date, settings)) return;
+    joursComptabilises++;
+    classIds.forEach((classId) => {
+      const cls = state.classes?.[classId];
+      if (!cls) return;
+      let dPresent = 0, dAbsent = 0, dRetard = 0;
+      (cls.students || []).forEach((student) => {
+        const statut = studentDayStatus(state, date, student.id, classId, nowHHMM).statut;
+        if (statut === 'attente' || statut === 'non-ouvre') return;
+        const key = student.id;
+        if (!perStudentTotals[key]) perStudentTotals[key] = { nom: `${student.prenom || ''} ${student.nom || ''}`.trim(), classId, className: cls.name, present: 0, absent: 0, retard: 0, jours: 0 };
+        perStudentTotals[key].jours++;
+        if (statut === 'A') { dAbsent++; perStudentTotals[key].absent++; }
+        else { dPresent++; perStudentTotals[key].present++; if (statut === 'R') { dRetard++; perStudentTotals[key].retard++; } }
+      });
+      (perClassDaily[classId] || (perClassDaily[classId] = [])).push({ date, present: dPresent, absent: dAbsent, retard: dRetard });
+      const ct = perClassTotals[classId] || (perClassTotals[classId] = { className: cls.name, present: 0, absent: 0, retard: 0 });
+      ct.present += dPresent; ct.absent += dAbsent; ct.retard += dRetard;
+    });
+  });
+  return { perClassDaily, perClassTotals, perStudentTotals, joursComptabilises };
+}
+
 /* ============================================================
    THÈME — palette Sénégal/SYGENOP (vert/or), clair + sombre
    ============================================================ */
@@ -2392,6 +2437,7 @@ const NAV_ITEMS = (session) => {
         children: [
           { id: 'classes', label: 'Classes et élèves' },
           { id: 'appel', label: 'Faire l\u2019appel' },
+          { id: 'rapport-presence', label: 'Rapport de présence' },
         ],
       },
     );
@@ -2412,7 +2458,7 @@ const NAV_ITEMS = (session) => {
       { id: 'dash', label: 'Tableau de bord', icon: LayoutDashboard, needsSchool: true },
       { id: 'actualites', label: 'Actualités', icon: MessageCircle, needsSchool: true },
       { id: 'personnel', label: 'Personnel', icon: Users, needsSchool: true },
-      { id: 'eleves', label: 'Élèves', icon: GraduationCap, needsSchool: true, expandable: true, children: [{ id: 'classes', label: 'Classes et élèves' }, { id: 'appel', label: 'Faire l\u2019appel' }] },
+      { id: 'eleves', label: 'Élèves', icon: GraduationCap, needsSchool: true, expandable: true, children: [{ id: 'classes', label: 'Classes et élèves' }, { id: 'appel', label: 'Faire l\u2019appel' }, { id: 'rapport-presence', label: 'Rapport de présence' }] },
       { id: 'admin', label: 'Administration', icon: Settings, needsSchool: true },
       { id: 'data', label: 'Données', icon: Database, needsSchool: true },
     ];
@@ -2426,6 +2472,7 @@ const NAV_ITEMS = (session) => {
       children: [
         { id: 'classes', label: 'Classes et élèves' },
         { id: 'appel', label: 'Faire l\u2019appel' },
+        { id: 'rapport-presence', label: 'Rapport de présence' },
       ],
     },
     { id: 'paiements', label: 'Comptabilité', icon: CreditCard, needsSchool: true },
@@ -2443,6 +2490,7 @@ const PAGE_TITLES = {
   actualites: ['Actualités', 'Publications et informations de l\u2019école'],
   classes: ['Classes et élèves', 'Gestion des classes et des élèves'],
   appel: ['Faire l\u2019appel', 'Présences et absences des élèves — pointage QR'],
+  'rapport-presence': ['Rapport de présence', 'Statistiques d\u2019absentéisme par classe et par période'],
   saisie: ['Saisie des notes', 'Élèves — Saisie des notes'],
   synth: ['Synthèse', 'Élèves — Synthèse'],
   bull: ['Bulletins', 'Élèves — Bulletins'],
@@ -5408,6 +5456,155 @@ function AppelView({ state: incomingState, updateState, notify, teacherName, tea
             </tbody>
           </table>
         </div>
+      </div>
+    </div>
+  );
+}
+
+/* ---------------------------------------------------------------
+   Rapport de présence — statistiques d'absentéisme par classe/période.
+   Lecture seule : s'appuie sur computeAttendanceStats (voir plus haut)
+   pour agréger state.presenceEleves sur la plage de dates choisie.
+   --------------------------------------------------------------- */
+const PRESENCE_PERIODS = [
+  { id: 'today', label: "Aujourd'hui" },
+  { id: 'week', label: 'Cette semaine' },
+  { id: 'month', label: 'Ce mois' },
+  { id: 'custom', label: 'Personnalisé' },
+];
+function presencePeriodRange(periodId, customStart, customEnd) {
+  const today = todayISO();
+  if (periodId === 'today') return [today, today];
+  if (periodId === 'week') {
+    const d = new Date(`${today}T00:00:00`);
+    const monday = new Date(d); monday.setDate(d.getDate() - ((d.getDay() + 6) % 7));
+    return [monday.toISOString().slice(0, 10), today];
+  }
+  if (periodId === 'month') return [today.slice(0, 8) + '01', today];
+  return [customStart || today, customEnd || today];
+}
+function PresenceRapportView({ state, session }) {
+  const isTeacherScoped = session?.role === 'teacher';
+  const teacherName = isTeacherScoped ? teacherNameFromSession(state, session) : null;
+  const classEntries = Object.entries(state?.classes || {})
+    .filter(([, c]) => !isTeacherScoped || c.teacher === teacherName)
+    .sort((a, b) => (a[1].name || '').localeCompare(b[1].name || ''));
+  const [classId, setClassId] = useState(''); // '' = toutes les classes (dans le périmètre autorisé)
+  const [periodId, setPeriodId] = useState('week');
+  const today = todayISO();
+  const [customStart, setCustomStart] = useState(today);
+  const [customEnd, setCustomEnd] = useState(today);
+  const [startISO, endISO] = presencePeriodRange(periodId, customStart, customEnd);
+  const classIds = classId ? [classId] : classEntries.map(([id]) => id);
+
+  const stats = useMemo(
+    () => computeAttendanceStats(state, classIds, startISO, endISO),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [state?.presenceEleves, state?.emploiDuTemps, state?.classes, classIds.join(','), startISO, endISO]
+  );
+
+  const totalPresent = Object.values(stats.perClassTotals).reduce((s, c) => s + c.present, 0);
+  const totalAbsent = Object.values(stats.perClassTotals).reduce((s, c) => s + c.absent, 0);
+  const totalRetard = Object.values(stats.perClassTotals).reduce((s, c) => s + c.retard, 0);
+  const totalJournees = totalPresent + totalAbsent; // une journée « retard » est déjà comptée dans present
+  const tauxPresence = totalJournees ? Math.round((totalPresent / totalJournees) * 100) : null;
+
+  const byClassData = Object.entries(stats.perClassTotals).map(([id, c]) => ({ classe: c.className, absences: c.absent, retards: c.retard })).sort((a, b) => b.absences - a.absences);
+  const byDayData = classId ? (stats.perClassDaily[classId] || []).map((d) => ({ jour: d.date.slice(5), absences: d.absent, retards: d.retard })) : [];
+  const topAbsents = Object.values(stats.perStudentTotals).filter((s) => s.absent > 0).sort((a, b) => b.absent - a.absent).slice(0, 15);
+
+  if (!classEntries.length) {
+    return <div className="sygenop-card p-5 text-sm" style={{ color: 'var(--muted)' }}>Aucune classe {isTeacherScoped ? 'ne vous est assignée' : "n'est enregistrée"}.</div>;
+  }
+
+  return (
+    <div className="space-y-4">
+      <div className="sygenop-card p-5">
+        <div className="flex flex-wrap gap-3 items-end">
+          <div>
+            <label className="text-xs font-semibold block mb-1" style={{ color: 'var(--muted)' }}>Classe</label>
+            <select value={classId} onChange={(e) => setClassId(e.target.value)} className="px-3 py-2.5 rounded-lg border text-sm" style={{ borderColor: 'var(--line)', background: 'var(--panel)', color: 'var(--ink)' }}>
+              <option value="">Toutes les classes{isTeacherScoped ? ' (les miennes)' : ''}</option>
+              {classEntries.map(([id, c]) => <option key={id} value={id}>{c.name}</option>)}
+            </select>
+          </div>
+          <div>
+            <label className="text-xs font-semibold block mb-1" style={{ color: 'var(--muted)' }}>Période</label>
+            <select value={periodId} onChange={(e) => setPeriodId(e.target.value)} className="px-3 py-2.5 rounded-lg border text-sm" style={{ borderColor: 'var(--line)', background: 'var(--panel)', color: 'var(--ink)' }}>
+              {PRESENCE_PERIODS.map((p) => <option key={p.id} value={p.id}>{p.label}</option>)}
+            </select>
+          </div>
+          {periodId === 'custom' && (
+            <>
+              <div><label className="text-xs font-semibold block mb-1" style={{ color: 'var(--muted)' }}>Du</label><input type="date" value={customStart} max={today} onChange={(e) => setCustomStart(e.target.value)} className="px-3 py-2.5 rounded-lg border text-sm" style={{ borderColor: 'var(--line)', background: 'var(--panel)', color: 'var(--ink)' }} /></div>
+              <div><label className="text-xs font-semibold block mb-1" style={{ color: 'var(--muted)' }}>Au</label><input type="date" value={customEnd} max={today} min={customStart} onChange={(e) => setCustomEnd(e.target.value)} className="px-3 py-2.5 rounded-lg border text-sm" style={{ borderColor: 'var(--line)', background: 'var(--panel)', color: 'var(--ink)' }} /></div>
+            </>
+          )}
+        </div>
+        <div className="text-xs mt-2" style={{ color: 'var(--muted)' }}>{stats.joursComptabilises} jour(s) ouvré(s) comptabilisé(s) entre le {startISO} et le {endISO}.</div>
+      </div>
+
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+        <StatCard icon={CheckCircle2} label="Taux de présence" value={tauxPresence == null ? '—' : `${tauxPresence}%`} tone="green" />
+        <StatCard icon={AlertTriangle} label="Absences" value={totalAbsent} tone="red" />
+        <StatCard icon={Clock} label="Retards" value={totalRetard} tone="gold" />
+        <StatCard icon={Users} label="Journées présentes" value={totalPresent} tone="green" />
+      </div>
+
+      {!classId && byClassData.length > 0 && (
+        <div className="sygenop-card p-5">
+          <div className="font-bold text-sm mb-4" style={{ color: 'var(--ink)' }}>Absences par classe</div>
+          <ResponsiveContainer width="100%" height={260}>
+            <BarChart data={byClassData}>
+              <CartesianGrid strokeDasharray="3 3" stroke="var(--line)" />
+              <XAxis dataKey="classe" tick={{ fontSize: 11, fill: 'var(--muted)' }} interval={0} angle={-25} textAnchor="end" height={60} />
+              <YAxis tick={{ fontSize: 12, fill: 'var(--muted)' }} allowDecimals={false} />
+              <Tooltip contentStyle={{ borderRadius: 10, border: '1px solid var(--line)', fontSize: 12 }} />
+              <Bar dataKey="absences" fill="var(--red)" radius={[6, 6, 0, 0]} />
+              <Bar dataKey="retards" fill="var(--gold)" radius={[6, 6, 0, 0]} />
+            </BarChart>
+          </ResponsiveContainer>
+        </div>
+      )}
+
+      {classId && byDayData.length > 0 && (
+        <div className="sygenop-card p-5">
+          <div className="font-bold text-sm mb-4" style={{ color: 'var(--ink)' }}>Absences par jour — {state.classes[classId]?.name}</div>
+          <ResponsiveContainer width="100%" height={260}>
+            <BarChart data={byDayData}>
+              <CartesianGrid strokeDasharray="3 3" stroke="var(--line)" />
+              <XAxis dataKey="jour" tick={{ fontSize: 11, fill: 'var(--muted)' }} />
+              <YAxis tick={{ fontSize: 12, fill: 'var(--muted)' }} allowDecimals={false} />
+              <Tooltip contentStyle={{ borderRadius: 10, border: '1px solid var(--line)', fontSize: 12 }} />
+              <Bar dataKey="absences" fill="var(--red)" radius={[6, 6, 0, 0]} />
+              <Bar dataKey="retards" fill="var(--gold)" radius={[6, 6, 0, 0]} />
+            </BarChart>
+          </ResponsiveContainer>
+        </div>
+      )}
+
+      <div className="sygenop-card p-5">
+        <div className="font-bold text-sm mb-3" style={{ color: 'var(--ink)' }}>Élèves les plus absents sur la période</div>
+        {topAbsents.length === 0 ? (
+          <div className="text-sm" style={{ color: 'var(--muted)' }}>Aucune absence enregistrée sur cette période.</div>
+        ) : (
+          <div className="overflow-x-auto">
+            <table className="w-full text-sm">
+              <thead><tr style={{ borderBottom: '1px solid var(--line)' }}><th className="text-left p-2">Élève</th>{!classId && <th className="text-left p-2">Classe</th>}<th className="text-right p-2">Absences</th><th className="text-right p-2">Retards</th><th className="text-right p-2">Jours suivis</th></tr></thead>
+              <tbody>
+                {topAbsents.map((s, i) => (
+                  <tr key={i} style={{ borderTop: '1px solid var(--line)' }}>
+                    <td className="p-2">{s.nom}</td>
+                    {!classId && <td className="p-2" style={{ color: 'var(--muted)' }}>{s.className}</td>}
+                    <td className="p-2 text-right"><Pill tone="red">{s.absent}</Pill></td>
+                    <td className="p-2 text-right"><Pill tone="gold">{s.retard}</Pill></td>
+                    <td className="p-2 text-right" style={{ color: 'var(--muted)' }}>{s.jours}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
       </div>
     </div>
   );
@@ -11519,6 +11716,8 @@ function openSchool(id, name, actif) {
     body = <SaisieView state={schoolState} loading={loadingState} updateState={updateState} notify={notify} teacherName={teacherName} teacherStaffId={session.staffId} readOnly={readOnly} />;
   } else if (active === 'appel') {
     body = <AppelView state={schoolState} updateState={updateState} notify={notify} teacherName={teacherName} teacherStaffId={session.staffId} role={session.role} readOnly={readOnly} />;
+  } else if (active === 'rapport-presence') {
+    body = <PresenceRapportView state={schoolState} session={session} />;
   } else if (active === 'synth') {
     body = <SynthView state={schoolState} loading={loadingState} teacherName={teacherName} />;
   } else if (active === 'bull') {
