@@ -1557,6 +1557,21 @@ function studentDayStatus(state, date, studentId, classId, nowHHMM) {
 }
 const STUDENT_PRESENCE_LABELS = { P: ['Présent', 'green'], R: ['Retard', 'gold'], A: ['Absent', 'red'], attente: ['Non arrivé', 'gold'], 'non-ouvre': ['Jour non ouvré', 'gold'] };
 
+// Ouvre WhatsApp (wa.me) avec un message d'absence pré-rempli à destination
+// du tuteur — même principe que les rappels de paiement déjà existants
+// (sendWhatsappReminder / sendWhatsappReceipt) : c'est un lien qui ouvre
+// WhatsApp avec le message prêt, l'envoi final reste un clic humain (aucun
+// envoi automatique/silencieux n'est possible sans l'API payante WhatsApp
+// Business).
+function sendAbsenceWhatsapp(state, student, className, date, notify, seanceLabel) {
+  const tel = phoneDigits(student.tuteurTel);
+  if (!tel) { notify && notify('Renseignez le téléphone du tuteur pour cet élève.', true); return; }
+  const ecole = (state.header && state.header.ecole) || "l'école";
+  const quand = seanceLabel ? `à la séance de ${seanceLabel} du ${fmtDateFr(date)}` : `aujourd'hui ${fmtDateFr(date)}`;
+  const msg = `Bonjour${student.tuteurNom ? ' ' + student.tuteurNom : ''}, ${ecole} vous informe que ${student.prenom || ''} ${student.nom || ''} (${className}) est absent(e) ${quand}. Merci de nous contacter en cas de besoin.`;
+  window.open('https://wa.me/' + encodeURIComponent(tel) + '?text=' + encodeURIComponent(msg), '_blank');
+}
+
 // Liste des dates ISO (AAAA-MM-JJ) entre deux bornes incluses, ordre chronologique.
 function listDatesBetween(startISO, endISO) {
   const out = [];
@@ -5460,6 +5475,16 @@ function AppelView({ state: incomingState, updateState, notify, teacherName, tea
                       <button onClick={() => markStudent(student.id, 'P')} className="px-2 py-1 rounded text-xs font-semibold mr-1" style={{ background: 'var(--green-l)', color: 'var(--green-d)' }}>Présent</button>
                       <button onClick={() => markStudent(student.id, 'R')} className="px-2 py-1 rounded text-xs font-semibold mr-1" style={{ background: 'var(--gold-l)', color: '#7a5a1f' }}>Retard</button>
                       <button onClick={() => markStudent(student.id, 'A')} className="px-2 py-1 rounded text-xs font-semibold" style={{ background: 'var(--red-l)', color: 'var(--red)' }}>Absent</button>
+                      {record?.statut === 'A' && (
+                        <button
+                          onClick={() => sendAbsenceWhatsapp(state, student, cls?.name || '', date, notify, activeSeance?.subject)}
+                          title={student.tuteurTel ? `Prévenir ${student.tuteurNom || 'le tuteur'} sur WhatsApp` : 'Téléphone du tuteur non renseigné'}
+                          className="ml-1 px-2 py-1 rounded text-xs font-semibold inline-flex items-center gap-1"
+                          style={{ background: '#dcf8c6', color: '#075e54' }}
+                        >
+                          <MessageCircle size={12} /> WhatsApp
+                        </button>
+                      )}
                     </td>
                   )}
                 </tr>
