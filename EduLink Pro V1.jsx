@@ -2467,6 +2467,7 @@ const NAV_ITEMS = (session) => {
     { id: 'dash', label: 'Tableau de bord', icon: LayoutDashboard, needsSchool: true },
     { id: 'actualites', label: 'Actualités', icon: MessageCircle, needsSchool: true },
     { id: 'personnel', label: 'Personnel', icon: Users, needsSchool: true },
+    { id: 'gate', label: 'Contrôle portail', icon: ScanLine, needsSchool: true },
     {
       id: 'eleves', label: 'Élèves', icon: GraduationCap, needsSchool: true, expandable: true,
       children: [
