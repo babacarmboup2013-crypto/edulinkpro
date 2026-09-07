@@ -8,7 +8,7 @@ import {
   Phone, Wallet, Clock, Search, Download, ChevronLeft, UserRound,
   MessageCircle, Receipt, History, Trophy, Building2, Printer, FileSpreadsheet,
   Upload, Save, RotateCcw, AlertCircle, Globe, TrendingDown, ArrowUpCircle,
-  ArrowDownCircle, Scale, Package, ScanLine, FileText, Award
+  ArrowDownCircle, Scale, Package, ScanLine, FileText, Award, ClipboardCheck
 } from 'lucide-react';
 import {
   ResponsiveContainer, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip,
@@ -1469,6 +1469,95 @@ function getPointageRecord(pointage, date, staffId) {
 }
 
 /* ============================================================
+   PRÉSENCE DES ÉLÈVES (pointage par carte QR)
+   ------------------------------------------------------------
+   state.presenceEleves = {
+     "<date AAAA-MM-JJ>": {
+       "<studentId>": {
+         "<slotId>": { statut: 'P'|'R'|'A', heure: 'HH:MM', source: 'portail'|'classe'|'manuel', par?: staffId }
+       }
+     }
+   }
+   slotId vaut soit 'PORTAIL' (scan unique à l'entrée, une fois par jour —
+   utilisé quand l'école n'a pas d'emploi du temps pour la classe ce
+   jour-là), soit l'identifiant d'un créneau de state.emploiDuTemps (scan
+   par l'enseignant, présence rattachée à une séance précise).
+   Absence d'entrée ≠ absence : le statut est calculé à la volée (voir
+   studentDayStatus) tant qu'aucun scan ni correction manuelle n'a eu
+   lieu, pour ne jamais écraser silencieusement les données.
+   ============================================================ */
+const PORTAIL_SLOT_ID = 'PORTAIL';
+
+function studentAttendanceConfig(state) {
+  const raw = state?.config?.presenceEleves || {};
+  return { heureLimite: /^\d{2}:\d{2}$/.test(raw.heureLimite || '') ? raw.heureLimite : '08:00' };
+}
+function getStudentPresenceRecord(presenceEleves, date, studentId, slotId) {
+  return presenceEleves?.[date]?.[studentId]?.[slotId] || null;
+}
+// Écriture immuable d'un enregistrement de présence élève — à utiliser dans
+// un updateState(prev => ...). Ne supprime jamais les autres créneaux/élèves
+// du même jour.
+function withStudentPresenceRecord(prev, date, studentId, slotId, record) {
+  const presenceEleves = { ...(prev.presenceEleves || {}) };
+  const dayRec = { ...(presenceEleves[date] || {}) };
+  const studentRec = { ...(dayRec[studentId] || {}) };
+  studentRec[slotId] = record;
+  dayRec[studentId] = studentRec;
+  presenceEleves[date] = dayRec;
+  return { ...prev, presenceEleves };
+}
+// Créneaux de l'emploi du temps d'une classe pour une date donnée, triés
+// par heure de début. Tableau vide = pas d'emploi du temps saisi → l'école
+// utilise le pointage simple (un scan au portail par jour).
+function seancesForClassDay(state, classId, date) {
+  if (!classId) return [];
+  // getDay() : 0=dimanche..6=samedi → aligné sur TIMETABLE_DAYS (Lundi..Samedi).
+  const dayLabel = TIMETABLE_DAYS[(new Date(`${date}T00:00:00`).getDay() + 6) % 7];
+  if (!dayLabel) return []; // dimanche : pas de créneau
+  return (state?.emploiDuTemps || [])
+    .filter((slot) => slot.classId === classId && slot.day === dayLabel)
+    .sort((a, b) => (a.start || '').localeCompare(b.start || ''));
+}
+// Séance en cours à l'heure donnée pour une classe (utilisée lors d'un scan
+// au portail pour rattacher automatiquement la présence à un cours, si
+// l'emploi du temps de la classe est renseigné pour ce jour).
+function currentSeanceForClass(state, classId, date, heureHHMM) {
+  return seancesForClassDay(state, classId, date)
+    .find((s) => heureHHMM >= (s.start || '00:00') && heureHHMM <= (s.end || '23:59')) || null;
+}
+// Statut du jour pour un élève : statut global (P/R/A/attente/non-ouvre) et
+// détail par séance quand l'emploi du temps de sa classe est renseigné.
+// Un statut non enregistré est déduit (pas encore arrivé / absent) plutôt
+// qu'écrit automatiquement, pour laisser la correction manuelle possible
+// à tout moment sans conflit d'écriture.
+function studentDayStatus(state, date, studentId, classId, nowHHMM) {
+  const settings = attendanceSettings(state);
+  const reason = nonWorkingDayReason(date, settings);
+  if (reason) return { statut: 'non-ouvre', label: reason, seances: [] };
+  const presence = state?.presenceEleves || {};
+  const seances = seancesForClassDay(state, classId, date);
+  const isToday = date === todayISO();
+  const heure = nowHHMM || new Date().toTimeString().slice(0, 5);
+  if (seances.length) {
+    const detail = seances.map((s) => {
+      const rec = getStudentPresenceRecord(presence, date, studentId, s.id);
+      let statut = rec?.statut || null;
+      if (!statut) statut = (!isToday || heure > (s.end || '23:59')) ? 'A' : 'attente';
+      return { seanceId: s.id, matiere: s.subject, start: s.start, end: s.end, statut, source: rec?.source };
+    });
+    const global = detail.some((d) => d.statut === 'P' || d.statut === 'R') ? 'P'
+      : detail.some((d) => d.statut === 'attente') ? 'attente' : 'A';
+    return { statut: global, seances: detail };
+  }
+  const cfg = studentAttendanceConfig(state);
+  const rec = getStudentPresenceRecord(presence, date, studentId, PORTAIL_SLOT_ID);
+  if (rec) return { statut: rec.statut, seances: [], source: rec.source };
+  return { statut: (!isToday || heure > cfg.heureLimite) ? 'A' : 'attente', seances: [] };
+}
+const STUDENT_PRESENCE_LABELS = { P: ['Présent', 'green'], R: ['Retard', 'gold'], A: ['Absent', 'red'], attente: ['Non arrivé', 'gold'], 'non-ouvre': ['Jour non ouvré', 'gold'] };
+
+/* ============================================================
    THÈME — palette Sénégal/SYGENOP (vert/or), clair + sombre
    ============================================================ */
 const THEME_VARS_LIGHT = {
@@ -2302,6 +2391,7 @@ const NAV_ITEMS = (session) => {
         id: 'eleves', label: 'Élèves', icon: GraduationCap, needsSchool: true, expandable: true,
         children: [
           { id: 'classes', label: 'Classes et élèves' },
+          { id: 'appel', label: 'Faire l\u2019appel' },
         ],
       },
     );
@@ -2322,7 +2412,7 @@ const NAV_ITEMS = (session) => {
       { id: 'dash', label: 'Tableau de bord', icon: LayoutDashboard, needsSchool: true },
       { id: 'actualites', label: 'Actualités', icon: MessageCircle, needsSchool: true },
       { id: 'personnel', label: 'Personnel', icon: Users, needsSchool: true },
-      { id: 'eleves', label: 'Élèves', icon: GraduationCap, needsSchool: true, expandable: true, children: [{ id: 'classes', label: 'Classes et élèves' }] },
+      { id: 'eleves', label: 'Élèves', icon: GraduationCap, needsSchool: true, expandable: true, children: [{ id: 'classes', label: 'Classes et élèves' }, { id: 'appel', label: 'Faire l\u2019appel' }] },
       { id: 'admin', label: 'Administration', icon: Settings, needsSchool: true },
       { id: 'data', label: 'Données', icon: Database, needsSchool: true },
     ];
@@ -2335,6 +2425,7 @@ const NAV_ITEMS = (session) => {
       id: 'eleves', label: 'Élèves', icon: GraduationCap, needsSchool: true, expandable: true,
       children: [
         { id: 'classes', label: 'Classes et élèves' },
+        { id: 'appel', label: 'Faire l\u2019appel' },
       ],
     },
     { id: 'paiements', label: 'Comptabilité', icon: CreditCard, needsSchool: true },
@@ -2351,6 +2442,7 @@ const PAGE_TITLES = {
   personnel: ['Personnel', 'Gestion du personnel et pointage'],
   actualites: ['Actualités', 'Publications et informations de l\u2019école'],
   classes: ['Classes et élèves', 'Gestion des classes et des élèves'],
+  appel: ['Faire l\u2019appel', 'Présences et absences des élèves — pointage QR'],
   saisie: ['Saisie des notes', 'Élèves — Saisie des notes'],
   synth: ['Synthèse', 'Élèves — Synthèse'],
   bull: ['Bulletins', 'Élèves — Bulletins'],
@@ -5084,6 +5176,33 @@ function StudentCardVerification({ state: incomingState, updateState, notify }) 
     return undefined;
   }, [staffFound, updateState, notify, state]);
   const found = Object.entries(state.classes || {}).flatMap(([classId, cls]) => (cls.students || []).map((student) => ({ classId, cls, student }))).find(({ student }) => student.cardCode === code || student.id === code || `ELV-${String(student.id || '').slice(-8).toUpperCase()}` === code);
+  // Pointage automatique de l'élève scanné au portail : marque « Présent »
+  // au premier scan du jour. Si l'emploi du temps de sa classe est
+  // renseigné pour aujourd'hui, la présence est rattachée à la séance en
+  // cours (mode « classe ») ; sinon elle est enregistrée sur le créneau
+  // journalier unique PORTAIL. Un statut déjà enregistré (scan précédent
+  // ou correction manuelle) n'est jamais écrasé.
+  const lastStudentCheckRef = useRef('');
+  useEffect(() => {
+    if (!found || staffFound || typeof updateState !== 'function') return undefined;
+    const { student, classId } = found;
+    const date = todayISO();
+    const heure = new Date().toTimeString().slice(0, 5);
+    const key = `${date}|${student.id}`;
+    if (lastStudentCheckRef.current === key) return undefined;
+    lastStudentCheckRef.current = key;
+    const reason = nonWorkingDayReason(date, attendanceSettings(state));
+    if (reason) { notify && notify(`Carte reconnue, mais pointage fermé aujourd'hui (${reason}).`, true); return undefined; }
+    const seance = currentSeanceForClass(state, classId, date, heure);
+    const slotId = seance ? seance.id : PORTAIL_SLOT_ID;
+    if (getStudentPresenceRecord(state.presenceEleves || {}, date, student.id, slotId)) {
+      notify && notify(`${student.prenom} ${student.nom} déjà pointé(e)${seance ? ` pour ${seance.subject}` : ' aujourd\u2019hui'} — aucun changement.`);
+      return undefined;
+    }
+    updateState((prev) => withStudentPresenceRecord(prev, date, student.id, slotId, { statut: 'P', heure, source: 'portail' }));
+    notify && notify(`${student.prenom} ${student.nom} pointé(e) présent(e)${seance ? ` — ${seance.subject} (${seance.start})` : ` à ${heure}`}.`);
+    return undefined;
+  }, [found, staffFound, updateState, notify, state]);
   const monthlyRows = found ? (() => {
     const { cls, student } = found;
     const count = feeForLevel(state, cls.level).mensualites;
@@ -5101,7 +5220,197 @@ function StudentCardVerification({ state: incomingState, updateState, notify }) 
     });
   })() : [];
   const access = monthlyRows.some((row) => row.status === 'Impayé') ? 'REFUSÉ — régularisation nécessaire' : monthlyRows.some((row) => row.status === 'Partiel') ? 'À RÉGULARISER' : 'AUTORISÉ — à jour';
-  return <div className="space-y-4"><div className="sygenop-card p-5"><div className="font-bold flex items-center gap-2"><ScanLine size={18} /> Contrôle portail / Vérifier une carte</div><p className="text-xs mt-1" style={{ color: 'var(--muted)' }}>Scannez avec la caméra du smartphone ou une douchette QR.</p><div className="flex gap-2 mt-3"><button onClick={startCamera} className="px-3 py-2 rounded-lg text-white text-sm" style={{ background: 'var(--green-d)' }}>Scanner avec la caméra</button><button onClick={stopCamera} className="px-3 py-2 rounded-lg text-sm" style={{ background: 'var(--bg)' }}>Arrêter</button></div><video ref={videoRef} muted playsInline className="mt-3 w-full max-w-sm rounded-lg" /><input autoFocus value={rawCode} onChange={(e) => setRawCode(e.target.value)} placeholder="Code QR scanné" className="mt-3 w-full px-3 py-2.5 rounded-lg border text-sm" style={{ borderColor: 'var(--line)', background: 'var(--panel)' }} />{cameraError && <div className="text-xs mt-2" style={{ color: 'var(--red)' }}>{cameraError}</div>}</div>{rawCode && !found && !staffFound && <div className="sygenop-card p-5 text-sm" style={{ color: 'var(--red)' }}>Aucun élève ne correspond à ce code.</div>}{staffFound && <div className="sygenop-card p-5"><div className="font-bold text-center p-3 rounded-lg" style={{ background: staffRecord ? 'var(--green-l)' : 'var(--gold-l)', color: staffRecord ? 'var(--green-d)' : '#7a5a1f' }}>{staffRecord ? `BADGE RECONNU — ${STAFF_POINTAGE_LABELS[staffRecord.statut]?.[0] || staffRecord.statut}` : 'BADGE RECONNU — non pointé aujourd\u2019hui'}</div><div className="mt-3 font-bold">{personFullName(staffFound)} — {staffFound.role || ''}</div><div className="text-xs mt-1" style={{ color: 'var(--muted)' }}>Matricule {staffCardCode(staffFound)} · Statut administratif : {staffFound.statut || 'Actif'}</div>{staffRecord && <div className="mt-2 text-sm">Pointage du jour : <Pill tone={STAFF_POINTAGE_LABELS[staffRecord.statut]?.[1] || 'gold'}>{STAFF_POINTAGE_LABELS[staffRecord.statut]?.[0] || staffRecord.statut}</Pill> · {Number(staffRecord.heures) || 0} h</div>}</div>}{found && <div className="sygenop-card p-5"><div className="font-bold text-center p-3 rounded-lg" style={{ background: access.startsWith('AUTORISÉ') ? 'var(--green-l)' : access.startsWith('À') ? 'var(--gold-l)' : '#fdecea', color: access.startsWith('AUTORISÉ') ? 'var(--green-d)' : 'var(--red)' }}>{access}</div><div className="mt-3 font-bold">{found.student.prenom} {found.student.nom} — {found.cls.name}</div><div className="overflow-x-auto mt-3"><table className="w-full text-sm"><tbody>{monthlyRows.map((row) => <tr key={row.label} style={{ borderTop: '1px solid var(--line)' }}><td className="p-2">{row.label}</td><td className="p-2 text-right">{fmtFCFA(row.paid)}</td><td className="p-2 text-right"><Pill tone={row.status === 'À jour' ? 'green' : row.status === 'Partiel' ? 'gold' : 'red'}>{row.status}</Pill></td></tr>)}</tbody></table></div></div>}</div>;
+  const gateStatus = found ? studentDayStatus(state, todayISO(), found.student.id, found.classId) : null;
+  return <div className="space-y-4"><div className="sygenop-card p-5"><div className="font-bold flex items-center gap-2"><ScanLine size={18} /> Contrôle portail / Vérifier une carte</div><p className="text-xs mt-1" style={{ color: 'var(--muted)' }}>Scannez avec la caméra du smartphone ou une douchette QR.</p><div className="flex gap-2 mt-3"><button onClick={startCamera} className="px-3 py-2 rounded-lg text-white text-sm" style={{ background: 'var(--green-d)' }}>Scanner avec la caméra</button><button onClick={stopCamera} className="px-3 py-2 rounded-lg text-sm" style={{ background: 'var(--bg)' }}>Arrêter</button></div><video ref={videoRef} muted playsInline className="mt-3 w-full max-w-sm rounded-lg" /><input autoFocus value={rawCode} onChange={(e) => setRawCode(e.target.value)} placeholder="Code QR scanné" className="mt-3 w-full px-3 py-2.5 rounded-lg border text-sm" style={{ borderColor: 'var(--line)', background: 'var(--panel)' }} />{cameraError && <div className="text-xs mt-2" style={{ color: 'var(--red)' }}>{cameraError}</div>}</div>{rawCode && !found && !staffFound && <div className="sygenop-card p-5 text-sm" style={{ color: 'var(--red)' }}>Aucun élève ne correspond à ce code.</div>}{staffFound && <div className="sygenop-card p-5"><div className="font-bold text-center p-3 rounded-lg" style={{ background: staffRecord ? 'var(--green-l)' : 'var(--gold-l)', color: staffRecord ? 'var(--green-d)' : '#7a5a1f' }}>{staffRecord ? `BADGE RECONNU — ${STAFF_POINTAGE_LABELS[staffRecord.statut]?.[0] || staffRecord.statut}` : 'BADGE RECONNU — non pointé aujourd\u2019hui'}</div><div className="mt-3 font-bold">{personFullName(staffFound)} — {staffFound.role || ''}</div><div className="text-xs mt-1" style={{ color: 'var(--muted)' }}>Matricule {staffCardCode(staffFound)} · Statut administratif : {staffFound.statut || 'Actif'}</div>{staffRecord && <div className="mt-2 text-sm">Pointage du jour : <Pill tone={STAFF_POINTAGE_LABELS[staffRecord.statut]?.[1] || 'gold'}>{STAFF_POINTAGE_LABELS[staffRecord.statut]?.[0] || staffRecord.statut}</Pill> · {Number(staffRecord.heures) || 0} h</div>}</div>}{found && <div className="sygenop-card p-5"><div className="font-bold text-center p-3 rounded-lg" style={{ background: access.startsWith('AUTORISÉ') ? 'var(--green-l)' : access.startsWith('À') ? 'var(--gold-l)' : '#fdecea', color: access.startsWith('AUTORISÉ') ? 'var(--green-d)' : 'var(--red)' }}>{access}</div><div className="mt-3 font-bold">{found.student.prenom} {found.student.nom} — {found.cls.name}</div><div className="mt-1.5 text-sm">Pointage du jour : <Pill tone={STUDENT_PRESENCE_LABELS[gateStatus?.statut]?.[1] || 'gold'}>{STUDENT_PRESENCE_LABELS[gateStatus?.statut]?.[0] || '—'}</Pill></div><div className="overflow-x-auto mt-3"><table className="w-full text-sm"><tbody>{monthlyRows.map((row) => <tr key={row.label} style={{ borderTop: '1px solid var(--line)' }}><td className="p-2">{row.label}</td><td className="p-2 text-right">{fmtFCFA(row.paid)}</td><td className="p-2 text-right"><Pill tone={row.status === 'À jour' ? 'green' : row.status === 'Partiel' ? 'gold' : 'red'}>{row.status}</Pill></td></tr>)}</tbody></table></div></div>}</div>;
+}
+
+/* ---------------------------------------------------------------
+   Faire l'appel — registre de présence des élèves (mode « classe »)
+   ------------------------------------------------------------
+   Permet à un enseignant (ou à la direction, pour correction) de
+   marquer présents ses élèves en scannant leur carte QR, ou
+   manuellement. Si l'emploi du temps de la classe est renseigné pour
+   le jour choisi, l'appel se fait séance par séance ; sinon un
+   pointage journalier unique (créneau PORTAIL) est utilisé — cohérent
+   avec ce qu'enregistrerait un scan au portail le même jour.
+   --------------------------------------------------------------- */
+function AppelView({ state: incomingState, updateState, notify, teacherName, teacherStaffId, role, readOnly }) {
+  const state = incomingState || { classes: {}, header: {} };
+  const isTeacherScoped = role === 'teacher';
+  const classEntries = Object.entries(state.classes || {})
+    .filter(([, c]) => !isTeacherScoped || c.teacher === teacherName)
+    .sort((a, b) => (a[1].name || '').localeCompare(b[1].name || ''));
+  const [classId, setClassId] = useState(classEntries[0]?.[0] || '');
+  useEffect(() => {
+    if (!classEntries.some(([id]) => id === classId)) setClassId(classEntries[0]?.[0] || '');
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [classEntries.map(([id]) => id).join(',')]);
+  const [date, setDate] = useState(todayISO());
+  const cls = state.classes?.[classId];
+  const students = [...(cls?.students || [])].sort((a, b) => (a.nom || '').localeCompare(b.nom || ''));
+  const seances = seancesForClassDay(state, classId, date);
+  const [slotId, setSlotId] = useState('');
+  useEffect(() => {
+    const nowHHMM = new Date().toTimeString().slice(0, 5);
+    const defaultSlot = seances.length
+      ? (date === todayISO() && currentSeanceForClass(state, classId, date, nowHHMM)?.id) || seances[0].id
+      : PORTAIL_SLOT_ID;
+    setSlotId(defaultSlot);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [classId, date, seances.map((s) => s.id).join(',')]);
+  const activeSeance = seances.find((s) => s.id === slotId) || null;
+
+  const settings = attendanceSettings(state);
+  const closedReason = nonWorkingDayReason(date, settings);
+  const canEdit = !readOnly && !closedReason;
+
+  // ---- Scan caméra rapide (mêmes contraintes que le contrôle portail) ----
+  const [rawCode, setRawCode] = useState('');
+  const [cameraError, setCameraError] = useState('');
+  const videoRef = useRef(null);
+  const streamRef = useRef(null);
+  const scanTimerRef = useRef(null);
+  function stopCamera() { if (scanTimerRef.current) clearInterval(scanTimerRef.current); scanTimerRef.current = null; if (streamRef.current) streamRef.current.getTracks().forEach((t) => t.stop()); streamRef.current = null; }
+  async function startCamera() {
+    try {
+      setCameraError('');
+      if (!('BarcodeDetector' in window)) { setCameraError('Le navigateur ne prend pas en charge le scan caméra. Utilisez Chrome sur Android ou une douchette QR.'); return; }
+      const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment' } });
+      streamRef.current = stream;
+      if (videoRef.current) { videoRef.current.srcObject = stream; await videoRef.current.play(); }
+      const detector = new window.BarcodeDetector({ formats: ['qr_code'] });
+      scanTimerRef.current = setInterval(async () => {
+        if (!videoRef.current) return;
+        const codes = await detector.detect(videoRef.current);
+        if (codes[0]?.rawValue) setRawCode(codes[0].rawValue);
+      }, 500);
+    } catch (_) { setCameraError('Impossible d\u2019accéder à la caméra. Autorisez-la dans votre navigateur.'); }
+  }
+  useEffect(() => () => stopCamera(), []);
+
+  function markStudent(studentId, statut) {
+    if (!canEdit || typeof updateState !== 'function') return;
+    const heure = new Date().toTimeString().slice(0, 5);
+    updateState((prev) => withStudentPresenceRecord(prev, date, studentId, slotId, { statut, heure, source: 'manuel', par: teacherStaffId }));
+  }
+  // Scan : marque présent le premier élève de CETTE classe correspondant au code (une seule fois par code affiché).
+  const lastScanRef = useRef(null);
+  useEffect(() => {
+    if (!rawCode || !canEdit) return;
+    const code = rawCode.includes('|') ? rawCode.split('|')[2] : rawCode.trim();
+    const now = Date.now();
+    // Anti-doublon : ignore une même carte détectée plusieurs fois de suite
+    // en moins de 3 s (le temps qu'elle reste face à la caméra), mais
+    // autorise un nouveau scan de la même carte au-delà — nécessaire pour
+    // pointer un élève sur une séance suivante plus tard dans la journée.
+    if (lastScanRef.current && lastScanRef.current.code === code && now - lastScanRef.current.at < 3000) {
+      setRawCode('');
+      return;
+    }
+    lastScanRef.current = { code, at: now };
+    const student = students.find((s) => s.cardCode === code || s.id === code || `ELV-${String(s.id || '').slice(-8).toUpperCase()}` === code);
+    setRawCode('');
+    if (!student) { notify && notify('Aucun élève de cette classe ne correspond à ce code.', true); return; }
+    const heure = new Date().toTimeString().slice(0, 5);
+    updateState && updateState((prev) => withStudentPresenceRecord(prev, date, student.id, slotId, { statut: 'P', heure, source: 'classe', par: teacherStaffId }));
+    notify && notify(`${student.prenom} ${student.nom} marqué(e) présent(e).`);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [rawCode]);
+
+  function markAllUnrecordedAbsent() {
+    if (!canEdit || typeof updateState !== 'function') return;
+    const missing = students.filter((s) => !getStudentPresenceRecord(state.presenceEleves || {}, date, s.id, slotId));
+    if (!missing.length) { notify && notify('Tous les élèves de cette classe ont déjà un statut pour ce créneau.'); return; }
+    updateState((prev) => {
+      let next = prev;
+      missing.forEach((s) => { next = withStudentPresenceRecord(next, date, s.id, slotId, { statut: 'A', source: 'manuel', par: teacherStaffId }); });
+      return next;
+    });
+    notify && notify(`${missing.length} élève(s) non pointé(s) marqué(s) absent(s).`);
+  }
+
+  const rows = students.map((s) => ({ student: s, record: getStudentPresenceRecord(state.presenceEleves || {}, date, s.id, slotId) }));
+  const counts = rows.reduce((acc, r) => { const k = r.record?.statut; if (k) acc[k] = (acc[k] || 0) + 1; else acc.none++; return acc; }, { P: 0, R: 0, A: 0, none: 0 });
+
+  if (!classEntries.length) {
+    return <div className="sygenop-card p-5 text-sm" style={{ color: 'var(--muted)' }}>Aucune classe {isTeacherScoped ? 'ne vous est assignée' : "n'est enregistrée"}.</div>;
+  }
+
+  return (
+    <div className="space-y-4">
+      <div className="sygenop-card p-5 space-y-3">
+        <div className="flex flex-wrap gap-3 items-end">
+          <div>
+            <label className="text-xs font-semibold block mb-1" style={{ color: 'var(--muted)' }}>Classe</label>
+            <select value={classId} onChange={(e) => setClassId(e.target.value)} className="px-3 py-2.5 rounded-lg border text-sm" style={{ borderColor: 'var(--line)', background: 'var(--panel)', color: 'var(--ink)' }}>
+              {classEntries.map(([id, c]) => <option key={id} value={id}>{c.name}</option>)}
+            </select>
+          </div>
+          <div>
+            <label className="text-xs font-semibold block mb-1" style={{ color: 'var(--muted)' }}>Date</label>
+            <input type="date" value={date} max={todayISO()} onChange={(e) => setDate(e.target.value)} className="px-3 py-2.5 rounded-lg border text-sm" style={{ borderColor: 'var(--line)', background: 'var(--panel)', color: 'var(--ink)' }} />
+          </div>
+          {seances.length > 0 && (
+            <div>
+              <label className="text-xs font-semibold block mb-1" style={{ color: 'var(--muted)' }}>Séance</label>
+              <select value={slotId} onChange={(e) => setSlotId(e.target.value)} className="px-3 py-2.5 rounded-lg border text-sm" style={{ borderColor: 'var(--line)', background: 'var(--panel)', color: 'var(--ink)' }}>
+                {seances.map((s) => <option key={s.id} value={s.id}>{s.start}–{s.end} · {s.subject}</option>)}
+              </select>
+            </div>
+          )}
+        </div>
+        {closedReason && <div className="text-xs font-semibold px-3 py-2 rounded-lg" style={{ background: 'var(--gold-l)', color: '#7a5a1f' }}>Appel fermé — {closedReason}.</div>}
+        {!seances.length && <div className="text-xs" style={{ color: 'var(--muted)' }}>Aucun emploi du temps renseigné pour cette classe ce jour-là — pointage journalier unique.</div>}
+      </div>
+
+      {canEdit && (
+        <div className="sygenop-card p-5">
+          <div className="font-bold flex items-center gap-2 mb-2"><ScanLine size={18} /> Scanner les cartes des élèves</div>
+          <div className="flex gap-2"><button onClick={startCamera} className="px-3 py-2 rounded-lg text-white text-sm" style={{ background: 'var(--green-d)' }}>Scanner avec la caméra</button><button onClick={stopCamera} className="px-3 py-2 rounded-lg text-sm" style={{ background: 'var(--bg)' }}>Arrêter</button></div>
+          <video ref={videoRef} muted playsInline className="mt-3 w-full max-w-sm rounded-lg" />
+          <input value={rawCode} onChange={(e) => setRawCode(e.target.value)} placeholder="Ou saisir/coller le code QR ici" className="mt-3 w-full px-3 py-2.5 rounded-lg border text-sm" style={{ borderColor: 'var(--line)', background: 'var(--panel)', color: 'var(--ink)' }} />
+          {cameraError && <div className="text-xs mt-2" style={{ color: 'var(--red)' }}>{cameraError}</div>}
+        </div>
+      )}
+
+      <div className="sygenop-card p-5">
+        <div className="flex flex-wrap items-center justify-between gap-2 mb-3">
+          <div className="flex flex-wrap gap-2 text-xs font-semibold">
+            <Pill tone="green">{counts.P} présent(s)</Pill>
+            <Pill tone="gold">{counts.R} retard(s)</Pill>
+            <Pill tone="red">{counts.A} absent(s)</Pill>
+            <Pill tone="gold">{counts.none} non pointé(s)</Pill>
+          </div>
+          {canEdit && counts.none > 0 && (
+            <button onClick={markAllUnrecordedAbsent} className="text-xs font-semibold px-3 py-1.5 rounded-lg" style={{ background: 'var(--red-l)', color: 'var(--red)' }}>
+              Marquer les non-pointés absents
+            </button>
+          )}
+        </div>
+        <div className="overflow-x-auto">
+          <table className="w-full text-sm">
+            <thead><tr style={{ borderBottom: '1px solid var(--line)' }}><th className="text-left p-2">Élève</th><th className="text-left p-2">Statut</th><th className="text-left p-2">Heure</th>{canEdit && <th className="text-right p-2">Action</th>}</tr></thead>
+            <tbody>
+              {rows.map(({ student, record }) => (
+                <tr key={student.id} style={{ borderTop: '1px solid var(--line)' }}>
+                  <td className="p-2">{student.prenom} {student.nom}</td>
+                  <td className="p-2"><Pill tone={STUDENT_PRESENCE_LABELS[record?.statut]?.[1] || 'gold'}>{record ? (STUDENT_PRESENCE_LABELS[record.statut]?.[0] || record.statut) : 'Non pointé'}</Pill></td>
+                  <td className="p-2" style={{ color: 'var(--muted)' }}>{record?.heure || '—'}</td>
+                  {canEdit && (
+                    <td className="p-2 text-right whitespace-nowrap">
+                      <button onClick={() => markStudent(student.id, 'P')} className="px-2 py-1 rounded text-xs font-semibold mr-1" style={{ background: 'var(--green-l)', color: 'var(--green-d)' }}>Présent</button>
+                      <button onClick={() => markStudent(student.id, 'R')} className="px-2 py-1 rounded text-xs font-semibold mr-1" style={{ background: 'var(--gold-l)', color: '#7a5a1f' }}>Retard</button>
+                      <button onClick={() => markStudent(student.id, 'A')} className="px-2 py-1 rounded text-xs font-semibold" style={{ background: 'var(--red-l)', color: 'var(--red)' }}>Absent</button>
+                    </td>
+                  )}
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  );
 }
 
 function GradeGrid({ state, classId, cls, cfg, periodKey, periods, updateState, notify, readOnly, isPrivateSchool, maxStudentsPerClass }) {
@@ -8154,6 +8463,64 @@ function HorairesJoursOuvresCard({ state, updateState, notify, readOnly, session
   );
 }
 
+/* ---- Réglage du pointage des élèves (carte QR) : heure limite au-delà
+   de laquelle un élève non pointé est considéré absent (pointage
+   « portail », sans emploi du temps). N'affecte pas les écoles qui
+   utilisent l'appel en classe séance par séance (emploi du temps). */
+function PresenceElevesCard({ state, updateState, notify, readOnly, session }) {
+  const canEdit = !readOnly && (session?.role === 'school' || session?.role === 'admin');
+  const [heureLimite, setHeureLimite] = useState(() => studentAttendanceConfig(state).heureLimite);
+  const [dirty, setDirty] = useState(false);
+  useEffect(() => {
+    if (dirty) return;
+    setHeureLimite(studentAttendanceConfig(state).heureLimite);
+  }, [state?.config?.presenceEleves?.heureLimite]); // eslint-disable-line react-hooks/exhaustive-deps
+  function save() {
+    if (!canEdit) return;
+    updateState((prev) => {
+      const next = { ...prev, config: { ...(prev.config || {}), presenceEleves: { ...(prev.config?.presenceEleves || {}), heureLimite } } };
+      next.auditLog = pushAuditEntry(prev.auditLog, {
+        actor: actorLabel(session, prev), role: session && session.role,
+        action: 'Modification de l\u2019heure limite de pointage des élèves', details: heureLimite,
+      });
+      return next;
+    });
+    notify('Heure limite de pointage enregistrée');
+    setDirty(false);
+  }
+  return (
+    <div className="sygenop-card p-5 space-y-3">
+      <div className="flex items-center gap-2">
+        <ScanLine size={18} style={{ color: 'var(--green-d)' }} />
+        <div>
+          <div className="font-bold text-sm" style={{ color: 'var(--ink)' }}>Présence des élèves (carte QR)</div>
+          <div className="text-xs" style={{ color: 'var(--muted)' }}>
+            Un élève non scanné après cette heure est considéré absent — uniquement pour les classes sans emploi du temps renseigné (sinon l'appel se fait séance par séance).
+          </div>
+        </div>
+      </div>
+      <label className="text-xs font-semibold block" style={{ color: 'var(--ink)' }}>
+        Heure limite
+        <input
+          type="time"
+          disabled={!canEdit}
+          value={heureLimite}
+          onChange={(e) => { setHeureLimite(e.target.value); setDirty(true); }}
+          className="mt-1 block px-3 py-2 rounded-lg border text-sm"
+          style={{ borderColor: 'var(--line)', background: 'var(--panel)', color: 'var(--ink)' }}
+        />
+      </label>
+      {canEdit && (
+        <div className="flex justify-end">
+          <button onClick={save} disabled={!dirty} className="px-4 py-2 rounded-lg text-sm font-semibold text-white flex items-center gap-1.5 disabled:opacity-50" style={{ background: 'var(--green-d)' }}>
+            <Save size={15} /> Enregistrer
+          </button>
+        </div>
+      )}
+    </div>
+  );
+}
+
  function EtablissementTab({ state, updateState, notify, readOnly, session }) {
   const h = (state && state.header) || {};
   const [form, setForm] = useState({
@@ -8235,6 +8602,7 @@ function HorairesJoursOuvresCard({ state, updateState, notify, readOnly, session
         </div>
       </div>
       <HorairesJoursOuvresCard state={state} updateState={updateState} notify={notify} readOnly={readOnly} session={session} />
+      <PresenceElevesCard state={state} updateState={updateState} notify={notify} readOnly={readOnly} session={session} />
       {!readOnly && (
         <div className="flex justify-end">
           <button
@@ -11149,6 +11517,8 @@ function openSchool(id, name, actif) {
     body = <PersonnelView state={schoolState} loading={loadingState} updateState={updateState} notify={notify} readOnly={readOnly} />;
   } else if (active === 'classes' || active === 'saisie') {
     body = <SaisieView state={schoolState} loading={loadingState} updateState={updateState} notify={notify} teacherName={teacherName} teacherStaffId={session.staffId} readOnly={readOnly} />;
+  } else if (active === 'appel') {
+    body = <AppelView state={schoolState} updateState={updateState} notify={notify} teacherName={teacherName} teacherStaffId={session.staffId} role={session.role} readOnly={readOnly} />;
   } else if (active === 'synth') {
     body = <SynthView state={schoolState} loading={loadingState} teacherName={teacherName} />;
   } else if (active === 'bull') {
