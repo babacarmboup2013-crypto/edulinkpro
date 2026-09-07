@@ -2467,7 +2467,6 @@ const NAV_ITEMS = (session) => {
     { id: 'dash', label: 'Tableau de bord', icon: LayoutDashboard, needsSchool: true },
     { id: 'actualites', label: 'Actualités', icon: MessageCircle, needsSchool: true },
     { id: 'personnel', label: 'Personnel', icon: Users, needsSchool: true },
-    { id: 'gate', label: 'Contrôle portail', icon: ScanLine, needsSchool: true },
     {
       id: 'eleves', label: 'Élèves', icon: GraduationCap, needsSchool: true, expandable: true,
       children: [
@@ -4308,7 +4307,18 @@ function PersonnelView({ state, loading, updateState, notify, readOnly }) {
           cycle={schoolCycle}
         />
       )}
-      {tab === 'pointage' && <PointageTab personnel={personnel} pointage={pointage} onSetStatut={setStatut} onSetHeures={setHeures} readOnly={readOnly} settings={settings} cycle={schoolCycle} />}
+      {tab === 'pointage' && (
+        <div className="space-y-4">
+          <div>
+            <div className="font-bold text-sm mb-2" style={{ color: 'var(--ink)' }}>Pointage automatique (scan badge)</div>
+            <StudentCardVerification state={state} updateState={readOnly ? undefined : updateState} notify={notify} />
+          </div>
+          <div>
+            <div className="font-bold text-sm mb-2" style={{ color: 'var(--ink)' }}>Pointage manuel</div>
+            <PointageTab personnel={personnel} pointage={pointage} onSetStatut={setStatut} onSetHeures={setHeures} readOnly={readOnly} settings={settings} cycle={schoolCycle} />
+          </div>
+        </div>
+      )}
       {tab === 'paie' && <PaieTab personnel={personnel} pointage={pointage} state={state} updateState={updateState} readOnly={readOnly} />}
       {tab === 'demandes' && <StudentTransferRequestsPanel state={state} updateState={updateState} notify={notify} mode="director" />}
 
