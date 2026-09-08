@@ -2451,8 +2451,6 @@ const NAV_ITEMS = (session) => {
         id: 'eleves', label: 'Élèves', icon: GraduationCap, needsSchool: true, expandable: true,
         children: [
           { id: 'classes', label: 'Classes et élèves' },
-          { id: 'appel', label: 'Faire l\u2019appel' },
-          { id: 'rapport-presence', label: 'Rapport de présence' },
         ],
       },
     );
@@ -2473,7 +2471,7 @@ const NAV_ITEMS = (session) => {
       { id: 'dash', label: 'Tableau de bord', icon: LayoutDashboard, needsSchool: true },
       { id: 'actualites', label: 'Actualités', icon: MessageCircle, needsSchool: true },
       { id: 'personnel', label: 'Personnel', icon: Users, needsSchool: true },
-      { id: 'eleves', label: 'Élèves', icon: GraduationCap, needsSchool: true, expandable: true, children: [{ id: 'classes', label: 'Classes et élèves' }, { id: 'appel', label: 'Faire l\u2019appel' }, { id: 'rapport-presence', label: 'Rapport de présence' }] },
+      { id: 'eleves', label: 'Élèves', icon: GraduationCap, needsSchool: true, expandable: true, children: [{ id: 'classes', label: 'Classes et élèves' }] },
       { id: 'admin', label: 'Administration', icon: Settings, needsSchool: true },
       { id: 'data', label: 'Données', icon: Database, needsSchool: true },
     ];
@@ -2486,8 +2484,6 @@ const NAV_ITEMS = (session) => {
       id: 'eleves', label: 'Élèves', icon: GraduationCap, needsSchool: true, expandable: true,
       children: [
         { id: 'classes', label: 'Classes et élèves' },
-        { id: 'appel', label: 'Faire l\u2019appel' },
-        { id: 'rapport-presence', label: 'Rapport de présence' },
       ],
     },
     { id: 'paiements', label: 'Comptabilité', icon: CreditCard, needsSchool: true },
@@ -2504,8 +2500,6 @@ const PAGE_TITLES = {
   personnel: ['Personnel', 'Gestion du personnel et pointage'],
   actualites: ['Actualités', 'Publications et informations de l\u2019école'],
   classes: ['Classes et élèves', 'Gestion des classes et des élèves'],
-  appel: ['Faire l\u2019appel', 'Présences et absences des élèves — pointage QR'],
-  'rapport-presence': ['Rapport de présence', 'Statistiques d\u2019absentéisme par classe et par période'],
   saisie: ['Saisie des notes', 'Élèves — Saisie des notes'],
   synth: ['Synthèse', 'Élèves — Synthèse'],
   bull: ['Bulletins', 'Élèves — Bulletins'],
@@ -4564,7 +4558,7 @@ function TimetableView({ state, classId, teacherName, updateState, notify, readO
 function StudentSectionNav({ section, onChange }) {
   return (
     <div className="no-print flex flex-wrap gap-1.5 p-1 rounded-xl w-fit" style={{ background: 'var(--panel)', border: '1px solid var(--line)' }}>
-      {[['classes', 'Classes et élèves'], ['timetable', 'Emploi du temps'], ['synth', 'Synthèse'], ['bull', 'Bulletins']].map(([id, label]) => (
+      {[['classes', 'Classes et élèves'], ['appel', 'Faire l\u2019appel'], ['rapport', 'Statistiques'], ['timetable', 'Emploi du temps'], ['synth', 'Synthèse'], ['bull', 'Bulletins']].map(([id, label]) => (
         <button key={id} onClick={() => onChange(id)} className="px-3.5 py-2 rounded-lg text-sm font-semibold" style={section === id ? { background: 'var(--green-d)', color: '#fff' } : { color: 'var(--muted)' }}>
           {label}
         </button>
@@ -4706,6 +4700,12 @@ function saveClass(form) {
     </>
   );
 
+  if (studentSection === 'appel') {
+    return <div className="space-y-4 sygenop-fade">{commonStudentHeader}{currentClass ? <AppelView state={state} updateState={updateState} notify={notify} teacherStaffId={teacherStaffId} readOnly={readOnly} fixedClassId={classId} /> : <div className="sygenop-card p-5 text-sm" style={{ color: 'var(--muted)' }}>Sélectionnez d'abord une classe dans l'onglet « Classes et élèves ».</div>}</div>;
+  }
+  if (studentSection === 'rapport') {
+    return <div className="space-y-4 sygenop-fade">{commonStudentHeader}{currentClass ? <PresenceRapportView state={state} fixedClassId={classId} /> : <div className="sygenop-card p-5 text-sm" style={{ color: 'var(--muted)' }}>Sélectionnez d'abord une classe dans l'onglet « Classes et élèves ».</div>}</div>;
+  }
   if (studentSection === 'timetable') {
     return <div className="space-y-4 sygenop-fade">{commonStudentHeader}<TimetableView state={state} classId={classId} teacherName={teacherName} updateState={updateState} notify={notify} readOnly={true} /></div>;
   }
@@ -5308,17 +5308,18 @@ function StudentCardVerification({ state: incomingState, updateState, notify }) 
    pointage journalier unique (créneau PORTAIL) est utilisé — cohérent
    avec ce qu'enregistrerait un scan au portail le même jour.
    --------------------------------------------------------------- */
-function AppelView({ state: incomingState, updateState, notify, teacherName, teacherStaffId, role, readOnly }) {
+function AppelView({ state: incomingState, updateState, notify, teacherName, teacherStaffId, role, readOnly, fixedClassId }) {
   const state = incomingState || { classes: {}, header: {} };
   const isTeacherScoped = role === 'teacher';
-  const classEntries = Object.entries(state.classes || {})
+  const classEntries = fixedClassId ? [] : Object.entries(state.classes || {})
     .filter(([, c]) => !isTeacherScoped || c.teacher === teacherName)
     .sort((a, b) => (a[1].name || '').localeCompare(b[1].name || ''));
-  const [classId, setClassId] = useState(classEntries[0]?.[0] || '');
+  const [classId, setClassId] = useState(fixedClassId || classEntries[0]?.[0] || '');
   useEffect(() => {
+    if (fixedClassId) { setClassId(fixedClassId); return; }
     if (!classEntries.some(([id]) => id === classId)) setClassId(classEntries[0]?.[0] || '');
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [classEntries.map(([id]) => id).join(',')]);
+  }, [fixedClassId, classEntries.map(([id]) => id).join(',')]);
   const [date, setDate] = useState(todayISO());
   const cls = state.classes?.[classId];
   const students = [...(cls?.students || [])].sort((a, b) => (a.nom || '').localeCompare(b.nom || ''));
@@ -5406,7 +5407,7 @@ function AppelView({ state: incomingState, updateState, notify, teacherName, tea
   const rows = students.map((s) => ({ student: s, record: getStudentPresenceRecord(state.presenceEleves || {}, date, s.id, slotId) }));
   const counts = rows.reduce((acc, r) => { const k = r.record?.statut; if (k) acc[k] = (acc[k] || 0) + 1; else acc.none++; return acc; }, { P: 0, R: 0, A: 0, none: 0 });
 
-  if (!classEntries.length) {
+  if (!fixedClassId && !classEntries.length) {
     return <div className="sygenop-card p-5 text-sm" style={{ color: 'var(--muted)' }}>Aucune classe {isTeacherScoped ? 'ne vous est assignée' : "n'est enregistrée"}.</div>;
   }
 
@@ -5414,12 +5415,14 @@ function AppelView({ state: incomingState, updateState, notify, teacherName, tea
     <div className="space-y-4">
       <div className="sygenop-card p-5 space-y-3">
         <div className="flex flex-wrap gap-3 items-end">
-          <div>
-            <label className="text-xs font-semibold block mb-1" style={{ color: 'var(--muted)' }}>Classe</label>
-            <select value={classId} onChange={(e) => setClassId(e.target.value)} className="px-3 py-2.5 rounded-lg border text-sm" style={{ borderColor: 'var(--line)', background: 'var(--panel)', color: 'var(--ink)' }}>
-              {classEntries.map(([id, c]) => <option key={id} value={id}>{c.name}</option>)}
-            </select>
-          </div>
+          {!fixedClassId && (
+            <div>
+              <label className="text-xs font-semibold block mb-1" style={{ color: 'var(--muted)' }}>Classe</label>
+              <select value={classId} onChange={(e) => setClassId(e.target.value)} className="px-3 py-2.5 rounded-lg border text-sm" style={{ borderColor: 'var(--line)', background: 'var(--panel)', color: 'var(--ink)' }}>
+                {classEntries.map(([id, c]) => <option key={id} value={id}>{c.name}</option>)}
+              </select>
+            </div>
+          )}
           <div>
             <label className="text-xs font-semibold block mb-1" style={{ color: 'var(--muted)' }}>Date</label>
             <input type="date" value={date} max={todayISO()} onChange={(e) => setDate(e.target.value)} className="px-3 py-2.5 rounded-lg border text-sm" style={{ borderColor: 'var(--line)', background: 'var(--panel)', color: 'var(--ink)' }} />
@@ -5519,13 +5522,14 @@ function presencePeriodRange(periodId, customStart, customEnd) {
   if (periodId === 'month') return [today.slice(0, 8) + '01', today];
   return [customStart || today, customEnd || today];
 }
-function PresenceRapportView({ state, session }) {
+function PresenceRapportView({ state, session, fixedClassId }) {
   const isTeacherScoped = session?.role === 'teacher';
   const teacherName = isTeacherScoped ? teacherNameFromSession(state, session) : null;
-  const classEntries = Object.entries(state?.classes || {})
+  const classEntries = fixedClassId ? [] : Object.entries(state?.classes || {})
     .filter(([, c]) => !isTeacherScoped || c.teacher === teacherName)
     .sort((a, b) => (a[1].name || '').localeCompare(b[1].name || ''));
-  const [classId, setClassId] = useState(''); // '' = toutes les classes (dans le périmètre autorisé)
+  const [classId, setClassId] = useState(fixedClassId || ''); // '' = toutes les classes (dans le périmètre autorisé)
+  useEffect(() => { if (fixedClassId) setClassId(fixedClassId); }, [fixedClassId]);
   const [periodId, setPeriodId] = useState('week');
   const today = todayISO();
   const [customStart, setCustomStart] = useState(today);
@@ -5545,11 +5549,17 @@ function PresenceRapportView({ state, session }) {
   const totalJournees = totalPresent + totalAbsent; // une journée « retard » est déjà comptée dans present
   const tauxPresence = totalJournees ? Math.round((totalPresent / totalJournees) * 100) : null;
 
-  const byClassData = Object.entries(stats.perClassTotals).map(([id, c]) => ({ classe: c.className, absences: c.absent, retards: c.retard })).sort((a, b) => b.absences - a.absences);
-  const byDayData = classId ? (stats.perClassDaily[classId] || []).map((d) => ({ jour: d.date.slice(5), absences: d.absent, retards: d.retard })) : [];
+  const byClassData = Object.entries(stats.perClassTotals).map(([id, c]) => {
+    const total = c.present + c.absent; // un retard compte comme une présence, cf. calcul du taux global
+    return { classe: c.className, tauxPresence: total ? Math.round((c.present / total) * 100) : 0, tauxAbsence: total ? Math.round((c.absent / total) * 100) : 0 };
+  }).sort((a, b) => b.tauxAbsence - a.tauxAbsence);
+  const byDayData = classId ? (stats.perClassDaily[classId] || []).map((d) => {
+    const total = d.present + d.absent;
+    return { jour: d.date.slice(5), tauxPresence: total ? Math.round((d.present / total) * 100) : 0, tauxAbsence: total ? Math.round((d.absent / total) * 100) : 0 };
+  }) : [];
   const topAbsents = Object.values(stats.perStudentTotals).filter((s) => s.absent > 0).sort((a, b) => b.absent - a.absent).slice(0, 15);
 
-  if (!classEntries.length) {
+  if (!fixedClassId && !classEntries.length) {
     return <div className="sygenop-card p-5 text-sm" style={{ color: 'var(--muted)' }}>Aucune classe {isTeacherScoped ? 'ne vous est assignée' : "n'est enregistrée"}.</div>;
   }
 
@@ -5557,13 +5567,15 @@ function PresenceRapportView({ state, session }) {
     <div className="space-y-4">
       <div className="sygenop-card p-5">
         <div className="flex flex-wrap gap-3 items-end">
-          <div>
-            <label className="text-xs font-semibold block mb-1" style={{ color: 'var(--muted)' }}>Classe</label>
-            <select value={classId} onChange={(e) => setClassId(e.target.value)} className="px-3 py-2.5 rounded-lg border text-sm" style={{ borderColor: 'var(--line)', background: 'var(--panel)', color: 'var(--ink)' }}>
-              <option value="">Toutes les classes{isTeacherScoped ? ' (les miennes)' : ''}</option>
-              {classEntries.map(([id, c]) => <option key={id} value={id}>{c.name}</option>)}
-            </select>
-          </div>
+          {!fixedClassId && (
+            <div>
+              <label className="text-xs font-semibold block mb-1" style={{ color: 'var(--muted)' }}>Classe</label>
+              <select value={classId} onChange={(e) => setClassId(e.target.value)} className="px-3 py-2.5 rounded-lg border text-sm" style={{ borderColor: 'var(--line)', background: 'var(--panel)', color: 'var(--ink)' }}>
+                <option value="">Toutes les classes{isTeacherScoped ? ' (les miennes)' : ''}</option>
+                {classEntries.map(([id, c]) => <option key={id} value={id}>{c.name}</option>)}
+              </select>
+            </div>
+          )}
           <div>
             <label className="text-xs font-semibold block mb-1" style={{ color: 'var(--muted)' }}>Période</label>
             <select value={periodId} onChange={(e) => setPeriodId(e.target.value)} className="px-3 py-2.5 rounded-lg border text-sm" style={{ borderColor: 'var(--line)', background: 'var(--panel)', color: 'var(--ink)' }}>
@@ -5589,15 +5601,15 @@ function PresenceRapportView({ state, session }) {
 
       {!classId && byClassData.length > 0 && (
         <div className="sygenop-card p-5">
-          <div className="font-bold text-sm mb-4" style={{ color: 'var(--ink)' }}>Absences par classe</div>
+          <div className="font-bold text-sm mb-4" style={{ color: 'var(--ink)' }}>Taux de présence / absence par classe</div>
           <ResponsiveContainer width="100%" height={260}>
             <BarChart data={byClassData}>
               <CartesianGrid strokeDasharray="3 3" stroke="var(--line)" />
               <XAxis dataKey="classe" tick={{ fontSize: 11, fill: 'var(--muted)' }} interval={0} angle={-25} textAnchor="end" height={60} />
-              <YAxis tick={{ fontSize: 12, fill: 'var(--muted)' }} allowDecimals={false} />
-              <Tooltip contentStyle={{ borderRadius: 10, border: '1px solid var(--line)', fontSize: 12 }} />
-              <Bar dataKey="absences" fill="var(--red)" radius={[6, 6, 0, 0]} />
-              <Bar dataKey="retards" fill="var(--gold)" radius={[6, 6, 0, 0]} />
+              <YAxis domain={[0, 100]} tickFormatter={(v) => `${v}%`} tick={{ fontSize: 12, fill: 'var(--muted)' }} allowDecimals={false} />
+              <Tooltip formatter={(v) => `${v}%`} contentStyle={{ borderRadius: 10, border: '1px solid var(--line)', fontSize: 12 }} />
+              <Bar dataKey="tauxPresence" name="Taux de présence" fill="var(--green)" radius={[6, 6, 0, 0]} />
+              <Bar dataKey="tauxAbsence" name="Taux d'absence" fill="var(--red)" radius={[6, 6, 0, 0]} />
             </BarChart>
           </ResponsiveContainer>
         </div>
@@ -5605,15 +5617,15 @@ function PresenceRapportView({ state, session }) {
 
       {classId && byDayData.length > 0 && (
         <div className="sygenop-card p-5">
-          <div className="font-bold text-sm mb-4" style={{ color: 'var(--ink)' }}>Absences par jour — {state.classes[classId]?.name}</div>
+          <div className="font-bold text-sm mb-4" style={{ color: 'var(--ink)' }}>Taux de présence / absence par jour — {state.classes[classId]?.name}</div>
           <ResponsiveContainer width="100%" height={260}>
             <BarChart data={byDayData}>
               <CartesianGrid strokeDasharray="3 3" stroke="var(--line)" />
               <XAxis dataKey="jour" tick={{ fontSize: 11, fill: 'var(--muted)' }} />
-              <YAxis tick={{ fontSize: 12, fill: 'var(--muted)' }} allowDecimals={false} />
-              <Tooltip contentStyle={{ borderRadius: 10, border: '1px solid var(--line)', fontSize: 12 }} />
-              <Bar dataKey="absences" fill="var(--red)" radius={[6, 6, 0, 0]} />
-              <Bar dataKey="retards" fill="var(--gold)" radius={[6, 6, 0, 0]} />
+              <YAxis domain={[0, 100]} tickFormatter={(v) => `${v}%`} tick={{ fontSize: 12, fill: 'var(--muted)' }} allowDecimals={false} />
+              <Tooltip formatter={(v) => `${v}%`} contentStyle={{ borderRadius: 10, border: '1px solid var(--line)', fontSize: 12 }} />
+              <Bar dataKey="tauxPresence" name="Taux de présence" fill="var(--green)" radius={[6, 6, 0, 0]} />
+              <Bar dataKey="tauxAbsence" name="Taux d'absence" fill="var(--red)" radius={[6, 6, 0, 0]} />
             </BarChart>
           </ResponsiveContainer>
         </div>
@@ -11750,10 +11762,6 @@ function openSchool(id, name, actif) {
     body = <PersonnelView state={schoolState} loading={loadingState} updateState={updateState} notify={notify} readOnly={readOnly} />;
   } else if (active === 'classes' || active === 'saisie') {
     body = <SaisieView state={schoolState} loading={loadingState} updateState={updateState} notify={notify} teacherName={teacherName} teacherStaffId={session.staffId} readOnly={readOnly} />;
-  } else if (active === 'appel') {
-    body = <AppelView state={schoolState} updateState={updateState} notify={notify} teacherName={teacherName} teacherStaffId={session.staffId} role={session.role} readOnly={readOnly} />;
-  } else if (active === 'rapport-presence') {
-    body = <PresenceRapportView state={schoolState} session={session} />;
   } else if (active === 'synth') {
     body = <SynthView state={schoolState} loading={loadingState} teacherName={teacherName} />;
   } else if (active === 'bull') {
