@@ -1063,18 +1063,22 @@ async function loadSchoolData(id) {
   }
   try {
     let payload = null;
+    let serverVersion = null;
     if (schoolCode) {
       const result = await sb('POST', 'rpc/get_school_data', '', { p_school_id: id, p_code: schoolCode });
       if (result?.ok === false) throw new Error(result.error || 'Accès refusé');
       payload = result?.data || result;
+      serverVersion = result?.version ?? null;
     } else if (staffCode) {
       const result = await sb('POST', 'rpc/get_school_data_staff', '', { p_school_id: id, p_staff_id: session.staffId, p_code: staffCode });
       if (result?.ok === false) throw new Error(result.error || 'Accès refusé');
       payload = result?.data || result;
+      serverVersion = result?.version ?? null;
     } else if (adminCode) {
       const result = await sb('POST', 'rpc/get_school_data_admin', '', { p_school_id: id, p_admin_code: adminCode });
       if (result?.ok === false) throw new Error(result.error || 'Accès refusé');
       payload = result?.data || result;
+      serverVersion = result?.version ?? null;
     } else if (session?.role === 'ief') {
       // Compte IEF en lecture seule : lecture AUTHENTIFIÉE et BORNÉE à sa
       // circonscription via la RPC get_school_data_ief — le code de lecture
@@ -1087,16 +1091,23 @@ async function loadSchoolData(id) {
         const result = await sb('POST', 'rpc/get_school_data_ief', '', { p_school_id: id, p_code: iefCode });
         if (result?.ok === false) throw new Error(result.error || 'Accès refusé');
         payload = result?.data || result;
+        serverVersion = result?.version ?? null;
       } else {
-        const rows = await sb('GET', 'school_data', `school_id=eq.${id}&select=school_id,payload`);
+        const rows = await sb('GET', 'school_data', `school_id=eq.${id}&select=school_id,payload,version`);
         const row = Array.isArray(rows) ? rows.find((r) => r && r.school_id === id) : null;
         payload = (row && row.payload) || null;
+        serverVersion = row?.version ?? null;
       }
     } else {
       throw new Error('Code d’accès absent pour cette école');
     }
     if (payload && payload.classes) {
-      payload.__version = payload.__version || 1;
+      // Numéro de version renvoyé par le serveur (verrouillage optimiste) :
+      // renvoyé à la prochaine sauvegarde pour détecter si quelqu'un
+      // d'autre a modifié ces données entretemps (voir saveSchoolData).
+      // IEF étant en lecture seule, l'absence de version pour son ancien
+      // repli est sans conséquence (aucune sauvegarde n'est jamais tentée).
+      payload.__version = serverVersion ?? payload.__version ?? 1;
       // Migration année scolaire : les écoles encore sur l'ancien millésime passent en 2026/2027
       if (payload.header && payload.header.annee === '2025/2026') payload.header.annee = '2026/2027';
       primeCacheFromServer(id, payload).catch(() => {});
@@ -1157,17 +1168,18 @@ async function saveSchoolData(id, state, access) {
   if (!schoolCode && !staffCode && !adminCode) schoolCode = cachedSchoolCode(id) || null;
   const clean = { ...state };
   delete clean.__version;
+  const expectedVersion = state.__version ?? null;
   let result;
     if (schoolCode) {
-      result = await sb('POST', 'rpc/save_school_data', '', { p_school_id: id, p_code: schoolCode, p_payload: clean });
+      result = await sb('POST', 'rpc/save_school_data', '', { p_school_id: id, p_code: schoolCode, p_payload: clean, p_expected_version: expectedVersion });
     } else if (staffId != null && staffCode) {
       // Credentials personnel issues de la session OU du snapshot : la
       // condition ne doit PAS exiger que la session courante soit encore
       // « staff » (elle peut avoir expiré ou changé depuis la saisie).
-      result = await sb('POST', 'rpc/save_school_data_staff', '', { p_school_id: id, p_staff_id: staffId, p_code: staffCode, p_payload: clean });
+      result = await sb('POST', 'rpc/save_school_data_staff', '', { p_school_id: id, p_staff_id: staffId, p_code: staffCode, p_payload: clean, p_expected_version: expectedVersion });
     } else if (adminCode) {
     try {
-      result = await sb('POST', 'rpc/save_school_data_admin', '', { p_school_id: id, p_admin_code: adminCode, p_payload: clean });
+      result = await sb('POST', 'rpc/save_school_data_admin', '', { p_school_id: id, p_admin_code: adminCode, p_payload: clean, p_expected_version: expectedVersion });
     } catch (e) {
       // Compatibilité avec les bases qui n'ont pas encore exécuté la migration
       // ajoutant save_school_data_admin : admin-write protège déjà cette écriture.
@@ -1178,7 +1190,11 @@ async function saveSchoolData(id, state, access) {
   } else {
     throw new Error('Code d’accès absent pour cette école');
   }
-  if (result?.ok === false) throw new Error(result.error || 'Enregistrement refusé');
+  if (result?.ok === false) {
+    const err = new Error(result.error || 'Enregistrement refusé');
+    if (result.conflict) { err.isVersionConflict = true; err.serverVersion = result.server_version; }
+    throw err;
+  }
   const version = result?.version || ((state.__version || 1) + 1);
   await primeCacheFromServer(id, { ...clean, __version: version }).catch(() => {});
   return version;
@@ -11414,12 +11430,23 @@ setSession(saved);
     // retentée à l'infini : on prévient ici pour ne jamais perdre une saisie
     // en silence (l'utilisateur sait qu'il doit refaire l'action après
     // reconnexion).
-    const onRejected = () => {
+    const onRejected = (e) => {
+      const message = e?.detail?.message || '';
+      const rejectedSchoolId = e?.detail?.schoolId;
+      if (/conflit de version/i.test(message)) {
+        // Quelqu'un d'autre a sauvegardé cette école entretemps : la
+        // modification en attente est abandonnée (elle reposait sur des
+        // données déjà périmées) et on recharge une version fraîche depuis
+        // le serveur — jamais d'écrasement silencieux.
+        notify("Ces données ont été modifiées entretemps par quelqu'un d'autre. Rechargement des données à jour — merci de refaire votre dernière action.", true);
+        if (rejectedSchoolId && rejectedSchoolId === activeSchoolId) setLoadNonce((n) => n + 1);
+        return;
+      }
       notify("Une modification n'a pas pu être synchronisée (accès refusé ou code d'accès introuvable). Elle reste enregistrée sur cet appareil : reconnectez-vous avec le bon compte, puis effectuez une nouvelle modification pour tout renvoyer.", true);
     };
     window.addEventListener('offline-sync-rejected', onRejected);
     return () => { unsub(); window.removeEventListener('offline-sync-rejected', onRejected); };
-  }, [notify]);
+  }, [notify, activeSchoolId]);
 
   // CORRECTIF : quand une save échoue précisément parce qu'aucun code d'accès
   // n'est disponible (élément resté bloqué dans la file, souvent issu d'une
@@ -11566,7 +11593,17 @@ setSession(saved);
       // Snapshot des codes d'accès à l'instant de la saisie : persisté avec
       // l'élément de la file pour permettre la synchro même si la session
       // change ou expire avant le retour du réseau.
-      queueSave(activeSchoolId, draft, { saveSchoolData, loadSchoolData, notify, access: buildAccessSnapshot() });
+      queueSave(activeSchoolId, draft, {
+        saveSchoolData, loadSchoolData, notify, access: buildAccessSnapshot(),
+        // Après une sauvegarde immédiate réussie, resynchronise __version
+        // dans l'état local : sinon la MODIFICATION SUIVANTE renverrait
+        // encore l'ancien numéro et se ferait rejeter à tort par le
+        // verrouillage optimiste, comme si elle entrait en conflit avec sa
+        // propre sauvegarde qui vient pourtant de réussir. On ne touche
+        // qu'à __version (fonctionnelle, sur l'état le plus récent) pour ne
+        // jamais écraser une saisie faite entretemps.
+        onSaved: (version) => setSchoolState((cur) => (cur ? { ...cur, __version: version } : cur)),
+      });
       return draft;
     });
   }, [activeSchoolId, notify]);

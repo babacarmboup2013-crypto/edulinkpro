@@ -145,9 +145,18 @@ function isDefinitiveSyncError(message) {
   if (/failed to fetch|network|aborted|timeout|r[ée]seau|connection refused/i.test(m)) return false;
   return (
     /refus/i.test(m) ||                       // « Accès refusé », « Enregistrement … refusé »…
+    /conflit de version/i.test(m) ||          // verrouillage optimiste : la version ne matchera plus jamais sans rechargement
     /\b40[13]\b/.test(m) ||                   // codes HTTP 401/403 dans les erreurs REST
     /permission denied|row-level security|unauthorized|forbidden|invalid api key|\bjwt\b/i.test(m)
   );
+}
+
+// Conflit de verrouillage optimiste (voir save_school_data côté serveur) :
+// quelqu'un d'autre a sauvegardé entretemps. Retenter avec le même
+// brouillon ne peut QUE re-échouer — il faut recharger les données fraîches
+// avant de pouvoir rejouer la modification.
+function isVersionConflictError(message) {
+  return /conflit de version/i.test(String(message || ''));
 }
 
 // « Code d'accès absent pour cette école » : l'élément n'a AUCUNE credential
@@ -286,7 +295,20 @@ async function drainQueue() {
     }
     for (const item of q) {
       try {
-        await saveFnRef(item.schoolId, item.draft, item.access);
+        const newVersion = await saveFnRef(item.schoolId, item.draft, item.access);
+        // Propage la nouvelle version aux autres éléments encore en attente
+        // pour LA MÊME école : chaque brouillon hors-ligne porte le numéro
+        // de version d'AVANT la coupure réseau, donc sans cette propagation,
+        // le 2e élément d'une même école serait rejeté comme « en conflit »
+        // avec la sauvegarde précédente… qui vient pourtant du même
+        // utilisateur, dans la même session hors-ligne.
+        if (newVersion != null) {
+          for (const other of q) {
+            if (other !== item && other.schoolId === item.schoolId && other.draft) {
+              other.draft = { ...other.draft, __version: newVersion };
+            }
+          }
+        }
         await removeQueue(item.id);
         unblockSchool(item.schoolId);
         setStatus({ lastError: '' });
@@ -385,10 +407,16 @@ export async function queueSave(schoolId, draft, opts) {
   if (online && opts && opts.saveSchoolData) {
     setStatus({ syncing: true });
     try {
-      await opts.saveSchoolData(schoolId, draft, access);
+      const newVersion = await opts.saveSchoolData(schoolId, draft, access);
       // Sauvegarde directe réussie : l'école n'est plus « bloquée » (elle a pu
       // se re-synchroniser avec le serveur).
       unblockSchool(schoolId);
+      // Renvoie la nouvelle version au composant appelant : sans ça, la
+      // prochaine modification locale enverrait encore l'ANCIEN numéro de
+      // version et se ferait rejeter à tort comme un conflit avec sa propre
+      // sauvegarde qui vient pourtant de réussir (voir verrouillage
+      // optimiste de save_school_data côté serveur).
+      if (typeof opts.onSaved === 'function' && newVersion != null) opts.onSaved(newVersion);
     } catch (e) {
       console.error('save failed, queueing:', e);
       const message = e?.message || 'Erreur de synchronisation serveur';
