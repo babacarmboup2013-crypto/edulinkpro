@@ -1508,10 +1508,14 @@ function withStudentPresenceRecord(prev, date, studentId, slotId, record) {
   return { ...prev, presenceEleves };
 }
 // Créneaux de l'emploi du temps d'une classe pour une date donnée, triés
-// par heure de début. Tableau vide = pas d'emploi du temps saisi → l'école
-// utilise le pointage simple (un scan au portail par jour).
+// par heure de début. Tableau vide = pas d'emploi du temps saisi (ou cycle
+// Préscolaire/Élémentaire, où le pointage se fait uniquement par jour, sans
+// séance — seuls le Moyen et le Secondaire pointent séance par séance).
 function seancesForClassDay(state, classId, date) {
   if (!classId) return [];
+  const level = state?.classes?.[classId]?.level;
+  const cycle = level ? cycleForLevel(level) : null;
+  if (cycle === 'prescolaire' || cycle === 'elementaire') return [];
   // getDay() : 0=dimanche..6=samedi → aligné sur TIMETABLE_DAYS (Lundi..Samedi).
   const dayLabel = TIMETABLE_DAYS[(new Date(`${date}T00:00:00`).getDay() + 6) % 7];
   if (!dayLabel) return []; // dimanche : pas de créneau
