@@ -833,6 +833,9 @@ function paymentMonthKey(p) {
 function studentPaidInMonth(student, month) {
   return studentPaiements(student).reduce((s, p) => s + (paymentMonthKey(p) === month ? (Number(p.montant) || 0) : 0), 0);
 }
+function studentPaidInMonthByType(student, month, type) {
+  return studentPaiements(student).reduce((s, p) => s + (paymentMonthKey(p) === month && p.type_paiement === type ? (Number(p.montant) || 0) : 0), 0);
+}
 function schoolYearMonths(state) {
   const annee = String((state && state.header && state.header.annee) || '');
   const years = (annee.match(/\d{4}/g) || []).map(Number);
@@ -6997,8 +7000,8 @@ function ReceiptSheet({ state, cls, student, payment }) {
   const rubrique = feeForLevel(state, cls.level).rubriques.find((item) => item.id === payment.rubrique);
   const periodeLabel = rubrique?.label || (payment.rubrique === 'general' ? 'Scolarité générale' : payment.periode || 'Scolarité');
   const moisPaiement = payment.mois || (payment.date || '').slice(0, 7);
-  const totalMois = studentPaiements(student).filter((item) => (item.mois || (item.date || '').slice(0, 7)) === moisPaiement).reduce((sum, item) => sum + (Number(item.montant) || 0), 0);
-  const reliquatMensuel = Math.max(0, studentMonthlyDue(state, cls.level) - totalMois);
+  const totalMoisType = studentPaiements(student).filter((item) => (item.mois || (item.date || '').slice(0, 7)) === moisPaiement && (isTypeInscription ? item.type_paiement === 'inscription' : item.type_paiement === 'mensualite')).reduce((sum, item) => sum + (Number(item.montant) || 0), 0);
+  const reliquatMensuel = Math.max(0, studentMonthlyDue(state, cls.level) - totalMoisType);
 
   return (
     <div className="recu-sheet sygenop-card">
@@ -7043,9 +7046,14 @@ function ReceiptSheet({ state, cls, student, payment }) {
           <b>Solde restant :</b> <span style={{ color: soldeType > 0 ? '#a8402f' : '#0a4f3a', fontWeight: 700 }}>{fmtFCFA(soldeType)}</span>
         </div>
         <div style={{ gridColumn: '1 / -1', borderTop: '1px solid #d8ded9', paddingTop: 6, marginTop: 4 }}>
-          <b style={{ color: '#b8862f' }}>Reliquat inscription :</b> <span style={{ color: reliquat.inscription > 0 ? '#a8402f' : '#0a4f3a', fontWeight: 700 }}>{fmtFCFA(reliquat.inscription)}</span>
-          <span style={{ margin: '0 8px', color: '#d8ded9' }}>|</span>
-          <b style={{ color: '#0a4f3a' }}>Reliquat scolarité :</b> <span style={{ color: reliquat.mensualite > 0 ? '#a8402f' : '#0a4f3a', fontWeight: 700 }}>{fmtFCFA(reliquat.mensualite)}</span>
+          {isTypeInscription ? (
+            <b style={{ color: '#b8862f' }}>Reliquat inscription :</b>
+          ) : (
+            <b style={{ color: '#0a4f3a' }}>Reliquat scolarité :</b>
+          )}{' '}
+          <span style={{ color: (isTypeInscription ? reliquat.inscription : reliquat.mensualite) > 0 ? '#a8402f' : '#0a4f3a', fontWeight: 700 }}>
+            {fmtFCFA(isTypeInscription ? reliquat.inscription : reliquat.mensualite)}
+          </span>
         </div>
       </div>
       <div className="grid grid-cols-2 gap-3" style={{ marginTop: 16, fontSize: 10.5, textAlign: 'center' }}>
@@ -7766,13 +7774,13 @@ function PaiementsView({ state, loading, updateState, notify, activeSchoolId, ro
   })();
   const effectiveMonth = selectedMonth && allMonths.includes(selectedMonth) ? selectedMonth : (allMonths.includes(todayISO().slice(0, 7)) ? todayISO().slice(0, 7) : (allMonths[0] || ''));
   const monthPayments = [];
-  filteredStudents.forEach((s) => studentPaiements(s).forEach((p) => { if (paymentMonthKey(p) === effectiveMonth) monthPayments.push({ student: s, payment: p }); }));
+  filteredStudents.forEach((s) => studentPaiements(s).forEach((p) => { if (paymentMonthKey(p) === effectiveMonth && p.type_paiement === 'mensualite') monthPayments.push({ student: s, payment: p }); }));
   const monthTotal = monthPayments.reduce((sum, x) => sum + (Number(x.payment.montant) || 0), 0);
   const monthPaymentCount = monthPayments.length;
   const monthModes = {};
   monthPayments.forEach((x) => { const label = MODES_PAIEMENT[x.payment.mode] || x.payment.mode || 'Autre'; monthModes[label] = (monthModes[label] || 0) + (Number(x.payment.montant) || 0); });
   const monthStats = filteredStudents.reduce((acc, s) => {
-    const paidMonth = studentPaidInMonth(s, effectiveMonth);
+    const paidMonth = studentPaidInMonthByType(s, effectiveMonth, 'mensualite');
     acc.reste += Math.max(0, monthlyDue - paidMonth);
     if (paidMonth <= 0) acc.sans += 1;
     else if (monthlyDue > 0 && paidMonth >= monthlyDue) acc.couvert += 1;
@@ -7918,10 +7926,10 @@ function PaiementsView({ state, loading, updateState, notify, activeSchoolId, ro
     const header = ['Élève', 'Classe', 'Téléphone tuteur', 'Dû annuel', ...allMonths.map(monthLabel), 'Total payé', 'Rel. Inscription', 'Rel. Scolarité', 'Solde', 'Statut'];
     const rows = students.map((s) => {
       const paid = studentTotalPaid(s);
-      const solde = Math.max(0, due - paid);
       const reliquat = studentReliquatByType(state, level, s);
+      const solde = reliquat.inscription + reliquat.mensualite;
       const st = paymentStatus(due, paid);
-      return [`${s.prenom || ''} ${s.nom || ''}`, currentClass.name, s.tuteurTel || '', due, ...allMonths.map((month) => studentPaidInMonth(s, month)), paid, reliquat.inscription, reliquat.mensualite, solde, st.label];
+      return [`${s.prenom || ''} ${s.nom || ''}`, currentClass.name, s.tuteurTel || '', due, ...allMonths.map((month) => studentPaidInMonthByType(s, month, 'mensualite')), paid, reliquat.inscription, reliquat.mensualite, solde, st.label];
     });
     downloadCSV(`paiements_${currentClass.name}_${level}.csv`, [header, ...rows]);
   }
@@ -7978,7 +7986,7 @@ function PaiementsView({ state, loading, updateState, notify, activeSchoolId, ro
     if (!currentClass) return;
     const esc = (value) => String(value ?? '').replace(/[&<>"']/g, (char) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[char]));
     const rows = filteredStudents.map((s) => {
-      const paidMonth = studentPaidInMonth(s, effectiveMonth);
+      const paidMonth = studentPaidInMonthByType(s, effectiveMonth, 'mensualite');
       const resteMois = Math.max(0, monthlyDue - paidMonth);
       const st = paidMonth <= 0 ? 'Pas à jour' : (monthlyDue > 0 && paidMonth >= monthlyDue) ? 'À jour' : 'Partiel';
       return `<tr><td>${esc(`${s.prenom || ''} ${s.nom || ''}`)}</td><td>${esc(currentClass.name)}</td><td class="num">${new Intl.NumberFormat('fr-FR').format(paidMonth)}</td><td class="num">${new Intl.NumberFormat('fr-FR').format(resteMois)}</td><td>${st}</td></tr>`;
@@ -8077,7 +8085,7 @@ function PaiementsView({ state, loading, updateState, notify, activeSchoolId, ro
                 const mdue = studentMonthlyDue(state, c.level);
                 (c.students || []).forEach((st) => {
                   attenduEcole += mdue;
-                  const paidM = studentPaidInMonth(st, effectiveMonth);
+                  const paidM = studentPaidInMonthByType(st, effectiveMonth, 'mensualite');
                   encaisseEcole += paidM;
                   if (mdue > 0 && paidM >= mdue) aJourMois += 1;
                 });
@@ -8258,7 +8266,7 @@ function PaiementsView({ state, loading, updateState, notify, activeSchoolId, ro
                     {filteredStudents.map((s) => {
                       const paid = studentTotalPaid(s);
                       const solde = Math.max(0, due - paid);
-                      const paidMonth = studentPaidInMonth(s, effectiveMonth);
+                      const paidMonth = studentPaidInMonthByType(s, effectiveMonth, 'mensualite');
                       const resteMois = Math.max(0, monthlyDue - paidMonth);
                       const covered = monthlyDue > 0 && paidMonth >= monthlyDue;
                       const status = paidMonth <= 0 ? { label: 'Pas à jour', tone: 'red' } : covered ? { label: 'À jour', tone: 'green' } : { label: 'Partiel', tone: 'gold' };
@@ -8315,8 +8323,8 @@ function PaiementsView({ state, loading, updateState, notify, activeSchoolId, ro
                 <tbody>
                   {filteredStudents.map((s) => {
                     const paid = studentTotalPaid(s);
-                    const solde = Math.max(0, due - paid);
                     const reliquat = studentReliquatByType(state, level, s);
+                    const solde = reliquat.inscription + reliquat.mensualite;
                     const status = paymentStatus(due, paid);
                     return (
                       <tr key={s.id} style={{ borderBottom: '1px solid var(--line)' }}>
