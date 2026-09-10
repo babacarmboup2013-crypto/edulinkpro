@@ -3743,12 +3743,6 @@ function PersonnelListTab({ personnel, onAdd, onEdit, onDelete, onCard, onAttest
                       <button onClick={() => onProfile(p)} className="p-1.5 rounded-lg hover:bg-black/5" style={{ color: 'var(--green-d)' }} title="Fiche du personnel">
                         <UserRound size={15} />
                       </button>
-                      <button onClick={() => onCard(p)} className="p-1.5 rounded-lg hover:bg-black/5" style={{ color: 'var(--gold)' }} title="Carte professionnelle">
-                        <CreditCard size={15} />
-                      </button>
-                      <button onClick={() => onAttest(p)} className="p-1.5 rounded-lg hover:bg-black/5" style={{ color: 'var(--green-d)' }} title="Attestation de service">
-                        <FileText size={15} />
-                      </button>
                       {!readOnly && (
                         <>
                           <button onClick={() => onEdit(p)} className="p-1.5 rounded-lg hover:bg-black/5" style={{ color: 'var(--muted)' }} title="Modifier">
