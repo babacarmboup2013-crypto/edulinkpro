@@ -1234,6 +1234,24 @@ function buildAccessSnapshot() {
   };
 }
 
+// Réunit deux versions d'un même payload quand la sauvegarde d'un membre du
+// personnel entre en « conflit de version » : on garde la version serveur
+// (la plus à jour) et on y réinjecte UNIQUEMENT les demandes d'absence /
+// attestation de service présentes localement et absentes côté serveur
+// (ajouts purs — aucune donnée ne peut être écrasée).
+function mergeStaffRequestArrays(serverData, localData) {
+  const out = { ...serverData };
+  const serverAbs = Array.isArray(serverData.staffAbsenceRequests) ? serverData.staffAbsenceRequests : [];
+  const serverAtt = Array.isArray(serverData.staffAttestRequests) ? serverData.staffAttestRequests : [];
+  const localAbs = Array.isArray(localData.staffAbsenceRequests) ? localData.staffAbsenceRequests : [];
+  const localAtt = Array.isArray(localData.staffAttestRequests) ? localData.staffAttestRequests : [];
+  const missAbs = localAbs.filter((r) => r && r.id && !serverAbs.some((x) => x && x.id === r.id));
+  const missAtt = localAtt.filter((r) => r && r.id && !serverAtt.some((x) => x && x.id === r.id));
+  if (missAbs.length) out.staffAbsenceRequests = [...serverAbs, ...missAbs];
+  if (missAtt.length) out.staffAttestRequests = [...serverAtt, ...missAtt];
+  return out;
+}
+
 async function saveSchoolData(id, state, access) {
   const session = loadSessionJSON(LS_SESSION, null);
   // Le snapshot capturé à la saisie ne vaut que pour l'école d'origine pour
@@ -1271,7 +1289,25 @@ async function saveSchoolData(id, state, access) {
       // Credentials personnel issues de la session OU du snapshot : la
       // condition ne doit PAS exiger que la session courante soit encore
       // « staff » (elle peut avoir expiré ou changé depuis la saisie).
-      result = await sb('POST', 'rpc/save_school_data_staff', '', { p_school_id: id, p_staff_id: staffId, p_code: staffCode, p_payload: clean, p_expected_version: expectedVersion });
+      try {
+        result = await sb('POST', 'rpc/save_school_data_staff', '', { p_school_id: id, p_staff_id: staffId, p_code: staffCode, p_payload: clean, p_expected_version: expectedVersion });
+      } catch (e1) {
+        // Conflit de version (souvent « fantôme » tant que
+        // get_school_data_staff ne renvoie pas la version réelle, ou après
+        // une modification concurrente) : on recharge la version FRAÎCHE du
+        // serveur, on réinjecte les demandes locales manquantes (ajouts
+        // purs), puis on renvoie la sauvegarde avec la BONNE version — la
+        // demande soumise n'est ainsi jamais perdue silencieusement.
+        if (!/conflit de version/i.test(sbErrMsg(e1))) throw e1;
+        const fresh = await sb('POST', 'rpc/get_school_data_staff', '', { p_school_id: id, p_staff_id: staffId, p_code: staffCode });
+        const freshData = fresh && fresh.data;
+        const freshVersion = (fresh && fresh.version) ?? null;
+        if (!freshData || freshVersion == null) throw e1;
+        const merged = mergeStaffRequestArrays(freshData, clean);
+        const mergedClean = { ...merged };
+        delete mergedClean.__version;
+        result = await sb('POST', 'rpc/save_school_data_staff', '', { p_school_id: id, p_staff_id: staffId, p_code: staffCode, p_payload: mergedClean, p_expected_version: freshVersion });
+      }
     } else if (adminCode) {
     try {
       result = await sb('POST', 'rpc/save_school_data_admin', '', { p_school_id: id, p_admin_code: adminCode, p_payload: clean, p_expected_version: expectedVersion });
