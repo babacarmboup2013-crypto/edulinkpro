@@ -7987,15 +7987,16 @@ function PaiementsView({ state, loading, updateState, notify, activeSchoolId, ro
     const esc = (value) => String(value ?? '').replace(/[&<>"']/g, (char) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[char]));
     const rows = filteredStudents.map((s) => {
       const paidMonth = studentPaidInMonthByType(s, effectiveMonth, 'mensualite');
+      const reliquatInscription = studentReliquatByType(state, level, s).inscription;
       const resteMois = Math.max(0, monthlyDue - paidMonth);
       const st = paidMonth <= 0 ? 'Pas à jour' : (monthlyDue > 0 && paidMonth >= monthlyDue) ? 'À jour' : 'Partiel';
-      return `<tr><td>${esc(`${s.prenom || ''} ${s.nom || ''}`)}</td><td>${esc(currentClass.name)}</td><td class="num">${new Intl.NumberFormat('fr-FR').format(paidMonth)}</td><td class="num">${new Intl.NumberFormat('fr-FR').format(resteMois)}</td><td>${st}</td></tr>`;
+      return `<tr><td>${esc(`${s.prenom || ''} ${s.nom || ''}`)}</td><td>${esc(currentClass.name)}</td><td class="num">${new Intl.NumberFormat('fr-FR').format(reliquatInscription)}</td><td class="num">${new Intl.NumberFormat('fr-FR').format(paidMonth)}</td><td class="num">${new Intl.NumberFormat('fr-FR').format(resteMois)}</td><td>${st}</td></tr>`;
     }).join('');
     const modeRows = Object.entries(monthModes).map(([label, amount]) => `<tr><td>${esc(label)}</td><td class="num">${fmtFCFA(amount)}</td></tr>`).join('');
     const popup = window.open('', '_blank', 'width=900,height=700,scrollbars=yes');
     if (!popup) { notify('Autorisez les fenêtres pop-up pour générer le PDF.', true); return; }
     popup.document.open();
-    popup.document.write(`<!doctype html><html lang="fr"><head><meta charset="utf-8"><title>Récap paiements ${esc(monthLabel(effectiveMonth))}</title><style>html,body{background:#fff}body{font-family:Arial,sans-serif;color:#17251d;margin:0;padding:15mm}h1{font-size:20px;margin:0 0 4px}.meta{font-size:12px;color:#637269;margin-bottom:18px}table{width:100%;border-collapse:collapse;font-size:12px;margin-bottom:18px}th,td{border:1px solid #cfd8d2;padding:8px;text-align:left}th{background:#e8f3ed}td.num{text-align:right}th.num{text-align:right}h2{font-size:14px;margin:16px 0 8px;color:#176b49}@media print{body{margin:0;padding:15mm}@page{size:A4 portrait;margin:0}}</style></head><body><h1>Récapitulatif des paiements — ${esc(monthLabel(effectiveMonth))}</h1><div class="meta"><strong>${esc(state?.header?.ecole || '')}</strong> · Classe ${esc(currentClass.name)} (${esc(level)}) · Année ${esc(state?.header?.annee || '')} · Mensualité de référence : ${fmtFCFA(monthlyDue)}</div><table><thead><tr><th>Élève</th><th>Classe</th><th>Versé</th><th>Reliquat</th><th>Situation du mois</th></tr></thead><tbody>${rows}</tbody><tfoot><tr><th colspan="2">Totaux</th><th class="num">${fmtFCFA(monthTotal)}</th><th class="num">${fmtFCFA(monthStats.reste)}</th><th>${monthPaymentCount} versement(s)</th></tr></tfoot></table>${modeRows ? `<h2>Répartition par mode de paiement</h2><table><thead><tr><th>Mode</th><th>Montant</th></tr></thead><tbody>${modeRows}</tbody></table>` : ''}</body></html>`);
+    popup.document.write(`<!doctype html><html lang="fr"><head><meta charset="utf-8"><title>Récap paiements ${esc(monthLabel(effectiveMonth))}</title><style>html,body{background:#fff}body{font-family:Arial,sans-serif;color:#17251d;margin:0;padding:15mm}h1{font-size:20px;margin:0 0 4px}.meta{font-size:12px;color:#637269;margin-bottom:18px}table{width:100%;border-collapse:collapse;font-size:12px;margin-bottom:18px}th,td{border:1px solid #cfd8d2;padding:8px;text-align:left}th{background:#e8f3ed}td.num{text-align:right}th.num{text-align:right}h2{font-size:14px;margin:16px 0 8px;color:#176b49}@media print{body{margin:0;padding:15mm}@page{size:A4 portrait;margin:0}}</style></head><body><h1>Récapitulatif des paiements — ${esc(monthLabel(effectiveMonth))}</h1><div class="meta"><strong>${esc(state?.header?.ecole || '')}</strong> · Classe ${esc(currentClass.name)} (${esc(level)}) · Année ${esc(state?.header?.annee || '')} · Mensualité de référence : ${fmtFCFA(monthlyDue)}</div><table><thead><tr><th>Élève</th><th>Classe</th><th>Rel. Inscription</th><th>Versé</th><th>Reliquat</th><th>Situation du mois</th></tr></thead><tbody>${rows}</tbody><tfoot><tr><th colspan="2">Totaux</th><th class="num">${fmtFCFA(filteredStudents.reduce((s, st) => s + studentReliquatByType(state, level, st).inscription, 0))}</th><th class="num">${fmtFCFA(monthTotal)}</th><th class="num">${fmtFCFA(monthStats.reste)}</th><th>${monthPaymentCount} versement(s)</th></tr></tfoot></table>${modeRows ? `<h2>Répartition par mode de paiement</h2><table><thead><tr><th>Mode</th><th>Montant</th></tr></thead><tbody>${modeRows}</tbody></table>` : ''}</body></html>`);
     popup.document.close();
     popup.focus();
     setTimeout(() => { try { popup.print(); } catch (_) { popup.focus(); } }, 900);
@@ -8263,7 +8264,7 @@ function PaiementsView({ state, loading, updateState, notify, activeSchoolId, ro
                 <table className="w-full text-sm">
                   <thead>
                     <tr className="text-left" style={{ borderBottom: '1px solid var(--line)' }}>
-                      {['Élève', `Versement — ${monthLabel(effectiveMonth)}`, 'Situation du mois', `Reliquat — ${monthLabel(effectiveMonth)}`, 'Actions'].map((hh) => (
+                      {['Élève', 'Rel. Inscription', `Versement — ${monthLabel(effectiveMonth)}`, 'Situation du mois', `Reliquat — ${monthLabel(effectiveMonth)}`, 'Actions'].map((hh) => (
                         <th key={hh} className="px-4 py-3 text-[11px] font-bold uppercase tracking-wide whitespace-nowrap" style={{ color: 'var(--muted)' }}>{hh}</th>
                       ))}
                     </tr>
@@ -8273,12 +8274,14 @@ function PaiementsView({ state, loading, updateState, notify, activeSchoolId, ro
                       const paid = studentTotalPaid(s);
                       const solde = Math.max(0, due - paid);
                       const paidMonth = studentPaidInMonthByType(s, effectiveMonth, 'mensualite');
+                      const reliquatInscription = studentReliquatByType(state, level, s).inscription;
                       const resteMois = Math.max(0, monthlyDue - paidMonth);
                       const covered = monthlyDue > 0 && paidMonth >= monthlyDue;
                       const status = paidMonth <= 0 ? { label: 'Pas à jour', tone: 'red' } : covered ? { label: 'À jour', tone: 'green' } : { label: 'Partiel', tone: 'gold' };
                       return (
                         <tr key={s.id} style={{ borderBottom: '1px solid var(--line)' }}>
                           <td className="px-4 py-3 font-semibold whitespace-nowrap" style={{ color: 'var(--ink)' }}>{s.prenom || ''} {s.nom || ''}</td>
+                          <td className="px-4 py-3 whitespace-nowrap font-semibold" style={{ color: reliquatInscription > 0 ? 'var(--gold)' : 'var(--muted)' }}>{reliquatInscription > 0 ? fmtFCFA(reliquatInscription) : '—'}</td>
                           <td className="px-4 py-3 whitespace-nowrap font-semibold" style={{ color: paidMonth > 0 ? 'var(--green-d)' : 'var(--muted)' }}>{paidMonth > 0 ? fmtFCFA(paidMonth) : '—'}</td>
                           <td className="px-4 py-3"><Pill tone={status.tone}>{status.label}</Pill></td>
                           <td className="px-4 py-3 whitespace-nowrap font-semibold" style={{ color: resteMois > 0 ? 'var(--red)' : 'var(--muted)' }}>{resteMois > 0 ? fmtFCFA(resteMois) : '—'}</td>
@@ -8307,6 +8310,7 @@ function PaiementsView({ state, loading, updateState, notify, activeSchoolId, ro
                   <tfoot>
                     <tr style={{ borderTop: '2px solid var(--line)' }}>
                       <td className="px-4 py-3 text-[11px] font-bold uppercase tracking-wide" style={{ color: 'var(--muted)' }}>Totaux — {monthLabel(effectiveMonth)}</td>
+                      <td className="px-4 py-3 font-bold whitespace-nowrap" style={{ color: filteredStudents.reduce((s, st) => s + studentReliquatByType(state, level, st).inscription, 0) > 0 ? 'var(--gold)' : 'var(--muted)' }}>{fmtFCFA(filteredStudents.reduce((s, st) => s + studentReliquatByType(state, level, st).inscription, 0))}</td>
                       <td className="px-4 py-3 font-bold whitespace-nowrap" style={{ color: 'var(--green-d)' }}>{fmtFCFA(monthTotal)}</td>
                       <td></td>
                       <td className="px-4 py-3 font-bold whitespace-nowrap" style={{ color: monthStats.reste > 0 ? 'var(--red)' : 'var(--muted)' }}>{fmtFCFA(monthStats.reste)}</td>
