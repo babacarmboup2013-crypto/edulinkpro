@@ -774,18 +774,52 @@ function feeForLevel(state, level) {
   const rubriques = normalizePaymentRubriques(f);
   return { rubriques: rubriques.filter((r) => r.actif !== false).map((r) => ({ ...r, montant: Number(r.montant) || 0 })), mensualites: Math.max(1, Number(f.mensualites) || 10) };
 }
-function studentTotalDue(state, level) {
+// Frais spécifiques d'un élève :
+//  - « cas social » : réduction en % appliquée au montant de chaque rubrique ;
+//  - « rubriquesMois » : { rubriqueId: [YYYY-MM] } l'ensemble des mois où
+//    l'élève est abonné à la rubrique. Absent = abonné tous les mois de
+//    l'année scolaire. Liste vide = jamais abonné.
+function studentFeesFor(state, level, student) {
   const f = feeForLevel(state, level);
-  return f.rubriques.reduce((sum, rubrique) => sum + rubrique.montant, 0);
+  const remise = Math.max(0, Math.min(100, Number(student && student.casSocial) || 0));
+  const coef = remise > 0 ? (100 - remise) / 100 : 1;
+  const rubriquesMois = (student && student.rubriquesMois) || {};
+  const yearMonths = schoolYearMonths(state);
+  const rubriques = f.rubriques.map((r) => {
+    const months = rubriquesMois[r.id];
+    return {
+      ...r,
+      montant: coef < 1 ? Math.round((Number(r.montant) || 0) * coef) : (Number(r.montant) || 0),
+      activeMonths: months === undefined ? yearMonths : (Array.isArray(months) ? months.slice() : []),
+    };
+  });
+  return { rubriques, mensualites: f.mensualites, remise, coef, rubriquesMois, yearMonths };
 }
-// Part « annuelle » des frais = uniquement les rubriques à échéance
-// annuelle. Les rubriques « À l'entrée » (inscription, tenue…) sont déjà
-// réglées au moment de l'inscription et ne font l'objet d'aucune mensualité.
-function studentAnnualDue(state, level) {
-  const f = feeForLevel(state, level);
-  return f.rubriques.filter((r) => r.nature !== 'entree').reduce((sum, r) => sum + r.montant, 0);
+// Dû d'inscription : total des rubriques « À l'entrée » auxquelles l'élève
+// est abonné (il y est abonné un mois au moins dans l'année).
+function studentInscriptionDue(state, level, student) {
+  const fe = student ? studentFeesFor(state, level, student) : feeForLevel(state, level);
+  return fe.rubriques.filter((r) => r.nature === 'entree' && (student ? r.activeMonths.length > 0 : true)).reduce((sum, r) => sum + r.montant, 0);
 }
-function studentMonthlyDue(state, level) { return Math.round(studentAnnualDue(state, level) / feeForLevel(state, level).mensualites); }
+// Dû mensuel d'un élève pour un mois donné : somme des rubriques (hors
+// « À l'entrée ») auxquelles il est abonné ce mois-là, étalée sur le nombre
+// de mensualités. Sans mois précisé → référence (tous les mois actifs).
+function studentMonthlyDue(state, level, student, month) {
+  const fe = student ? studentFeesFor(state, level, student) : feeForLevel(state, level);
+  return fe.rubriques.filter((r) => r.nature !== 'entree' && (student ? (month ? r.activeMonths.includes(month) : true) : true)).reduce((sum, r) => sum + Math.round((Number(r.montant) || 0) / fe.mensualites), 0);
+}
+// Dû « mensualité » sur toute l'année : cumul du dû mensuel de chaque mois
+// de l'année scolaire. Les rubriques « À l'entrée » sont réglées à
+// l'inscription et ne font l'objet d'aucune mensualité.
+function studentAnnualDue(state, level, student) {
+  if (!student) return feeForLevel(state, level).rubriques.filter((r) => r.nature !== 'entree').reduce((sum, r) => sum + r.montant, 0);
+  const fe = studentFeesFor(state, level, student);
+  return fe.yearMonths.reduce((sum, M) => sum + studentMonthlyDue(state, level, student, M), 0);
+}
+function studentTotalDue(state, level, student) {
+  if (student) return studentInscriptionDue(state, level, student) + studentAnnualDue(state, level, student);
+  return feeForLevel(state, level).rubriques.reduce((sum, rubrique) => sum + rubrique.montant, 0);
+}
 function studentPaiements(student) {
   return (student && student.paiements) || [];
 }
@@ -795,14 +829,13 @@ function studentTotalPaid(student) {
 function studentPaidByType(student, type) {
   return studentPaiements(student).reduce((s, p) => s + (p.type_paiement === type ? (Number(p.montant) || 0) : 0), 0);
 }
-function studentDueByType(state, level) {
-  const f = feeForLevel(state, level);
-  const inscriptionDue = f.rubriques.filter((r) => r.nature === 'entree').reduce((sum, r) => sum + r.montant, 0);
-  const mensualiteDue = f.rubriques.filter((r) => r.nature !== 'entree').reduce((sum, r) => sum + r.montant, 0);
+function studentDueByType(state, level, student) {
+  const inscriptionDue = studentInscriptionDue(state, level, student);
+  const mensualiteDue = studentAnnualDue(state, level, student);
   return { inscription: inscriptionDue, mensualite: mensualiteDue, total: inscriptionDue + mensualiteDue };
 }
 function studentReliquatByType(state, level, student) {
-  const due = studentDueByType(state, level);
+  const due = studentDueByType(state, level, student);
   const paid = {
     inscription: studentPaidByType(student, 'inscription'),
     mensualite: studentPaidByType(student, 'mensualite'),
@@ -890,8 +923,8 @@ function montantEnLettres(n) {
 function schoolPaymentsSummary(state) {
   let totalDue = 0, totalPaid = 0, effectif = 0, aJour = 0;
   Object.values((state && state.classes) || {}).forEach((cls) => {
-    const due = studentTotalDue(state, cls.level);
     (cls.students || []).forEach((st) => {
+      const due = studentTotalDue(state, cls.level, st);
       effectif++;
       totalDue += due;
       const paid = studentTotalPaid(st);
@@ -6808,6 +6841,76 @@ function FeesModal({ level, fees, onSave, onClose }) {
   );
 }
 
+function StudentFeesModal({ level, fees, months, student, onSave, onClose }) {
+  const rubriques = (fees && fees.rubriques) || [];
+  const mensualites = (fees && fees.mensualites) || 10;
+  const [casSocial, setCasSocial] = useState(Number(student && student.casSocial) || 0);
+  const [rubriquesMois, setRubriquesMois] = useState(() => {
+    const existing = (student && student.rubriquesMois) || {};
+    return Object.fromEntries(rubriques.map((r) => [r.id, existing[r.id] === undefined ? months.slice() : (Array.isArray(existing[r.id]) ? existing[r.id].slice() : [])]));
+  });
+  function toggleMonth(rubId, month) {
+    setRubriquesMois((prev) => {
+      const list = prev[rubId] || [];
+      return { ...prev, [rubId]: list.includes(month) ? list.filter((m) => m !== month) : [...list, month].sort() };
+    });
+  }
+  function setAll(rubId, on) {
+    setRubriquesMois((prev) => ({ ...prev, [rubId]: on ? months.slice() : [] }));
+  }
+  function submit(e) {
+    e.preventDefault();
+    onSave({ casSocial: Math.max(0, Math.min(100, Number(casSocial) || 0)), rubriquesMois });
+  }
+  const coef = casSocial > 0 ? (100 - casSocial) / 100 : 1;
+  const anneeDue = months.reduce((sum, M) => sum + rubriques.filter((r) => r.nature !== 'entree' && (rubriquesMois[r.id] || []).includes(M)).reduce((s2, r2) => s2 + Math.round((Number(r2.montant) * coef) / mensualites), 0), 0);
+  const inscriptionDue = rubriques.filter((r) => r.nature === 'entree' && (rubriquesMois[r.id] || []).length > 0).reduce((s, r) => s + Math.round(Number(r.montant) * coef), 0);
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4" style={{ background: 'rgba(10,20,15,.45)' }}>
+      <form onSubmit={submit} className="sygenop-card p-6 max-w-3xl w-full sygenop-fade flex flex-col" style={{ maxHeight: '90vh' }}>
+        <div className="flex items-center justify-between mb-2">
+          <div className="font-bold" style={{ color: 'var(--ink)' }}>Frais spécifiques — {student ? `${student.prenom || ''} ${student.nom || ''}`.trim() : ''}</div>
+          <button type="button" onClick={onClose} style={{ color: 'var(--muted)' }}><X size={18} /></button>
+        </div>
+        <p className="text-xs mb-3" style={{ color: 'var(--muted)' }}>{level} · Par défaut l'élève est abonné à toutes les rubriques tous les mois. Désactivez les mois où il n'est pas abonné (cantine, car…). S'il est « cas social », indiquez sa réduction en %.</p>
+        <div className="overflow-y-auto pr-1 space-y-2">
+          {rubriques.map((r) => {
+            const liste = rubriquesMois[r.id] || [];
+            return (
+              <div key={r.id} className="rounded-lg border p-3 space-y-2" style={{ borderColor: 'var(--line)' }}>
+                <div className="flex items-center gap-2 flex-wrap">
+                  <span className="text-sm font-semibold flex-1" style={{ color: 'var(--ink)' }}>{r.label}</span>
+                  <span className="text-xs font-semibold whitespace-nowrap" style={{ color: 'var(--green-d)' }}>{fmtFCFA(Number(r.montant) || 0)}</span>
+                  <span className="text-[10px] uppercase whitespace-nowrap" style={{ color: 'var(--muted)' }}>{r.nature === 'entree' ? "À l'entrée" : `Mensuel ×${mensualites}`}</span>
+                  <button type="button" onClick={() => setAll(r.id, true)} className="px-2 py-0.5 rounded text-[10px] font-bold uppercase" style={{ background: 'var(--green-l)', color: 'var(--green-d)' }}>Tous</button>
+                  <button type="button" onClick={() => setAll(r.id, false)} className="px-2 py-0.5 rounded text-[10px] font-bold uppercase" style={{ background: 'var(--bg)', color: 'var(--muted)' }}>Aucun</button>
+                </div>
+                <div className="flex flex-wrap gap-1.5">
+                  {months.map((M) => {
+                    const on = liste.includes(M);
+                    return <button type="button" key={M} onClick={() => toggleMonth(r.id, M)} className="px-2 py-1 rounded-lg text-[11px] font-semibold" style={on ? { background: 'var(--green-d)', color: '#fff' } : { background: 'var(--bg)', color: 'var(--muted)', border: '1px solid var(--line)' }}>{monthLabel(M)}</button>;
+                  })}
+                </div>
+              </div>
+            );
+          })}
+          <div className="flex flex-wrap items-end gap-4">
+            <label className="text-xs font-semibold block">Réduction « cas social » (%)<input type="number" min="0" max="100" value={casSocial} onChange={(e) => setCasSocial(e.target.value)} className="mt-1 w-28 px-3 py-2 rounded-lg border text-sm" style={{ borderColor: 'var(--line)' }} placeholder="0" /></label>
+            <div className="text-xs leading-relaxed" style={{ color: 'var(--muted)' }}>
+              Inscription : <b style={{ color: 'var(--gold, #b8862f)' }}>{fmtFCFA(inscriptionDue)}</b> · Mensualités (année) : <b style={{ color: 'var(--ink)' }}>{fmtFCFA(anneeDue)}</b><br />
+              Total à payer par l'élève : <b style={{ color: 'var(--green-d)' }}>{fmtFCFA(inscriptionDue + anneeDue)}</b>{casSocial > 0 ? ` (réduction de ${casSocial}%)` : ''}
+            </div>
+          </div>
+        </div>
+        <div className="flex justify-end gap-2 mt-4 pt-4" style={{ borderTop: '1px solid var(--line)' }}>
+          <button type="button" onClick={onClose} className="px-3.5 py-2 rounded-lg text-sm font-semibold" style={{ background: 'var(--bg)', color: 'var(--ink)' }}>Annuler</button>
+          <button type="submit" className="px-3.5 py-2 rounded-lg text-sm font-semibold text-white" style={{ background: 'var(--green-d)' }}>Enregistrer</button>
+        </div>
+      </form>
+    </div>
+  );
+}
+
 function PaymentModal({ student, payment, rubriques = [], onSave, onClose, defaultMois }) {
   const isEdit = !!payment;
   const defaultLines = rubriques.map((r) => ({ id: r.id, label: r.label, montant: r.nature === 'entree' ? Number(r.montant) || 0 : Math.round((Number(r.montant) || 0) / Math.max(1, Number(r.mensualites) || 10)), checked: false }));
@@ -6836,7 +6939,7 @@ function PaymentModal({ student, payment, rubriques = [], onSave, onClose, defau
       const updatedLignes = defaultLines.map((line) => {
         const rubrique = rubriques.find((r) => r.id === line.id);
         if (selectedType === 'inscription') return { ...line, checked: rubrique?.nature === 'entree', montant: rubrique?.nature === 'entree' ? Number(rubrique.montant) || 0 : line.montant };
-        return { ...line, checked: rubrique?.nature !== 'entree', montant: rubrique?.nature !== 'entree' ? Math.round((Number(rubrique?.montant) || 0) / Math.max(1, Number(rubrique?.mensualites) || 10)) : line.montant };
+        return { ...line, checked: rubrique?.nature !== 'entree' && rubrique?.active !== false, montant: rubrique?.nature !== 'entree' ? Math.round((Number(rubrique?.montant) || 0) / Math.max(1, Number(rubrique?.mensualites) || 10)) : line.montant };
       });
       const autoMontant = updatedLignes.filter((l) => l.checked).reduce((sum, l) => sum + (Number(l.montant) || 0), 0);
       return { ...f, type_paiement: selectedType, lignes: updatedLignes, montant: autoMontant > 0 ? String(autoMontant) : '' };
@@ -7006,7 +7109,7 @@ function ReceiptSheet({ state, cls, student, payment }) {
   const periodeLabel = rubrique?.label || (payment.rubrique === 'general' ? 'Scolarité générale' : payment.periode || 'Scolarité');
   const moisPaiement = payment.mois || (payment.date || '').slice(0, 7);
   const totalMoisType = studentPaiements(student).filter((item) => (item.mois || (item.date || '').slice(0, 7)) === moisPaiement && (isTypeInscription ? item.type_paiement === 'inscription' : item.type_paiement === 'mensualite')).reduce((sum, item) => sum + (Number(item.montant) || 0), 0);
-  const reliquatMensuel = Math.max(0, studentMonthlyDue(state, cls.level) - totalMoisType);
+  const reliquatMensuel = Math.max(0, studentMonthlyDue(state, cls.level, student) - totalMoisType);
 
   return (
     <div className="recu-sheet sygenop-card">
@@ -7508,7 +7611,7 @@ function RecapTab({ state, notify, session, updateState }) {
   const scopedIn = showAllYear ? yearIn : monthIn;
   const scopedOut = showAllYear ? yearOut : monthOut;
   const scopedDepenses = showAllYear ? yearOutRows : monthOutRows;
-  const expectedMonth = classesList.reduce((sum, cls) => sum + (cls.students || []).length * studentMonthlyDue(state, cls.level), 0);
+  const expectedMonth = classesList.reduce((sum, cls) => sum + (cls.students || []).reduce((s2, st) => s2 + studentMonthlyDue(state, cls.level, st, activeMonth), 0), 0);
   // Année scolaire : encaissé de l'année (et non toutes années confondues)
   const yearTaux = incoming.totalDue > 0 ? Math.min(1, yearIn / incoming.totalDue) : 0;
   const reliquatAnnuel = Math.max(0, incoming.totalDue - yearIn);
@@ -7788,6 +7891,7 @@ function PaiementsView({ state, loading, updateState, notify, activeSchoolId, ro
   const [payView, setPayView] = useState('mois');
   const [selectedMonth, setSelectedMonth] = useState('');
   const [presetMois, setPresetMois] = useState(null);
+  const [paymentFeesStudent, setPaymentFeesStudent] = useState(null);
 
   const classes = (state && state.classes) || {};
   const schoolLevels = levelsForSchool(state);
@@ -7833,10 +7937,11 @@ function PaiementsView({ state, loading, updateState, notify, activeSchoolId, ro
   const monthModes = {};
   monthPayments.forEach((x) => { const label = MODES_PAIEMENT[x.payment.mode] || x.payment.mode || 'Autre'; monthModes[label] = (monthModes[label] || 0) + (Number(x.payment.montant) || 0); });
   const monthStats = filteredStudents.reduce((acc, s) => {
+    const sDue = studentMonthlyDue(state, level, s, effectiveMonth);
     const paidMonth = studentPaidInMonthByType(s, effectiveMonth, 'mensualite');
-    acc.reste += Math.max(0, monthlyDue - paidMonth);
+    acc.reste += Math.max(0, sDue - paidMonth);
     if (paidMonth <= 0) acc.sans += 1;
-    else if (monthlyDue > 0 && paidMonth >= monthlyDue) acc.couvert += 1;
+    else if (sDue > 0 && paidMonth >= sDue) acc.couvert += 1;
     else acc.partiel += 1;
     return acc;
   }, { couvert: 0, partiel: 0, sans: 0, reste: 0 });
@@ -7855,6 +7960,13 @@ function PaiementsView({ state, loading, updateState, notify, activeSchoolId, ro
     updateState((prev) => ({ ...prev, fees: { ...(prev.fees || {}), [level]: vals } }));
     notify(`Frais mis à jour pour ${level}`);
     setFeesModalOpen(false);
+  }
+
+  function saveStudentFees(patch) {
+    if (!paymentFeesStudent) return;
+    updateStudent(paymentFeesStudent.id, patch);
+    notify(`Frais de ${paymentFeesStudent.prenom || ''} ${paymentFeesStudent.nom || ''} enregistrés`);
+    setPaymentFeesStudent(null);
   }
 
   function savePayment(form) {
@@ -8040,10 +8152,11 @@ function PaiementsView({ state, loading, updateState, notify, activeSchoolId, ro
     if (!currentClass) return;
     const esc = (value) => String(value ?? '').replace(/[&<>"']/g, (char) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[char]));
     const rows = filteredStudents.map((s) => {
+      const sDue = studentMonthlyDue(state, level, s, effectiveMonth);
       const paidMonth = studentPaidInMonthByType(s, effectiveMonth, 'mensualite');
       const reliquatInscription = studentReliquatByType(state, level, s).inscription;
-      const resteMois = Math.max(0, monthlyDue - paidMonth);
-      const st = paidMonth <= 0 ? 'Pas à jour' : (monthlyDue > 0 && paidMonth >= monthlyDue) ? 'À jour' : 'Partiel';
+      const resteMois = Math.max(0, sDue - paidMonth);
+      const st = paidMonth <= 0 ? 'Pas à jour' : (sDue > 0 && paidMonth >= sDue) ? 'À jour' : 'Partiel';
       return `<tr><td>${esc(`${s.prenom || ''} ${s.nom || ''}`)}</td><td>${esc(currentClass.name)}</td><td class="num">${new Intl.NumberFormat('fr-FR').format(reliquatInscription)}</td><td class="num">${new Intl.NumberFormat('fr-FR').format(paidMonth)}</td><td class="num">${new Intl.NumberFormat('fr-FR').format(resteMois)}</td><td>${st}</td></tr>`;
     }).join('');
     const modeRows = Object.entries(monthModes).map(([label, amount]) => `<tr><td>${esc(label)}</td><td class="num">${fmtFCFA(amount)}</td></tr>`).join('');
@@ -8137,8 +8250,8 @@ function PaiementsView({ state, loading, updateState, notify, activeSchoolId, ro
             if (viewMode === 'suivi' && payView === 'mois' && effectiveMonth) {
               let attenduEcole = 0, encaisseEcole = 0, aJourMois = 0;
               Object.values(classes).forEach((c) => {
-                const mdue = studentMonthlyDue(state, c.level);
                 (c.students || []).forEach((st) => {
+                  const mdue = studentMonthlyDue(state, c.level, st, effectiveMonth);
                   attenduEcole += mdue;
                   const paidM = studentPaidInMonthByType(st, effectiveMonth, 'mensualite');
                   encaisseEcole += paidM;
@@ -8263,7 +8376,7 @@ function PaiementsView({ state, loading, updateState, notify, activeSchoolId, ro
 
           {currentClass && payView !== 'mois' && (
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-4">
-              <StatCard icon={Wallet} label="À payer (classe, année)" value={fmtFCFA(due * students.length)} tone="gold" />
+              <StatCard icon={Wallet} label="À payer (classe, année)" value={fmtFCFA(students.reduce((s, st) => s + studentTotalDue(state, level, st), 0))} tone="gold" />
               <StatCard icon={CheckCircle2} label="Versé (année)" value={fmtFCFA(students.reduce((s, st) => s + studentTotalPaid(st), 0))} tone="green" />
               {(() => {
                 const totalRelInscription = students.reduce((s, st) => s + studentReliquatByType(state, level, st).inscription, 0);
@@ -8296,7 +8409,7 @@ function PaiementsView({ state, loading, updateState, notify, activeSchoolId, ro
           ) : payView === 'mois' ? (
             <>
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-                <StatCard icon={CalendarDays} label={`Attendu — ${monthLabel(effectiveMonth)}`} value={fmtFCFA(filteredStudents.length * monthlyDue)} sub={`${filteredStudents.length} élève(s)`} tone="gold" />
+                <StatCard icon={CalendarDays} label={`Attendu — ${monthLabel(effectiveMonth)}`} value={fmtFCFA(filteredStudents.reduce((s, st) => s + studentMonthlyDue(state, level, st, effectiveMonth), 0))} sub={`${filteredStudents.length} élève(s)`} tone="gold" />
                 <StatCard icon={CheckCircle2} label={`Versements — ${monthLabel(effectiveMonth)}`} value={fmtFCFA(monthTotal)} sub={`${monthPaymentCount} versement(s)`} tone="green" />
                 <StatCard icon={AlertTriangle} label={`Reliquat mensuel — ${monthLabel(effectiveMonth)}`} value={fmtFCFA(monthStats.reste)} sub={`${monthStats.couvert} à jour · ${monthStats.partiel} partiel(s) · ${monthStats.sans} pas à jour`} tone="red" />
               </div>
@@ -8327,15 +8440,17 @@ function PaiementsView({ state, loading, updateState, notify, activeSchoolId, ro
                   <tbody>
                     {filteredStudents.map((s) => {
                       const paid = studentTotalPaid(s);
-                      const solde = Math.max(0, due - paid);
+                      const solde = Math.max(0, studentTotalDue(state, level, s) - paid);
                       const paidMonth = studentPaidInMonthByType(s, effectiveMonth, 'mensualite');
                       const reliquatInscription = studentReliquatByType(state, level, s).inscription;
-                      const resteMois = Math.max(0, monthlyDue - paidMonth);
-                      const covered = monthlyDue > 0 && paidMonth >= monthlyDue;
+                      const sDue = studentMonthlyDue(state, level, s, effectiveMonth);
+                      const resteMois = Math.max(0, sDue - paidMonth);
+                      const covered = sDue > 0 && paidMonth >= sDue;
                       const status = paidMonth <= 0 ? { label: 'Pas à jour', tone: 'red' } : covered ? { label: 'À jour', tone: 'green' } : { label: 'Partiel', tone: 'gold' };
+                      const sCas = Number(s.casSocial) > 0;
                       return (
                         <tr key={s.id} style={{ borderBottom: '1px solid var(--line)' }}>
-                          <td className="px-4 py-3 font-semibold whitespace-nowrap" style={{ color: 'var(--ink)' }}>{s.prenom || ''} {s.nom || ''}</td>
+                          <td className="px-4 py-3 font-semibold whitespace-nowrap" style={{ color: 'var(--ink)' }}>{s.prenom || ''} {s.nom || ''}{sCas && <span className="ml-1.5 px-1.5 py-0.5 rounded-full text-[9px] font-bold uppercase align-middle" style={{ background: 'var(--gold-l)', color: 'var(--gold)' }}>Cas social −{s.casSocial}%</span>}</td>
                           <td className="px-4 py-3 whitespace-nowrap font-semibold" style={{ color: reliquatInscription > 0 ? 'var(--gold)' : 'var(--muted)' }}>{reliquatInscription > 0 ? fmtFCFA(reliquatInscription) : '—'}</td>
                           <td className="px-4 py-3 whitespace-nowrap font-semibold" style={{ color: paidMonth > 0 ? 'var(--green-d)' : 'var(--muted)' }}>{paidMonth > 0 ? fmtFCFA(paidMonth) : '—'}</td>
                           <td className="px-4 py-3"><Pill tone={status.tone}>{status.label}</Pill></td>
@@ -8345,6 +8460,11 @@ function PaiementsView({ state, loading, updateState, notify, activeSchoolId, ro
                               {!readOnly && (
                                 <button onClick={() => { setPresetMois(effectiveMonth); setPaymentModalStudent(s); }} className="px-2.5 py-1.5 rounded-lg text-xs font-semibold flex items-center gap-1" style={{ background: 'var(--green-l)', color: 'var(--green-d)' }} title={`Encaisser pour ${monthLabel(effectiveMonth)}`}>
                                   <Plus size={13} /> Encaisser
+                                </button>
+                              )}
+                              {!readOnly && (
+                                <button onClick={() => setPaymentFeesStudent(s)} className="p-1.5 rounded-lg" style={{ background: 'var(--bg)', color: 'var(--muted)' }} title="Frais spécifiques (abonnements / cas social)">
+                                  <Settings size={14} />
                                 </button>
                               )}
                               <button onClick={() => setHistoryStudent(s)} className="p-1.5 rounded-lg" style={{ background: 'var(--bg)', color: 'var(--muted)' }} title="Historique">
@@ -8389,11 +8509,12 @@ function PaiementsView({ state, loading, updateState, notify, activeSchoolId, ro
                   {filteredStudents.map((s) => {
                     const paid = studentTotalPaid(s);
                     const reliquat = studentReliquatByType(state, level, s);
+                    const sCas = Number(s.casSocial) > 0;
                     const solde = reliquat.inscription + reliquat.mensualite;
-                    const status = paymentStatus(due, paid);
+                    const status = paymentStatus(studentTotalDue(state, level, s), paid);
                     return (
                       <tr key={s.id} style={{ borderBottom: '1px solid var(--line)' }}>
-                        <td className="px-4 py-3 font-semibold whitespace-nowrap" style={{ color: 'var(--ink)' }}>{s.prenom || ''} {s.nom || ''}</td>
+                        <td className="px-4 py-3 font-semibold whitespace-nowrap" style={{ color: 'var(--ink)' }}>{s.prenom || ''} {s.nom || ''}{sCas && <span className="ml-1.5 px-1.5 py-0.5 rounded-full text-[9px] font-bold uppercase align-middle" style={{ background: 'var(--gold-l)', color: 'var(--gold)' }}>Cas social −{s.casSocial}%</span>}</td>
                         <td className="px-4 py-3">
                           <input
                             defaultValue={s.tuteurTel || ''}
@@ -8410,6 +8531,11 @@ function PaiementsView({ state, loading, updateState, notify, activeSchoolId, ro
                         <td className="px-4 py-3"><Pill tone={status.tone}>{status.label}</Pill></td>
                         <td className="px-4 py-3">
                           <div className="flex items-center gap-1.5 flex-wrap">
+                            {!readOnly && (
+                            <button onClick={() => setPaymentFeesStudent(s)} className="p-1.5 rounded-lg" style={{ background: 'var(--bg)', color: 'var(--muted)' }} title="Frais spécifiques (abonnements / cas social)">
+                              <Settings size={14} />
+                            </button>
+                            )}
                             {!readOnly && (
                             <button onClick={() => setPaymentModalStudent(s)} className="p-1.5 rounded-lg" style={{ background: 'var(--green-l)', color: 'var(--green-d)' }} title="Nouveau paiement">
                               <Plus size={14} />
@@ -8444,14 +8570,17 @@ function PaiementsView({ state, loading, updateState, notify, activeSchoolId, ro
       {feesModalOpen && (
         <FeesModal level={level} fees={feeForLevel(state, level)} onSave={saveFees} onClose={() => setFeesModalOpen(false)} />
       )}
+      {paymentFeesStudent && currentClass && !readOnly && (
+        <StudentFeesModal level={level} fees={feeForLevel(state, level)} months={schoolYearMonths(state)} student={paymentFeesStudent} onSave={saveStudentFees} onClose={() => setPaymentFeesStudent(null)} />
+      )}
       {paymentModalStudent && (
-        <PaymentModal student={paymentModalStudent} defaultMois={presetMois || undefined} rubriques={feeForLevel(state, level).rubriques.map((r) => ({ ...r, mensualites: feeForLevel(state, level).mensualites }))} onSave={savePayment} onClose={() => { setPaymentModalStudent(null); setPresetMois(null); }} />
+        <PaymentModal student={paymentModalStudent} defaultMois={presetMois || undefined} rubriques={studentFeesFor(state, level, paymentModalStudent).rubriques.map((r) => ({ ...r, mensualites: studentFeesFor(state, level, paymentModalStudent).mensualites, active: presetMois ? r.activeMonths.includes(presetMois) : r.activeMonths.length > 0 }))} onSave={savePayment} onClose={() => { setPaymentModalStudent(null); setPresetMois(null); }} />
       )}
       {editingPayment && (
         <PaymentModal
           student={editingPayment.student}
           payment={editingPayment.payment}
-          rubriques={feeForLevel(state, level).rubriques.map((r) => ({ ...r, mensualites: feeForLevel(state, level).mensualites }))}
+          rubriques={studentFeesFor(state, level, editingPayment.student).rubriques.map((r) => ({ ...r, mensualites: studentFeesFor(state, level, editingPayment.student).mensualites, active: editingPayment.payment.mois ? r.activeMonths.includes(editingPayment.payment.mois) : r.activeMonths.length > 0 }))}
           onSave={saveEditedPayment}
           onClose={() => setEditingPayment(null)}
         />
@@ -8461,8 +8590,8 @@ function PaiementsView({ state, loading, updateState, notify, activeSchoolId, ro
           state={state}
           student={historyStudent}
           cls={currentClass}
-          due={due}
-          monthlyDue={monthlyDue}
+          due={studentTotalDue(state, level, historyStudent)}
+          monthlyDue={studentMonthlyDue(state, level, historyStudent)}
           onClose={() => setHistoryStudent(null)}
           onPrint={(payment) => { setHistoryStudent(null); setPrinting({ studentId: historyStudent.id, paymentId: payment.id }); }}
           onEdit={readOnly ? undefined : (payment) => { setEditingPayment({ student: historyStudent, payment }); setHistoryStudent(null); }}
