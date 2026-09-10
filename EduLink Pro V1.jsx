@@ -9568,7 +9568,8 @@ function ImportStudentsCSVPanel({ state, updateState, notify, session }) {
       const cls = next.classes[classId];
       if (!cls) return prev;
       const added = rows.map((r) => ({ id: uid('stu'), nom: r.nom, prenom: r.prenom, age: r.age, genre: r.genre, scores: {} }));
-      next.classes[classId] = { ...cls, students: [...(cls.students || []), ...added] };
+      const byName = (a, b) => (a.nom || '').localeCompare(b.nom || '') || (a.prenom || '').localeCompare(b.prenom || '');
+      next.classes[classId] = { ...cls, students: [...(cls.students || []), ...added].sort(byName) };
       next.auditLog = pushAuditEntry(prev.auditLog, {
         actor: actorLabel(session, prev), role: session && session.role,
         action: 'Import CSV élèves', details: `${added.length} élève(s) ajouté(s) — ${cls.name} (${level})`,
