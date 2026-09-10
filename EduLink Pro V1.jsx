@@ -792,6 +792,29 @@ function studentPaiements(student) {
 function studentTotalPaid(student) {
   return studentPaiements(student).reduce((s, p) => s + (Number(p.montant) || 0), 0);
 }
+function studentPaidByType(student, type) {
+  return studentPaiements(student).reduce((s, p) => s + (p.type_paiement === type ? (Number(p.montant) || 0) : 0), 0);
+}
+function studentDueByType(state, level) {
+  const f = feeForLevel(state, level);
+  const inscriptionDue = f.rubriques.filter((r) => r.nature === 'entree').reduce((sum, r) => sum + r.montant, 0);
+  const mensualiteDue = f.rubriques.filter((r) => r.nature !== 'entree').reduce((sum, r) => sum + r.montant, 0);
+  return { inscription: inscriptionDue, mensualite: mensualiteDue, total: inscriptionDue + mensualiteDue };
+}
+function studentReliquatByType(state, level, student) {
+  const due = studentDueByType(state, level);
+  const paid = {
+    inscription: studentPaidByType(student, 'inscription'),
+    mensualite: studentPaidByType(student, 'mensualite'),
+  };
+  return {
+    inscription: Math.max(0, due.inscription - paid.inscription),
+    mensualite: Math.max(0, due.mensualite - paid.mensualite),
+    total: Math.max(0, due.total - paid.inscription - paid.mensualite),
+    due,
+    paid,
+  };
+}
 function paymentStatus(due, paid) {
   if (due <= 0) return { key: 'sans_frais', label: 'Frais non définis', tone: 'muted' };
   if (paid <= 0) return { key: 'retard', label: 'Aucun versement', tone: 'red' };
@@ -6961,6 +6984,7 @@ function PaymentModal({ student, payment, rubriques = [], onSave, onClose, defau
 function ReceiptSheet({ state, cls, student, payment }) {
   const h = state.header || {};
   const due = studentTotalDue(state, cls.level);
+  const reliquat = studentReliquatByType(state, cls.level, student);
   const list = studentPaiements(student);
   const idx = list.findIndex((p) => p.id === payment.id);
   const paidBefore = list.slice(0, idx < 0 ? list.length : idx).reduce((s, p) => s + (Number(p.montant) || 0), 0);
@@ -7000,6 +7024,8 @@ function ReceiptSheet({ state, cls, student, payment }) {
         <tbody>
           {(payment.lignes?.length ? payment.lignes : [{ label: periodeLabel, montant: payment.montant }]).map((line, index) => <tr key={index}><td>{line.label}{moisPaiement ? ` — ${moisPaiement}` : ''}{payment.note && index === 0 ? ` — ${payment.note}` : ''}</td><td className="text-center">{fmtFCFA(line.montant)}</td></tr>)}
           <tr className="recu-total"><td>Montant reçu</td><td className="text-center">{fmtFCFA(payment.montant)}</td></tr>
+          {payment.type_paiement === 'inscription' && <tr><td>Reliquat inscription</td><td className="text-center" style={{ color: reliquat.inscription > 0 ? '#a8402f' : '#0a4f3a', fontWeight: 700 }}>{fmtFCFA(reliquat.inscription)}</td></tr>}
+          {payment.type_paiement === 'mensualite' && <tr><td>Reliquat scolarité</td><td className="text-center" style={{ color: reliquat.mensualite > 0 ? '#a8402f' : '#0a4f3a', fontWeight: 700 }}>{fmtFCFA(reliquat.mensualite)}</td></tr>}
           <tr><td>Reliquat mensuel</td><td className="text-center">{fmtFCFA(reliquatMensuel)}</td></tr>
         </tbody>
       </table>
@@ -7011,6 +7037,11 @@ function ReceiptSheet({ state, cls, student, payment }) {
         <div><b>Total versé à ce jour :</b> {fmtFCFA(paidTotal)}</div>
         <div style={{ gridColumn: '1 / -1' }}>
           <b>Solde restant :</b> <span style={{ color: solde > 0 ? '#a8402f' : '#0a4f3a', fontWeight: 700 }}>{fmtFCFA(solde)}</span>
+        </div>
+        <div style={{ gridColumn: '1 / -1', borderTop: '1px solid #d8ded9', paddingTop: 6, marginTop: 4 }}>
+          <b style={{ color: '#b8862f' }}>Reliquat inscription :</b> <span style={{ color: reliquat.inscription > 0 ? '#a8402f' : '#0a4f3a', fontWeight: 700 }}>{fmtFCFA(reliquat.inscription)}</span>
+          <span style={{ margin: '0 8px', color: '#d8ded9' }}>|</span>
+          <b style={{ color: '#0a4f3a' }}>Reliquat scolarité :</b> <span style={{ color: reliquat.mensualite > 0 ? '#a8402f' : '#0a4f3a', fontWeight: 700 }}>{fmtFCFA(reliquat.mensualite)}</span>
         </div>
       </div>
       <div className="grid grid-cols-2 gap-3" style={{ marginTop: 16, fontSize: 10.5, textAlign: 'center' }}>
@@ -7029,6 +7060,7 @@ function StudentHistoryModal({ state, student, cls, due, monthlyDue = 0, onClose
   const payments = studentPaiements(student).slice().sort((a, b) => (a.date || '').localeCompare(b.date || ''));
   const paid = studentTotalPaid(student);
   const solde = Math.max(0, due - paid);
+  const reliquat = studentReliquatByType(state, cls.level, student);
   const monthKeys = (() => {
     const set = new Set(schoolYearMonths(state));
     studentPaiements(student).forEach((p) => { const k = paymentMonthKey(p); if (k) set.add(k); });
@@ -7042,6 +7074,14 @@ function StudentHistoryModal({ state, student, cls, due, monthlyDue = 0, onClose
             <div className="font-bold" style={{ color: 'var(--ink)' }}>Historique — {student.prenom} {student.nom}</div>
             <div className="text-xs" style={{ color: 'var(--muted)' }}>
               {cls.name} · Mensualité {fmtFCFA(monthlyDue)} · Dû {fmtFCFA(due)} · Payé {fmtFCFA(paid)} · Solde {fmtFCFA(solde)}
+            </div>
+            <div className="flex items-center gap-3 mt-1.5">
+              <span className="inline-flex items-center gap-1 text-[10px] font-bold px-2 py-0.5 rounded-full" style={{ background: 'var(--gold-l)', color: 'var(--gold)' }}>
+                <ClipboardCheck size={10} /> Inscription : dû {fmtFCFA(reliquat.due.inscription)} · payé {fmtFCFA(reliquat.paid.inscription)} · reliquat {fmtFCFA(reliquat.inscription)}
+              </span>
+              <span className="inline-flex items-center gap-1 text-[10px] font-bold px-2 py-0.5 rounded-full" style={{ background: 'var(--green-l)', color: 'var(--green-d)' }}>
+                <CalendarDays size={10} /> Scolarité : dû {fmtFCFA(reliquat.due.mensualite)} · payé {fmtFCFA(reliquat.paid.mensualite)} · reliquat {fmtFCFA(reliquat.mensualite)}
+              </span>
             </div>
           </div>
           <button onClick={onClose} style={{ color: 'var(--muted)' }}><X size={18} /></button>
@@ -7871,12 +7911,13 @@ function PaiementsView({ state, loading, updateState, notify, activeSchoolId, ro
 
   function exportCSVClasse() {
     if (!currentClass) return;
-    const header = ['Élève', 'Classe', 'Téléphone tuteur', 'Dû annuel', ...allMonths.map(monthLabel), 'Total payé', 'Solde', 'Statut'];
+    const header = ['Élève', 'Classe', 'Téléphone tuteur', 'Dû annuel', ...allMonths.map(monthLabel), 'Total payé', 'Rel. Inscription', 'Rel. Scolarité', 'Solde', 'Statut'];
     const rows = students.map((s) => {
       const paid = studentTotalPaid(s);
       const solde = Math.max(0, due - paid);
+      const reliquat = studentReliquatByType(state, level, s);
       const st = paymentStatus(due, paid);
-      return [`${s.prenom || ''} ${s.nom || ''}`, currentClass.name, s.tuteurTel || '', due, ...allMonths.map((month) => studentPaidInMonth(s, month)), paid, solde, st.label];
+      return [`${s.prenom || ''} ${s.nom || ''}`, currentClass.name, s.tuteurTel || '', due, ...allMonths.map((month) => studentPaidInMonth(s, month)), paid, reliquat.inscription, reliquat.mensualite, solde, st.label];
     });
     downloadCSV(`paiements_${currentClass.name}_${level}.csv`, [header, ...rows]);
   }
@@ -8262,7 +8303,7 @@ function PaiementsView({ state, loading, updateState, notify, activeSchoolId, ro
               <table className="w-full text-sm">
                 <thead>
                   <tr className="text-left" style={{ borderBottom: '1px solid var(--line)' }}>
-                    {['Élève', 'Téléphone tuteur', 'À payer (année)', 'Versé (année)', 'Reliquat (année)', 'Statut', 'Actions'].map((hh) => (
+                    {['Élève', 'Téléphone tuteur', 'Rel. Inscription', 'Rel. Scolarité', 'Reliquat total', 'Statut', 'Actions'].map((hh) => (
                       <th key={hh} className="px-4 py-3 text-[11px] font-bold uppercase tracking-wide whitespace-nowrap" style={{ color: 'var(--muted)' }}>{hh}</th>
                     ))}
                   </tr>
@@ -8271,6 +8312,7 @@ function PaiementsView({ state, loading, updateState, notify, activeSchoolId, ro
                   {filteredStudents.map((s) => {
                     const paid = studentTotalPaid(s);
                     const solde = Math.max(0, due - paid);
+                    const reliquat = studentReliquatByType(state, level, s);
                     const status = paymentStatus(due, paid);
                     return (
                       <tr key={s.id} style={{ borderBottom: '1px solid var(--line)' }}>
@@ -8285,8 +8327,8 @@ function PaiementsView({ state, loading, updateState, notify, activeSchoolId, ro
                             style={{ borderColor: 'var(--line)', background: 'var(--panel)', color: 'var(--ink)' }}
                           />
                         </td>
-                        <td className="px-4 py-3 whitespace-nowrap" style={{ color: 'var(--ink)' }}>{fmtFCFA(due)}</td>
-                        <td className="px-4 py-3 whitespace-nowrap" style={{ color: 'var(--green-d)' }}>{fmtFCFA(paid)}</td>
+                        <td className="px-4 py-3 whitespace-nowrap font-semibold" style={{ color: reliquat.inscription > 0 ? 'var(--gold)' : 'var(--muted)' }}>{fmtFCFA(reliquat.inscription)}</td>
+                        <td className="px-4 py-3 whitespace-nowrap font-semibold" style={{ color: reliquat.mensualite > 0 ? 'var(--red)' : 'var(--muted)' }}>{fmtFCFA(reliquat.mensualite)}</td>
                         <td className="px-4 py-3 whitespace-nowrap font-semibold" style={{ color: solde > 0 ? 'var(--red)' : 'var(--muted)' }}>{fmtFCFA(solde)}</td>
                         <td className="px-4 py-3"><Pill tone={status.tone}>{status.label}</Pill></td>
                         <td className="px-4 py-3">
