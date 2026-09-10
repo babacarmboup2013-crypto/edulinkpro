@@ -5747,7 +5747,9 @@ function PresenceRapportView({ state, session, fixedClassId }) {
 }
 
 function GradeGrid({ state, classId, cls, cfg, periodKey, periods, updateState, notify, readOnly, isPrivateSchool, maxStudentsPerClass }) {
-  const [students, setStudents] = useState(cls.students || []);
+  // Toujours ordonner les élèves par ordre alphabétique (nom, puis prénom).
+  const byName = (a, b) => (a.nom || '').localeCompare(b.nom || '') || (a.prenom || '').localeCompare(b.prenom || '');
+  const [students, setStudents] = useState(() => [...(cls.students || [])].sort(byName));
   const [toDelete, setToDelete] = useState(null);
   const [addModalOpen, setAddModalOpen] = useState(false);
   const [editStudent, setEditStudent] = useState(null); // élève en cours de modification des informations
@@ -5772,8 +5774,21 @@ function GradeGrid({ state, classId, cls, cfg, periodKey, periods, updateState, 
     });
   }
   function updateStudents(next) {
-    setStudents(next);
-    flush(next);
+    const sorted = [...next].sort(byName);
+    setStudents(sorted);
+    flush(sorted);
+  }
+
+  function printStudentList() {
+    const esc = (value) => String(value ?? '').replace(/[&<>"']/g, (char) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[char]));
+    const rows = students.map((st, i) => `<tr><td class="num">${i + 1}</td><td>${esc((st.prenom || '') + ' ' + (st.nom || ''))}</td><td class="num">${esc(st.genre || '—')}</td><td class="num">${esc(st.age || '—')}</td></tr>`).join('');
+    const popup = window.open('', '_blank', 'width=800,height=650,scrollbars=yes');
+    if (!popup) { notify('Autorisez les fenêtres pop-up pour générer le PDF.', true); return; }
+    popup.document.open();
+    popup.document.write(`<!doctype html><html lang="fr"><head><meta charset="utf-8"><title>Liste des élèves — ${esc(cls.name)}</title><style>html,body{background:#fff}body{font-family:Arial,sans-serif;color:#17251d;margin:0;padding:15mm}h1{font-size:20px;margin:0 0 4px}.meta{font-size:12px;color:#637269;margin-bottom:18px}table{width:100%;border-collapse:collapse;font-size:13px}th,td{border:1px solid #cfd8d2;padding:8px;text-align:left}th{background:#e8f3ed}td.num{text-align:center}@media print{body{margin:0;padding:15mm}@page{size:A4 portrait;margin:0}}</style></head><body><h1>Liste des élèves — ${esc(cls.name)}</h1><div class="meta"><strong>${esc(state?.header?.ecole || '')}</strong> · Niveau ${esc(cls.level || '')} · Année ${esc(state?.header?.annee || '')} · ${students.length} élève(s)</div><table><thead><tr><th class="num">N°</th><th>Élève</th><th class="num">Genre</th><th class="num">Âge</th></tr></thead><tbody>${rows}</tbody></table></body></html>`);
+    popup.document.close();
+    popup.focus();
+    setTimeout(() => { try { popup.print(); } catch (_) { popup.focus(); } }, 900);
   }
 
 function addStudent(student) {
@@ -5919,6 +5934,15 @@ function addStudent(student) {
               <Plus size={16} /> Ajouter un élève
             </button>
           )}
+          <button
+            onClick={printStudentList}
+            disabled={!students.length}
+            className="px-3.5 py-2 rounded-lg text-sm font-semibold flex items-center gap-1.5 disabled:opacity-40 whitespace-nowrap"
+            style={{ background: 'var(--gold-l)', color: 'var(--gold)' }}
+            title="Télécharger / imprimer la liste des élèves au format PDF"
+          >
+            <Printer size={16} /> Imprimer / PDF
+          </button>
         </div>
       </div>
 
