@@ -8,7 +8,8 @@ import {
   Phone, Wallet, Clock, Search, Download, ChevronLeft, UserRound,
   MessageCircle, Receipt, History, Trophy, Building2, Printer, FileSpreadsheet,
   Upload, Save, RotateCcw, AlertCircle, Globe, TrendingDown, ArrowUpCircle,
-  ArrowDownCircle, Scale, Package, ScanLine, FileText, Award, ClipboardCheck
+  ArrowDownCircle, Scale, Package, ScanLine, FileText, Award, ClipboardCheck,
+  CalendarX
 } from 'lucide-react';
 import {
   ResponsiveContainer, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip,
@@ -948,6 +949,8 @@ function emptySchoolState() {
     classes: {},
     personnel: [],
     studentTransferRequests: [],
+    staffAbsenceRequests: [],
+    staffCertCounter: 0,
     pointage: {},
     fees: {},
     recuSeq: 0,
@@ -1847,11 +1850,14 @@ function GlobalStyles({ dark }) {
         #student-card-print .student-id-card-front .text-sm, #staff-card-print .student-id-card-front .text-sm{ font-size:10pt !important; }
         #student-card-print .student-id-card-front .text-xs, #student-card-print .student-id-card-back .text-xs, #staff-card-print .student-id-card-front .text-xs, #staff-card-print .student-id-card-back .text-xs{ font-size:9pt !important; }
         #student-card-print .student-id-card-front img, #staff-card-print .student-id-card-front img{ max-height:38mm !important; }
-        #student-card-print .school-logo, #staff-card-print .school-logo, #student-cert-print .school-logo{ max-height:15mm !important; width:auto !important; height:auto !important; }
+        #student-card-print .school-logo, #staff-card-print .school-logo, #student-cert-print .school-logo, #staff-cert-print .school-logo{ max-height:15mm !important; width:auto !important; height:auto !important; }
         #student-card-print .student-id-card-back svg, #staff-card-print .student-id-card-back svg{ width:58mm !important; height:58mm !important; }
         #student-cert-print, #student-cert-print *{ visibility:visible; }
         #student-cert-print{ position:absolute !important; left:0 !important; top:0 !important; width:100% !important; height:auto !important; padding:0 !important; margin:0 !important; overflow:visible !important; background:#fff !important; }
         #student-cert-print > div{ margin:0 auto !important; max-width:none !important; }
+        #staff-cert-print, #staff-cert-print *{ visibility:visible; }
+        #staff-cert-print{ position:absolute !important; left:0 !important; top:0 !important; width:100% !important; height:auto !important; padding:0 !important; margin:0 !important; overflow:visible !important; background:#fff !important; }
+        #staff-cert-print > div{ margin:0 auto !important; max-width:none !important; }
         @page{ margin:0; size:A4 portrait; }
       }
     `}</style>
@@ -2564,6 +2570,7 @@ const NAV_ITEMS = (session) => {
     items.push(
       { id: 'dash', label: 'Tableau de bord', icon: LayoutDashboard, needsSchool: true },
       { id: 'actualites', label: 'Actualités', icon: MessageCircle, needsSchool: true },
+      { id: 'absences', label: 'Absences', icon: CalendarX, needsSchool: true },
       {
         id: 'eleves', label: 'Élèves', icon: GraduationCap, needsSchool: true, expandable: true,
         children: [
@@ -2574,12 +2581,13 @@ const NAV_ITEMS = (session) => {
     return items;
   }
   if (session.role === 'guard') {
-    return [{ id: 'gate', label: 'Contrôle portail', icon: ScanLine, needsSchool: true }];
+    return [{ id: 'gate', label: 'Contrôle portail', icon: ScanLine, needsSchool: true }, { id: 'absences', label: 'Absences', icon: CalendarX, needsSchool: true }];
   }
   if (session.role === 'accountant') {
     return [
       { id: 'dash', label: 'Tableau de bord', icon: LayoutDashboard, needsSchool: true },
       { id: 'paiements', label: 'Comptabilité', icon: CreditCard, needsSchool: true },
+      { id: 'absences', label: 'Absences', icon: CalendarX, needsSchool: true },
       { id: 'data', label: 'Données', icon: Database, needsSchool: true },
     ];
   }
@@ -2587,6 +2595,7 @@ const NAV_ITEMS = (session) => {
     return [
       { id: 'dash', label: 'Tableau de bord', icon: LayoutDashboard, needsSchool: true },
       { id: 'actualites', label: 'Actualités', icon: MessageCircle, needsSchool: true },
+      { id: 'absences', label: 'Absences', icon: CalendarX, needsSchool: true },
       { id: 'personnel', label: 'Personnel', icon: Users, needsSchool: true },
       { id: 'eleves', label: 'Élèves', icon: GraduationCap, needsSchool: true, expandable: true, children: [{ id: 'classes', label: 'Classes et élèves' }] },
       { id: 'admin', label: 'Administration', icon: Settings, needsSchool: true },
@@ -2597,6 +2606,7 @@ const NAV_ITEMS = (session) => {
     { id: 'dash', label: 'Tableau de bord', icon: LayoutDashboard, needsSchool: true },
     { id: 'actualites', label: 'Actualités', icon: MessageCircle, needsSchool: true },
     { id: 'personnel', label: 'Personnel', icon: Users, needsSchool: true },
+    { id: 'absences', label: 'Absences', icon: CalendarX, needsSchool: true },
     {
       id: 'eleves', label: 'Élèves', icon: GraduationCap, needsSchool: true, expandable: true,
       children: [
@@ -2615,6 +2625,7 @@ const PAGE_TITLES = {
   superadmin: ['Gestion des écoles', 'Créer, modifier, supprimer des écoles et des administrateurs'],
   dash: ['Tableau de bord', 'Vue d\u2019ensemble de l\u2019établissement'],
   personnel: ['Personnel', 'Gestion du personnel et pointage'],
+  absences: ['Absences du personnel', 'Demandes d\u2019autorisation d\u2019absence et validations'],
   actualites: ['Actualités', 'Publications et informations de l\u2019école'],
   classes: ['Classes et élèves', 'Gestion des classes et des élèves'],
   saisie: ['Saisie des notes', 'Élèves — Saisie des notes'],
@@ -3650,7 +3661,7 @@ function ClassModal({ cls, level, personnel, materiel = [], affectations = [], c
   );
 }
 
-function PersonnelListTab({ personnel, onAdd, onEdit, onDelete, onCard, readOnly, cycle }) {
+function PersonnelListTab({ personnel, onAdd, onEdit, onDelete, onCard, onAttest, readOnly, cycle }) {
   const [q, setQ] = useState('');
   const filtered = personnel.filter((p) => {
     const full = personFullName(p).toLowerCase();
@@ -3736,6 +3747,9 @@ function PersonnelListTab({ personnel, onAdd, onEdit, onDelete, onCard, readOnly
                     <div className="flex items-center justify-end gap-1.5">
                       <button onClick={() => onCard(p)} className="p-1.5 rounded-lg hover:bg-black/5" style={{ color: 'var(--gold)' }} title="Carte professionnelle">
                         <CreditCard size={15} />
+                      </button>
+                      <button onClick={() => onAttest(p)} className="p-1.5 rounded-lg hover:bg-black/5" style={{ color: 'var(--green-d)' }} title="Attestation de service">
+                        <FileText size={15} />
                       </button>
                       {!readOnly && (
                         <>
@@ -4325,12 +4339,254 @@ function StudentTransferStatus({ request }) {
   return <div className="flex flex-wrap items-center gap-2 text-xs"><span>{request.studentName} : {request.fromClassName} → {request.toClassName}</span><Pill tone={tones[request.status] || 'muted'}>{labels[request.status] || request.status}</Pill></div>;
 }
 
+/* ============================================================
+   AUTORISATION D'ABSENCE DU PERSONNEL
+   Demande par un agent (motif + dates) ; validation par le
+   directeur, le censeur/proviseur ou un directeur pédagogique.
+   ============================================================ */
+const ABSENCE_STATUS = {
+  pending: { label: 'En attente de validation', tone: 'gold' },
+  approved: { label: 'Validée', tone: 'green' },
+  rejected: { label: 'Refusée', tone: 'red' },
+};
+const ABSENCE_MOTIFS = ['Maladie (avec justificatif)', 'Convocation administrative', 'Formation / stage', 'Deuil', 'Déplacement personnel', 'Autre (préciser dans le motif)'];
+// Un membre de la direction (directeur, censeur/proviseur, directeur
+// pédagogique, assistant pédagogique) peut valider les demandes d'absence.
+function isAbsenceValidator(session, state) {
+  if (!session || typeof session !== 'object') return false;
+  if (['school', 'admin', 'ief'].includes(session.role)) return true;
+  if (!session.staffId) return false;
+  const person = ((state && state.personnel) || []).find((item) => item.id === session.staffId);
+  if (!person) return false;
+  return /directeur|directrice|censeur|proviseur|principal|pédagogique|pedagogique|assistant/i.test(person.role || '');
+}
+function StaffAbsencesView({ state, loading, updateState, notify, session, readOnly }) {
+  const [motif, setMotif] = useState('');
+  const [dateDebut, setDateDebut] = useState(todayISO());
+  const [dateFin, setDateFin] = useState('');
+  const [commentaire, setCommentaire] = useState('');
+  const [noteDeco, setNoteDeco] = useState({});
+
+  if (loading || !state) return <AppLoader />;
+
+  const personnel = state.personnel || [];
+  const me = session && session.staffId ? personnel.find((item) => item.id === session.staffId) : null;
+  const requesterId = me ? me.id : (session && session.role === 'school' ? 'direction' : 'agent-session');
+  const requesterLabel = me ? personFullName(me) : ((state.header && state.header.directeur) || 'La direction');
+  const canValidate = isAbsenceValidator(session, state);
+  const allRequests = Array.isArray(state.staffAbsenceRequests) ? state.staffAbsenceRequests : [];
+  const myRequests = allRequests.filter((request) => request.requesterId === requesterId);
+  const pendingRequests = allRequests.filter((request) => request.statut === 'pending');
+  const finDate = dateFin || dateDebut;
+  const nbJours = dateDebut && finDate ? Math.max(1, Math.round((new Date(finDate + 'T00:00:00').getTime() - new Date(dateDebut + 'T00:00:00').getTime()) / 86400000) + 1) : 0;
+
+  function submitRequest(event) {
+    event.preventDefault();
+    if (readOnly) return;
+    const motifClean = String(motif || '').trim();
+    if (!motifClean) { notify('Indiquez le motif de l’absence.', true); return; }
+    if (!dateDebut) { notify('Indiquez la date de début.', true); return; }
+    const fin = dateFin || dateDebut;
+    if (fin < dateDebut) { notify('La date de fin ne peut pas précéder la date de début.', true); return; }
+    const request = {
+      id: uid('absence'),
+      requesterId,
+      requesterLabel,
+      motif: motifClean,
+      dateDebut,
+      dateFin: fin,
+      commentaire: String(commentaire || '').trim(),
+      statut: 'pending',
+      createdAt: new Date().toISOString(),
+    };
+    updateState((prev) => ({
+      ...prev,
+      staffAbsenceRequests: [...(prev.staffAbsenceRequests || []), request],
+      auditLog: pushAuditEntry(prev.auditLog, { actor: requesterLabel, role: (session && session.role) || '', action: 'Demande d’autorisation d’absence', details: `${motifClean} (${dateDebut}${fin ? ' → ' + fin : ''})` }),
+    }));
+    setMotif(''); setDateDebut(todayISO()); setDateFin(''); setCommentaire('');
+    notify('Demande d’autorisation d’absence envoyée, en attente de validation.');
+  }
+
+  function decideRequest(request, decision) {
+    if (readOnly || request.statut !== 'pending') return;
+    const note = String(noteDeco[request.id] || '').trim();
+    updateState((prev) => ({
+      ...prev,
+      staffAbsenceRequests: (prev.staffAbsenceRequests || []).map((item) => item.id === request.id
+        ? { ...item, statut: decision, decisionNote: note, decidedBy: requesterLabel, decidedAt: new Date().toISOString() }
+        : item),
+      auditLog: pushAuditEntry(prev.auditLog, { actor: requesterLabel, role: (session && session.role) || '', action: decision === 'approved' ? 'Autorisation d’absence validée' : 'Autorisation d’absence refusée', details: `${request.requesterLabel} — ${request.motif} (${request.dateDebut}${request.dateFin ? ' → ' + request.dateFin : ''})` }),
+    }));
+    notify(decision === 'approved' ? 'Absence autorisée.' : 'Demande d’absence refusée.');
+  }
+
+  const decidedRequests = allRequests.filter((request) => request.statut !== 'pending').slice().reverse();
+
+  return (
+    <div className="space-y-4 sygenop-fade">
+      <div className="grid grid-cols-1 xl:grid-cols-2 gap-4">
+        <div className="sygenop-card p-4 space-y-3">
+          <div className="flex items-center gap-2">
+            <CalendarX size={16} style={{ color: 'var(--gold)' }} />
+            <div>
+              <div className="font-bold text-sm">Demander une autorisation d’absence</div>
+              <p className="text-xs" style={{ color: 'var(--muted)' }}>La demande est transmise à la direction (directeur, censeur ou proviseur) qui seule décide.</p>
+            </div>
+          </div>
+          {readOnly ? (
+            <p className="text-xs" style={{ color: 'var(--muted)' }}>Lecture seule : aucune demande ne peut être soumise.</p>
+          ) : (
+            <form onSubmit={submitRequest} className="space-y-3">
+              <label className="block text-xs font-semibold">Motif de l'absence
+                <input value={motif} onChange={(event) => setMotif(event.target.value)} className="sygenop-input mt-1" placeholder="Ex : maladie, convocation, deuil…" maxLength={160} />
+              </label>
+              <div className="flex flex-wrap gap-1.5">
+                {ABSENCE_MOTIFS.map((item) => <button key={item} type="button" onClick={() => setMotif(item)} className="px-2 py-1 rounded-lg text-[11px] font-semibold" style={motif === item ? { background: 'var(--green-d)', color: '#fff' } : { background: 'var(--bg)', color: 'var(--muted)', border: '1px solid var(--line)' }}>{item}</button>)}
+              </div>
+              <div className="grid grid-cols-2 gap-3">
+                <label className="block text-xs font-semibold">Du
+                  <input type="date" value={dateDebut} onChange={(event) => setDateDebut(event.target.value)} className="sygenop-input mt-1" />
+                </label>
+                <label className="block text-xs font-semibold">Au
+                  <input type="date" value={dateFin} onChange={(event) => setDateFin(event.target.value)} className="sygenop-input mt-1" />
+                </label>
+              </div>
+              <label className="block text-xs font-semibold">Commentaire (facultatif)
+                <textarea value={commentaire} onChange={(event) => setCommentaire(event.target.value)} className="sygenop-input mt-1" rows={2} placeholder="Justificatif, précisions, remplacement prévu…" maxLength={500} />
+              </label>
+              <div className="flex items-center justify-between gap-2">
+                <div className="text-[11px]" style={{ color: 'var(--muted)' }}>{dateDebut ? (nbJours > 1 ? `${nbJours} jour(s) d'absence` : '1 jour') : ''}</div>
+                <button type="submit" className="sygenop-btn sygenop-btn--gold text-sm"><ClipboardCheck size={14} /> Envoyer la demande</button>
+              </div>
+            </form>
+          )}
+          <div className="space-y-1.5">
+            <div className="text-xs font-bold">Mes demandes ({myRequests.length})</div>
+            {myRequests.length === 0 ? <p className="text-xs" style={{ color: 'var(--muted)' }}>Aucune demande pour le moment.</p> : myRequests.slice().reverse().map((request) => <StaffAbsenceStatus key={request.id} request={request} />)}
+          </div>
+        </div>
+
+        {canValidate && (
+          <div className="sygenop-card p-4 space-y-3">
+            <div className="flex items-center justify-between gap-2">
+              <div>
+                <div className="font-bold text-sm">Validations en attente</div>
+                <p className="text-xs" style={{ color: 'var(--muted)' }}>Seuls le directeur, le censeur / proviseur ou un directeur pédagogique peuvent décider.</p>
+              </div>
+              <Pill tone={pendingRequests.length ? 'gold' : 'green'}>{pendingRequests.length} en attente</Pill>
+            </div>
+            {pendingRequests.length === 0 ? <p className="text-sm" style={{ color: 'var(--muted)' }}>Aucune demande en attente.</p> : (
+              <div className="space-y-2">
+                {pendingRequests.map((request) => (
+                  <div key={request.id} className="rounded-lg border p-3 space-y-2" style={{ borderColor: 'var(--line)' }}>
+                    <div className="text-sm">
+                      <div className="font-semibold">{request.requesterLabel} <span className="text-[11px] font-normal" style={{ color: 'var(--muted)' }}>{fmtDateFr(request.dateDebut)}{request.dateFin ? ' → ' + fmtDateFr(request.dateFin) : ''}</span></div>
+                      <div className="text-xs flex items-center gap-1.5 mt-0.5" style={{ color: 'var(--gold)' }}><CalendarX size={12} /> {request.motif}</div>
+                      {request.commentaire && <div className="text-xs mt-1" style={{ color: 'var(--muted)' }}>{request.commentaire}</div>}
+                    </div>
+                    {!readOnly && (
+                      <>
+                        <input value={noteDeco[request.id] || ''} onChange={(event) => setNoteDeco((notes) => ({ ...notes, [request.id]: event.target.value }))} className="sygenop-input" placeholder="Note de décision (facultatif)" maxLength={240} />
+                        <div className="flex gap-2">
+                          <button onClick={() => decideRequest(request, 'approved')} className="sygenop-btn text-sm" style={{ background: 'var(--green-d)', color: '#fff' }}><CheckCircle2 size={14} /> Autoriser</button>
+                          <button onClick={() => decideRequest(request, 'rejected')} className="sygenop-btn sygenop-btn--danger text-sm"><X size={14} /> Refuser</button>
+                        </div>
+                      </>
+                    )}
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        )}
+      </div>
+
+      {canValidate && decidedRequests.length > 0 && (
+        <div className="sygenop-card p-4 space-y-2">
+          <div className="text-xs font-bold">Historique des décisions ({decidedRequests.length})</div>
+          <div className="space-y-1.5">
+            {decidedRequests.slice(0, 30).map((request) => <StaffAbsenceStatus key={request.id} request={request} showDecider />)}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+function StaffAbsenceStatus({ request, showDecider }) {
+  const status = ABSENCE_STATUS[request.statut] || { label: request.statut, tone: 'muted' };
+  return (
+    <div className="flex flex-wrap items-center gap-x-2 gap-y-1 text-xs">
+      <CalendarX size={12} style={{ color: 'var(--muted)' }} />
+      <span>{request.requesterLabel} — {request.motif}</span>
+      <span style={{ color: 'var(--muted)' }}>{fmtDateFr(request.dateDebut)}{request.dateFin ? ' → ' + fmtDateFr(request.dateFin) : ''}</span>
+      <Pill tone={status.tone}>{status.label}</Pill>
+      {showDecider && request.decidedBy && <span style={{ color: 'var(--muted)' }}>· décidé(e) par {request.decidedBy}{request.decisionNote ? ` (« ${request.decisionNote} »)` : ''}</span>}
+    </div>
+  );
+}
+
+/* ============================================================
+   ATTESTATION DE SERVICE — document imprimable pour le personnel
+   ============================================================ */
+function StaffServiceAttestation({ state, person }) {
+  const school = state.header?.ecole || 'Établissement scolaire';
+  const directeur = state.header?.directeur || '';
+  const localite = state.header?.localite || state.header?.adresse || 'à Dakar';
+  const annee = state.header?.annee || 'année scolaire en cours';
+  const today = new Date();
+  const dateStr = today.toLocaleDateString('fr-FR', { day: 'numeric', month: 'long', year: 'numeric' });
+  const code = staffCardCode(person);
+  const nomComplet = personFullName(person) || 'l’agent désigné ci-dessous';
+  const fonction = person.role ? displayStaffRole(person.role, state.header?.cycle) : '—';
+  const embauche = person.dateEmbauche ? fmtDateFr(person.dateEmbauche) : '—';
+  const nb = String((state.staffCertCounter || 0) + 1).padStart(4, '0');
+  const num = `N° ${nb}/${annee}`;
+  return (
+    <div className="mx-auto bg-white" style={{ color: '#11231b', width: '210mm', minHeight: '148mm' }}>
+      <div className="relative h-full border-4 p-1.5" style={{ borderColor: 'var(--green-d, #0a4f3a)' }}>
+        <div className="h-full border-2 px-7 py-6 flex flex-col" style={{ borderColor: 'var(--green-d, #0a4f3a)' }}>
+          <div className="flex items-center justify-between border-b-2 pb-3" style={{ borderColor: 'var(--green-d, #0a4f3a)' }}>
+            <SenegalFlag className="w-12 h-auto" />
+            <div className="text-center">
+              <div className="text-base font-extrabold leading-tight" style={{ color: 'var(--green-d, #0a4f3a)' }}>{school}</div>
+              <div className="text-[10px]" style={{ color: '#4b6a5c' }}>République du Sénégal · Un Peuple, Un But, Une Foi</div>
+              <div className="text-[10px]" style={{ color: '#4b6a5c' }}>Adresse : {localite} — {num}</div>
+            </div>
+            {schoolLogoData(state) ? <SchoolLogoMark state={state} width={44} /> : <svg width="38" height="38" viewBox="0 0 24 24" fill="none" stroke="#b8862f" strokeWidth="1.5"><circle cx="12" cy="12" r="9" /><path d="M8 7h8M8 12h8M8 17h5" /></svg>}
+          </div>
+          <div className="mt-3 text-center">
+            <div className="inline-block px-5 py-1 font-extrabold text-base tracking-wide" style={{ border: '2px solid var(--green-d, #0a4f3a)', color: 'var(--green-d, #0a4f3a)' }}>ATTESTATION DE SERVICE</div>
+          </div>
+          <p className="mt-3 text-[13px] leading-relaxed">Je soussigné(e), <b>{directeur || 'le Directeur(trice)'}</b>, Directeur(trice) de l’établissement <b>{school}</b>, situé(e) {localite}, atteste que <b>M./Mme {nomComplet}</b>, exerçant la fonction de <b>{fonction}</b> et {person.statut ? `${person.statut.toLowerCase()} dans nos effectifs` : 'appartenant à nos effectifs'}, est bien membre du personnel dudit établissement.</p>
+          <div className="mt-3 text-center">
+            <div className="font-extrabold text-lg" style={{ color: '#11231b' }}>{nomComplet}</div>
+            <div className="text-xs mt-0.5" style={{ color: '#4b6a5c' }}>Matricule : {code} · Entré(e) en service : {embauche} · Année scolaire : {annee}</div>
+          </div>
+          <p className="text-[13px] leading-relaxed mt-2">La présente attestation est délivrée à la demande de l’intéressé(e) pour tous droits et usages légaux, notamment à caractère administratif.</p>
+          <div className="mt-3 flex-1"></div>
+          <p className="text-[13px] leading-relaxed">Fait {localite}, le {dateStr}.</p>
+          <div className="mt-4 flex items-end justify-between">
+            <div>
+              <div className="text-[13px] font-semibold">{directeur || 'Le Directeur(trice)'}</div>
+              <div className="mt-2 text-[10px]" style={{ color: '#4b6a5c' }}>Le Directeur(trice) — cachet officiel</div>
+            </div>
+            <QRBadge value={`SYGENOP|SVC|${code}|${person.id}`} size={72} label="Vérifier l'attestation" />
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 function PersonnelView({ state, loading, updateState, notify, readOnly }) {
   const schoolCycle = state?.header?.cycle || LEGACY_DEFAULT_CYCLE;
   const [tab, setTab] = useState('liste');
   const [modalPerson, setModalPerson] = useState(undefined); // undefined = closed, null = new, obj = edit
   const [toDelete, setToDelete] = useState(null);
   const [cardPerson, setCardPerson] = useState(null);
+  const [attestPerson, setAttestPerson] = useState(null);
 
   function saveStaffPhoto(personId, photoData) {
     updateState((prev) => ({ ...prev, personnel: (prev.personnel || []).map((p) => (p.id === personId ? { ...p, photoData } : p)) }));
@@ -4429,6 +4685,7 @@ function PersonnelView({ state, loading, updateState, notify, readOnly }) {
           onEdit={(p) => setModalPerson(p)}
           onDelete={(p) => setToDelete(p)}
           onCard={(p) => setCardPerson(p)}
+          onAttest={(p) => setAttestPerson(p)}
           readOnly={readOnly}
           cycle={schoolCycle}
         />
@@ -4454,6 +4711,10 @@ function PersonnelView({ state, loading, updateState, notify, readOnly }) {
 
       {cardPerson && (
         <div id="staff-card-print" className="fixed inset-0 z-50 overflow-auto p-4" style={{ background: 'rgba(10,20,15,.45)' }}><div className="max-w-2xl mx-auto mt-4"><div className="no-print flex flex-wrap justify-end gap-2 mb-2"><label className="px-3 py-2 rounded-lg text-sm font-semibold cursor-pointer" style={{ background: 'var(--gold-l)', color: 'var(--gold)' }}>Ajouter / changer la photo<input type="file" accept="image/*" className="hidden" onChange={(e) => { const file = e.target.files?.[0]; if (!file) return; const reader = new FileReader(); reader.onload = () => saveStaffPhoto(cardPerson.id, String(reader.result || '')); reader.readAsDataURL(file); }} /></label><button onClick={() => window.print()} className="px-3 py-2 rounded-lg text-white flex items-center gap-1" style={{ background: 'var(--green-d)' }}><Printer size={14} /> Imprimer / PDF</button><button onClick={() => setCardPerson(null)} className="px-3 py-2 rounded-lg" style={{ background: 'var(--panel)' }}>Fermer</button></div><StaffIdentityCard state={state} person={cardPerson} /></div></div>
+      )}
+
+      {attestPerson && (
+        <div id="staff-cert-print" className="fixed inset-0 z-50 overflow-auto p-4" style={{ background: 'rgba(10,20,15,.45)' }}><div className="max-w-[220mm] mx-auto mt-4"><div className="no-print flex flex-wrap justify-end gap-2 mb-2"><button onClick={() => window.print()} className="px-3 py-2 rounded-lg text-white flex items-center gap-1" style={{ background: 'var(--green-d)' }}><Printer size={14} /> Imprimer / PDF</button><button onClick={() => setAttestPerson(null)} className="px-3 py-2 rounded-lg" style={{ background: 'var(--panel)' }}>Fermer</button></div><StaffServiceAttestation state={state} person={attestPerson} /></div></div>
       )}
 
       {toDelete && (
@@ -12230,6 +12491,8 @@ function openSchool(id, name, actif) {
     );
   } else if (active === 'personnel') {
     body = <PersonnelView state={schoolState} loading={loadingState} updateState={updateState} notify={notify} readOnly={readOnly} />;
+  } else if (active === 'absences') {
+    body = <StaffAbsencesView state={schoolState} loading={loadingState} updateState={updateState} notify={notify} readOnly={readOnly} session={session} />;
   } else if (active === 'classes' || active === 'saisie') {
     body = <SaisieView state={schoolState} loading={loadingState} updateState={updateState} notify={notify} teacherName={teacherName} teacherStaffId={session.staffId} readOnly={readOnly} />;
   } else if (active === 'synth') {
