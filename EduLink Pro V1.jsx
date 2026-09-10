@@ -740,6 +740,10 @@ function DOMSHORT(name) {
 const MODES_PAIEMENT = {
   especes: 'Espèces', wave: 'Wave', om: 'Orange Money', cheque: 'Chèque', virement: 'Virement bancaire',
 };
+const PAYMENT_TYPES = {
+  inscription: { id: 'inscription', label: 'Inscription / Réinscription', description: "Frais d'entrée à l'inscription", icon: 'ClipboardCheck' },
+  mensualite: { id: 'mensualite', label: 'Mensualité / Scolarité', description: 'Paiement mensuel de la scolarité', icon: 'CalendarDays' },
+};
 const PAYMENT_RUBRIQUE_DEFAULTS = [
   { id: 'inscription', label: "Frais d'inscription", nature: 'entree' },
   { id: 'scolarite', label: 'Scolarité', nature: 'annuel' },
@@ -6776,22 +6780,103 @@ function FeesModal({ level, fees, onSave, onClose }) {
 function PaymentModal({ student, payment, rubriques = [], onSave, onClose, defaultMois }) {
   const isEdit = !!payment;
   const defaultLines = rubriques.map((r) => ({ id: r.id, label: r.label, montant: r.nature === 'entree' ? Number(r.montant) || 0 : Math.round((Number(r.montant) || 0) / Math.max(1, Number(r.mensualites) || 10)), checked: false }));
+  const [typePaiement, setTypePaiement] = useState(() => {
+    if (isEdit && payment?.type_paiement) return payment.type_paiement;
+    return null;
+  });
   const [form, setForm] = useState(() => (payment
-    ? { date: payment.date || todayISO(), mois: payment.mois || (payment.date || todayISO()).slice(0, 7), montant: String(payment.montant ?? ''), mode: payment.mode || 'especes', lignes: payment.lignes || [], note: payment.note || '' }
-    : { date: todayISO(), mois: defaultMois || todayISO().slice(0, 7), montant: '', mode: 'especes', lignes: defaultLines, note: '' }));
+    ? { date: payment.date || todayISO(), mois: payment.mois || (payment.date || todayISO()).slice(0, 7), montant: String(payment.montant ?? ''), mode: payment.mode || 'especes', lignes: payment.lignes || [], note: payment.note || '', type_paiement: payment.type_paiement || '' }
+    : { date: todayISO(), mois: defaultMois || todayISO().slice(0, 7), montant: '', mode: 'especes', lignes: defaultLines, note: '', type_paiement: '' }));
+  const filteredLines = useMemo(() => {
+    if (!typePaiement) return form.lignes;
+    if (typePaiement === 'inscription') return form.lignes.filter((l) => rubriques.find((r) => r.id === l.id && r.nature === 'entree'));
+    return form.lignes.filter((l) => rubriques.find((r) => r.id === l.id && r.nature !== 'entree'));
+  }, [typePaiement, form.lignes, rubriques]);
   function submit(e) {
     e.preventDefault();
     const lignes = (form.lignes || []).filter((line) => line.checked || payment?.lignes).map((line) => ({ ...line, montant: Number(line.montant) || 0 })).filter((line) => line.montant > 0);
     const montant = lignes.length ? lignes.reduce((sum, line) => sum + line.montant, 0) : Number(String(form.montant).replace(',', '.'));
     if (!montant || montant <= 0) return;
-    onSave({ ...form, montant, lignes, rubrique: lignes.length === 1 ? lignes[0].id : 'general' });
+    onSave({ ...form, montant, lignes, rubrique: lignes.length === 1 ? lignes[0].id : 'general', type_paiement: typePaiement || 'mensualite' });
+  }
+  function handleTypeSelect(selectedType) {
+    setTypePaiement(selectedType);
+    setForm((f) => {
+      const updatedLignes = defaultLines.map((line) => {
+        const rubrique = rubriques.find((r) => r.id === line.id);
+        if (selectedType === 'inscription') return { ...line, checked: rubrique?.nature === 'entree', montant: rubrique?.nature === 'entree' ? Number(rubrique.montant) || 0 : line.montant };
+        return { ...line, checked: rubrique?.nature !== 'entree', montant: rubrique?.nature !== 'entree' ? Math.round((Number(rubrique?.montant) || 0) / Math.max(1, Number(rubrique?.mensualites) || 10)) : line.montant };
+      });
+      return { ...f, type_paiement: selectedType, lignes: updatedLignes, montant: '' };
+    });
+  }
+  if (!isEdit && !typePaiement) {
+    return (
+      <div className="fixed inset-0 z-50 flex items-center justify-center p-4" style={{ background: 'rgba(10,20,15,.45)' }}>
+        <div className="sygenop-card p-6 max-w-lg w-full sygenop-fade">
+          <div className="flex items-center justify-between mb-4">
+            <div className="font-bold" style={{ color: 'var(--ink)' }}>Type de paiement — {student.prenom} {student.nom}</div>
+            <button type="button" onClick={onClose} style={{ color: 'var(--muted)' }}><X size={18} /></button>
+          </div>
+          <p className="text-xs mb-4" style={{ color: 'var(--muted)' }}>Choisissez le type de paiement avant de procéder à l'encaissement.</p>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <button
+              type="button"
+              onClick={() => handleTypeSelect('inscription')}
+              className="p-5 rounded-xl border-2 text-left transition-all hover:scale-[1.02]"
+              style={{ borderColor: 'var(--line)', background: 'var(--bg)' }}
+              onMouseEnter={(e) => { e.currentTarget.style.borderColor = 'var(--green-d)'; e.currentTarget.style.background = 'var(--green-l)'; }}
+              onMouseLeave={(e) => { e.currentTarget.style.borderColor = 'var(--line)'; e.currentTarget.style.background = 'var(--bg)'; }}
+            >
+              <div className="flex items-center gap-3 mb-2">
+                <div className="w-10 h-10 rounded-lg flex items-center justify-center" style={{ background: 'var(--gold-l)', color: 'var(--gold)' }}>
+                  <ClipboardCheck size={20} />
+                </div>
+                <div className="font-bold text-sm" style={{ color: 'var(--ink)' }}>Inscription / Réinscription</div>
+              </div>
+              <div className="text-xs" style={{ color: 'var(--muted)' }}>Frais d'entrée à l'inscription (inscription, tenue…)</div>
+            </button>
+            <button
+              type="button"
+              onClick={() => handleTypeSelect('mensualite')}
+              className="p-5 rounded-xl border-2 text-left transition-all hover:scale-[1.02]"
+              style={{ borderColor: 'var(--line)', background: 'var(--bg)' }}
+              onMouseEnter={(e) => { e.currentTarget.style.borderColor = 'var(--green-d)'; e.currentTarget.style.background = 'var(--green-l)'; }}
+              onMouseLeave={(e) => { e.currentTarget.style.borderColor = 'var(--line)'; e.currentTarget.style.background = 'var(--bg)'; }}
+            >
+              <div className="flex items-center gap-3 mb-2">
+                <div className="w-10 h-10 rounded-lg flex items-center justify-center" style={{ background: 'var(--green-l)', color: 'var(--green-d)' }}>
+                  <CalendarDays size={20} />
+                </div>
+                <div className="font-bold text-sm" style={{ color: 'var(--ink)' }}>Mensualité / Scolarité</div>
+              </div>
+              <div className="text-xs" style={{ color: 'var(--muted)' }}>Paiement mensuel de la scolarité</div>
+            </button>
+          </div>
+        </div>
+      </div>
+    );
   }
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4" style={{ background: 'rgba(10,20,15,.45)' }}>
       <form onSubmit={submit} className="sygenop-card p-6 max-w-5xl w-full sygenop-fade flex flex-col" style={{ maxHeight: '90vh' }}>
         <div className="flex items-center justify-between mb-4">
-          <div className="font-bold" style={{ color: 'var(--ink)' }}>
-            {isEdit ? `Modifier le paiement — reçu ${payment.recu}` : `Nouveau paiement — ${student.prenom} ${student.nom}`}
+          <div className="flex items-center gap-3">
+            <div className="font-bold" style={{ color: 'var(--ink)' }}>
+              {isEdit ? `Modifier le paiement — reçu ${payment.recu}` : `Nouveau paiement — ${student.prenom} ${student.nom}`}
+            </div>
+            {!isEdit && (
+              <div
+                className="flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold cursor-pointer"
+                style={{ background: typePaiement === 'inscription' ? 'var(--gold-l)' : 'var(--green-l)', color: typePaiement === 'inscription' ? 'var(--gold)' : 'var(--green-d)' }}
+                onClick={() => { setTypePaiement(null); setForm((f) => ({ ...f, type_paiement: '', lignes: defaultLines })); }}
+                title="Changer le type de paiement"
+              >
+                {typePaiement === 'inscription' ? <ClipboardCheck size={12} /> : <CalendarDays size={12} />}
+                {PAYMENT_TYPES[typePaiement]?.label}
+                <X size={11} />
+              </div>
+            )}
           </div>
           <button type="button" onClick={onClose} style={{ color: 'var(--muted)' }}><X size={18} /></button>
         </div>
@@ -6832,9 +6917,19 @@ function PaymentModal({ student, payment, rubriques = [], onSave, onClose, defau
         </div>
         <div className="overflow-y-auto pr-1 mt-4">
           <div className="rounded-lg border p-3 space-y-2" style={{ borderColor: 'var(--line)' }}>
-            <div className="text-xs font-semibold" style={{ color: 'var(--muted)' }}>Rubriques à encaisser — cochez, puis ajustez le montant si paiement partiel</div>
+            <div className="text-xs font-semibold" style={{ color: 'var(--muted)' }}>
+              {typePaiement === 'inscription' ? "Rubriques d'inscription — cochez et ajustez le montant" : "Rubriques mensuelles — cochez et ajustez le montant si paiement partiel"}
+            </div>
             <div className="grid md:grid-cols-2 xl:grid-cols-3 gap-x-4 gap-y-2">
-              {(form.lignes || []).map((line, index) => <div key={line.id} className="grid grid-cols-[auto_1fr_120px] items-center gap-2 text-sm"><input type="checkbox" checked={!!line.checked} onChange={(e) => setForm((f) => ({ ...f, lignes: f.lignes.map((x, i) => i === index ? { ...x, checked: e.target.checked } : x) }))} /><span>{line.label}</span><input type="number" min="0" disabled={!line.checked} value={line.montant} onChange={(e) => setForm((f) => ({ ...f, lignes: f.lignes.map((x, i) => i === index ? { ...x, montant: e.target.value } : x) }))} className="px-2 py-1 rounded border" style={{ borderColor: 'var(--line)' }} /></div>)}
+              {filteredLines.map((line, index) => {
+                const realIndex = form.lignes.findIndex((l) => l.id === line.id);
+                return <div key={line.id} className="grid grid-cols-[auto_1fr_120px] items-center gap-2 text-sm"><input type="checkbox" checked={!!line.checked} onChange={(e) => setForm((f) => ({ ...f, lignes: f.lignes.map((x, i) => i === realIndex ? { ...x, checked: e.target.checked } : x) }))} /><span>{line.label}</span><input type="number" min="0" disabled={!line.checked} value={line.montant} onChange={(e) => setForm((f) => ({ ...f, lignes: f.lignes.map((x, i) => i === realIndex ? { ...x, montant: e.target.value } : x) }))} className="px-2 py-1 rounded border" style={{ borderColor: 'var(--line)' }} /></div>;
+              })}
+              {filteredLines.length === 0 && (
+                <div className="text-xs py-2" style={{ color: 'var(--muted)' }}>
+                  {typePaiement === 'inscription' ? "Aucune rubrique d'entrée configurée pour ce niveau." : "Aucune rubrique mensuelle configurée pour ce niveau."}
+                </div>
+              )}
             </div>
           </div>
         </div>
@@ -6890,6 +6985,8 @@ function ReceiptSheet({ state, cls, student, payment }) {
       </div>
       <div className="text-center font-bold py-1.5" style={{ background: '#0a4f3a', color: '#fff', borderRadius: 4, fontSize: 12, marginTop: 8 }}>
         REÇU DE PAIEMENT N° {payment.recu}
+        {payment.type_paiement === 'inscription' && <div style={{ fontSize: 9, fontWeight: 600, marginTop: 2, background: '#b8862f', display: 'inline-block', padding: '1px 8px', borderRadius: 3 }}>INSCRIPTION / RÉINSCRIPTION</div>}
+        {payment.type_paiement === 'mensualite' && <div style={{ fontSize: 9, fontWeight: 600, marginTop: 2, background: '#0a4f3a', border: '1px solid #fff', display: 'inline-block', padding: '1px 8px', borderRadius: 3 }}>MENSUALITÉ / SCOLARITÉ</div>}
       </div>
       <div className="flex justify-end mt-2"><QRBadge value={`SYGENOP|CARTE|${student.cardCode || `ELV-${String(student.id || '').slice(-8).toUpperCase()}`}|${student.id}`} /></div>
       <div className="grid grid-cols-2 gap-2" style={{ fontSize: 11, margin: '10px 0' }}>
@@ -6987,6 +7084,8 @@ function StudentHistoryModal({ state, student, cls, due, monthlyDue = 0, onClose
                 <div>
                   <div className="text-sm font-semibold" style={{ color: 'var(--ink)' }}>
                     {fmtFCFA(p.montant)} <span className="font-normal" style={{ color: 'var(--muted)' }}>· {MODES_PAIEMENT[p.mode] || p.mode}</span>
+                    {p.type_paiement === 'inscription' && <span className="ml-1 inline-flex items-center gap-0.5 text-[10px] font-bold px-1.5 py-0.5 rounded-full" style={{ background: 'var(--gold-l)', color: 'var(--gold)' }}><ClipboardCheck size={9} /> Inscription</span>}
+                    {p.type_paiement === 'mensualite' && <span className="ml-1 inline-flex items-center gap-0.5 text-[10px] font-bold px-1.5 py-0.5 rounded-full" style={{ background: 'var(--green-l)', color: 'var(--green-d)' }}><CalendarDays size={9} /> Mensualité</span>}
                   </div>
                   <div className="text-xs" style={{ color: 'var(--muted)' }}>{fmtDateFr(p.date)} · Reçu {p.recu}{p.note ? ` · ${p.note}` : ''}</div>
                 </div>
@@ -7765,7 +7864,8 @@ function PaiementsView({ state, loading, updateState, notify, activeSchoolId, ro
     const tel = phoneDigits(student.tuteurTel);
     if (!tel) { notify("Renseignez le téléphone du tuteur pour cet élève.", true); return; }
     const ecole = (state.header && state.header.ecole) || "l'école";
-    const msg = `Bonjour${student.tuteurNom ? ' ' + student.tuteurNom : ''}, ${ecole} confirme la réception de ${fmtFCFA(payment.montant)} pour ${student.prenom || ''} ${student.nom || ''} le ${fmtDateFr(payment.date)} (reçu ${payment.recu}). Merci.`;
+    const typeLabel = payment.type_paiement === 'inscription' ? " (Inscription)" : payment.type_paiement === 'mensualite' ? " (Mensualité)" : "";
+    const msg = `Bonjour${student.tuteurNom ? ' ' + student.tuteurNom : ''}, ${ecole} confirme la réception de ${fmtFCFA(payment.montant)}${typeLabel} pour ${student.prenom || ''} ${student.nom || ''} le ${fmtDateFr(payment.date)} (reçu ${payment.recu}). Merci.`;
     window.open('https://wa.me/' + encodeURIComponent(tel) + '?text=' + encodeURIComponent(msg), '_blank');
   }
 
@@ -7782,12 +7882,12 @@ function PaiementsView({ state, loading, updateState, notify, activeSchoolId, ro
   }
 
   function exportCSVTransactions() {
-    const header = ['N° Reçu', 'Date', 'Élève', 'Classe', 'Niveau', 'Montant', 'Mode', 'Période', 'Note'];
+    const header = ['N° Reçu', 'Date', 'Élève', 'Classe', 'Niveau', 'Montant', 'Mode', 'Type', 'Période', 'Note'];
     const rows = [];
     Object.values(classes).forEach((cls) => {
       (cls.students || []).forEach((s) => {
         studentPaiements(s).forEach((p) => {
-          rows.push([p.recu, p.date, `${s.prenom || ''} ${s.nom || ''}`, cls.name, cls.level, p.montant, MODES_PAIEMENT[p.mode] || p.mode, p.periode, p.note || '']);
+          rows.push([p.recu, p.date, `${s.prenom || ''} ${s.nom || ''}`, cls.name, cls.level, p.montant, MODES_PAIEMENT[p.mode] || p.mode, p.type_paiement === 'inscription' ? 'Inscription' : p.type_paiement === 'mensualite' ? 'Mensualité' : '', p.periode, p.note || '']);
         });
       });
     });
@@ -8963,14 +9063,14 @@ function buildPersonnelCSVRows(state) {
   return rows;
 }
 function buildPaymentsCSVRows(state) {
-  const header = ['Niveau', 'Classe', 'Élève', 'N° Reçu', 'Date', 'Montant (FCFA)', 'Rubrique(s)', 'Mode', 'Mois', 'Période', 'Note'];
+  const header = ['Niveau', 'Classe', 'Élève', 'N° Reçu', 'Date', 'Montant (FCFA)', 'Rubrique(s)', 'Mode', 'Type', 'Mois', 'Période', 'Note'];
   const rows = [header];
   levelsForSchool(state).forEach((level) => {
     classesOfLevel(state, level).forEach(([, cls]) => {
       (cls.students || []).forEach((s) => {
         studentPaiements(s).forEach((p) => {
           const rubriqueLabels = (p.lignes || []).filter((line) => line.checked !== false).map((line) => line.label).join(' | ') || p.rubriqueLabel || p.rubrique || '';
-          rows.push([level, cls.name, `${s.prenom || ''} ${s.nom || ''}`.trim(), p.recu || '', p.date || '', p.montant || 0, rubriqueLabels, MODES_PAIEMENT[p.mode] || p.mode || '', p.mois || '', p.periode || '', p.note || '']);
+          rows.push([level, cls.name, `${s.prenom || ''} ${s.nom || ''}`.trim(), p.recu || '', p.date || '', p.montant || 0, rubriqueLabels, MODES_PAIEMENT[p.mode] || p.mode || '', p.type_paiement === 'inscription' ? 'Inscription' : p.type_paiement === 'mensualite' ? 'Mensualité' : '', p.mois || '', p.periode || '', p.note || '']);
         });
       });
     });
