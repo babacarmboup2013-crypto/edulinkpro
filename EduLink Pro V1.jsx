@@ -1314,6 +1314,11 @@ function shiftDay(iso, delta) {
   d.setDate(d.getDate() + delta);
   return d.toISOString().slice(0, 10);
 }
+function lastDayISO(ym) {
+  const [y, m] = ym.split('-').map(Number);
+  const d = new Date(y, m, 0);
+  return `${y}-${String(m).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+}
 // Jours ouvrés du mois selon les jours de la semaine travaillés par
 // l'établissement (défaut : lundi à vendredi ; hors jours fériés, gérés
 // séparément via config.pointage.joursNonOuvres).
@@ -7255,11 +7260,11 @@ const DEPENSE_CATEGORIES = [
   'Eau & électricité', 'Salaires & indemnités', 'Transport', 'Communication', 'Autres',
 ];
 
-function ExpenseModal({ expense, personnel = [], onSave, onClose }) {
+function ExpenseModal({ expense, personnel = [], onSave, onClose, defaultDate = null }) {
   const isEdit = !!expense;
   const [form, setForm] = useState(() => (expense
     ? { libelle: expense.libelle || '', montant: String(expense.montant ?? ''), date: expense.date || todayISO(), categorie: expense.categorie || DEPENSE_CATEGORIES[0], mode: expense.mode || 'especes', beneficiaire: expense.beneficiaire || '', note: expense.note || '', personnelIds: expense.personnelIds || [] }
-    : { libelle: '', montant: '', date: todayISO(), categorie: DEPENSE_CATEGORIES[0], mode: 'especes', beneficiaire: '', note: '', personnelIds: [] }));
+    : { libelle: '', montant: '', date: defaultDate || todayISO(), categorie: DEPENSE_CATEGORIES[0], mode: 'especes', beneficiaire: '', note: '', personnelIds: [] }));
   function set(k, v) { setForm((f) => ({ ...f, [k]: v })); }
   function submit(e) {
     e.preventDefault();
@@ -7399,7 +7404,7 @@ function DepensesTab({ depenses, onAdd, onEdit, onDelete, onPrint, readOnly, onE
             <Download size={15} /> Exporter CSV
           </button>
           {!readOnly && (
-            <button onClick={onAdd} className="px-3.5 py-2.5 rounded-lg text-sm font-semibold text-white flex items-center justify-center gap-1.5 whitespace-nowrap" style={{ background: 'var(--red)' }}>
+            <button onClick={() => onAdd((activeMonth && activeMonth !== todayKey) ? lastDayISO(activeMonth) : null)} className="px-3.5 py-2.5 rounded-lg text-sm font-semibold text-white flex items-center justify-center gap-1.5 whitespace-nowrap" style={{ background: 'var(--red)' }}>
               <Plus size={16} /> Nouvelle dépense
             </button>
           )}
@@ -7729,6 +7734,7 @@ function PaiementsView({ state, loading, updateState, notify, activeSchoolId, ro
   const [toDeleteExpense, setToDeleteExpense] = useState(null);
   const [printingExpense, setPrintingExpense] = useState(null);
   const [expenseFocusMonth, setExpenseFocusMonth] = useState(null);
+  const [newExpenseDefaultDate, setNewExpenseDefaultDate] = useState(null);
   const [materielModal, setMaterielModal] = useState(undefined);
   const [toDeleteMateriel, setToDeleteMateriel] = useState(null);
   const [affectationModal, setAffectationModal] = useState(false);
@@ -8136,7 +8142,7 @@ function PaiementsView({ state, loading, updateState, notify, activeSchoolId, ro
           depenses={state.depenses || []}
           baseMonths={schoolYearMonths(state)}
           focusMonth={expenseFocusMonth}
-          onAdd={() => setExpenseModal(null)}
+          onAdd={(defaultDate) => { setNewExpenseDefaultDate(defaultDate); setExpenseModal(null); }}
           onEdit={(d) => setExpenseModal(d)}
           onDelete={(d) => setToDeleteExpense(d)}
           onPrint={(d) => setPrintingExpense(d)}
@@ -8430,7 +8436,7 @@ function PaiementsView({ state, loading, updateState, notify, activeSchoolId, ro
         />
       )}
       {expenseModal !== undefined && (
-        <ExpenseModal expense={expenseModal} personnel={state.personnel || []} onSave={saveExpense} onClose={() => setExpenseModal(undefined)} />
+        <ExpenseModal expense={expenseModal} personnel={state.personnel || []} defaultDate={newExpenseDefaultDate} onSave={saveExpense} onClose={() => setExpenseModal(undefined)} />
       )}
       {toDeleteExpense && (
         <ConfirmModal
