@@ -2570,7 +2570,6 @@ const NAV_ITEMS = (session) => {
     items.push(
       { id: 'dash', label: 'Tableau de bord', icon: LayoutDashboard, needsSchool: true },
       { id: 'actualites', label: 'Actualités', icon: MessageCircle, needsSchool: true },
-      { id: 'absences', label: 'Absences', icon: CalendarX, needsSchool: true },
       {
         id: 'eleves', label: 'Élèves', icon: GraduationCap, needsSchool: true, expandable: true,
         children: [
@@ -2581,13 +2580,12 @@ const NAV_ITEMS = (session) => {
     return items;
   }
   if (session.role === 'guard') {
-    return [{ id: 'gate', label: 'Contrôle portail', icon: ScanLine, needsSchool: true }, { id: 'absences', label: 'Absences', icon: CalendarX, needsSchool: true }];
+    return [{ id: 'gate', label: 'Contrôle portail', icon: ScanLine, needsSchool: true }];
   }
   if (session.role === 'accountant') {
     return [
       { id: 'dash', label: 'Tableau de bord', icon: LayoutDashboard, needsSchool: true },
       { id: 'paiements', label: 'Comptabilité', icon: CreditCard, needsSchool: true },
-      { id: 'absences', label: 'Absences', icon: CalendarX, needsSchool: true },
       { id: 'data', label: 'Données', icon: Database, needsSchool: true },
     ];
   }
@@ -2595,7 +2593,6 @@ const NAV_ITEMS = (session) => {
     return [
       { id: 'dash', label: 'Tableau de bord', icon: LayoutDashboard, needsSchool: true },
       { id: 'actualites', label: 'Actualités', icon: MessageCircle, needsSchool: true },
-      { id: 'absences', label: 'Absences', icon: CalendarX, needsSchool: true },
       { id: 'personnel', label: 'Personnel', icon: Users, needsSchool: true },
       { id: 'eleves', label: 'Élèves', icon: GraduationCap, needsSchool: true, expandable: true, children: [{ id: 'classes', label: 'Classes et élèves' }] },
       { id: 'admin', label: 'Administration', icon: Settings, needsSchool: true },
@@ -2606,7 +2603,6 @@ const NAV_ITEMS = (session) => {
     { id: 'dash', label: 'Tableau de bord', icon: LayoutDashboard, needsSchool: true },
     { id: 'actualites', label: 'Actualités', icon: MessageCircle, needsSchool: true },
     { id: 'personnel', label: 'Personnel', icon: Users, needsSchool: true },
-    { id: 'absences', label: 'Absences', icon: CalendarX, needsSchool: true },
     {
       id: 'eleves', label: 'Élèves', icon: GraduationCap, needsSchool: true, expandable: true,
       children: [
@@ -2625,7 +2621,6 @@ const PAGE_TITLES = {
   superadmin: ['Gestion des écoles', 'Créer, modifier, supprimer des écoles et des administrateurs'],
   dash: ['Tableau de bord', 'Vue d\u2019ensemble de l\u2019établissement'],
   personnel: ['Personnel', 'Gestion du personnel et pointage'],
-  absences: ['Absences du personnel', 'Demandes d\u2019autorisation d\u2019absence et validations'],
   actualites: ['Actualités', 'Publications et informations de l\u2019école'],
   classes: ['Classes et élèves', 'Gestion des classes et des élèves'],
   saisie: ['Saisie des notes', 'Élèves — Saisie des notes'],
@@ -4580,7 +4575,7 @@ function StaffServiceAttestation({ state, person }) {
   );
 }
 
-function PersonnelView({ state, loading, updateState, notify, readOnly }) {
+function PersonnelView({ state, loading, updateState, notify, session, readOnly }) {
   const schoolCycle = state?.header?.cycle || LEGACY_DEFAULT_CYCLE;
   const [tab, setTab] = useState('liste');
   const [modalPerson, setModalPerson] = useState(undefined); // undefined = closed, null = new, obj = edit
@@ -4655,10 +4650,12 @@ function PersonnelView({ state, loading, updateState, notify, readOnly }) {
   }
 
   const pendingTransferCount = (state.studentTransferRequests || []).filter((request) => request.status === 'pending').length;
+  const pendingAbsenceCount = (state.staffAbsenceRequests || []).filter((request) => request.statut === 'pending').length;
   const tabs = [
     { id: 'liste', label: 'Liste du personnel', icon: Users },
     { id: 'pointage', label: 'Pointage', icon: CalendarDays },
     { id: 'paie', label: 'Paie', icon: Wallet },
+    { id: 'absences', label: 'Absences', icon: CalendarX },
     ...(!readOnly ? [{ id: 'demandes', label: 'Demandes de transfert', icon: RotateCcw }] : []),
   ];
 
@@ -4674,6 +4671,7 @@ function PersonnelView({ state, loading, updateState, notify, readOnly }) {
           >
                         <item.icon size={15} /> {item.label}
             {item.id === 'demandes' && pendingTransferCount > 0 && <span className="ml-1 min-w-5 h-5 px-1.5 rounded-full text-[10px] flex items-center justify-center text-white" style={{ background: 'var(--red)' }}>{pendingTransferCount}</span>}
+            {item.id === 'absences' && pendingAbsenceCount > 0 && <span className="ml-1 min-w-5 h-5 px-1.5 rounded-full text-[10px] flex items-center justify-center text-white" style={{ background: 'var(--gold)' }}>{pendingAbsenceCount}</span>}
 
           </button>
         ))}
@@ -4703,6 +4701,7 @@ function PersonnelView({ state, loading, updateState, notify, readOnly }) {
         </div>
       )}
       {tab === 'paie' && <PaieTab personnel={personnel} pointage={pointage} state={state} updateState={updateState} readOnly={readOnly} />}
+      {tab === 'absences' && <StaffAbsencesView state={state} updateState={updateState} notify={notify} session={session} readOnly={readOnly} />}
       {tab === 'demandes' && <StudentTransferRequestsPanel state={state} updateState={updateState} notify={notify} mode="director" />}
 
       {modalPerson !== undefined && (
@@ -12490,9 +12489,7 @@ function openSchool(id, name, actif) {
       />
     );
   } else if (active === 'personnel') {
-    body = <PersonnelView state={schoolState} loading={loadingState} updateState={updateState} notify={notify} readOnly={readOnly} />;
-  } else if (active === 'absences') {
-    body = <StaffAbsencesView state={schoolState} loading={loadingState} updateState={updateState} notify={notify} readOnly={readOnly} session={session} />;
+    body = <PersonnelView state={schoolState} loading={loadingState} updateState={updateState} notify={notify} session={session} readOnly={readOnly} />;
   } else if (active === 'classes' || active === 'saisie') {
     body = <SaisieView state={schoolState} loading={loadingState} updateState={updateState} notify={notify} teacherName={teacherName} teacherStaffId={session.staffId} readOnly={readOnly} />;
   } else if (active === 'synth') {
