@@ -1289,24 +1289,21 @@ async function saveSchoolData(id, state, access) {
       // Credentials personnel issues de la session OU du snapshot : la
       // condition ne doit PAS exiger que la session courante soit encore
       // « staff » (elle peut avoir expiré ou changé depuis la saisie).
-      try {
-        result = await sb('POST', 'rpc/save_school_data_staff', '', { p_school_id: id, p_staff_id: staffId, p_code: staffCode, p_payload: clean, p_expected_version: expectedVersion });
-      } catch (e1) {
-        // Conflit de version (souvent « fantôme » tant que
-        // get_school_data_staff ne renvoie pas la version réelle, ou après
-        // une modification concurrente) : on recharge la version FRAÎCHE du
-        // serveur, on réinjecte les demandes locales manquantes (ajouts
-        // purs), puis on renvoie la sauvegarde avec la BONNE version — la
-        // demande soumise n'est ainsi jamais perdue silencieusement.
-        if (!/conflit de version/i.test(sbErrMsg(e1))) throw e1;
+      result = await sb('POST', 'rpc/save_school_data_staff', '', { p_school_id: id, p_staff_id: staffId, p_code: staffCode, p_payload: clean, p_expected_version: expectedVersion });
+      // Conflit de version (souvent « fantôme » : tant que
+      // get_school_data_staff ne renvoie pas la version réelle, le client
+      // croit être en v1 et part avec un p_expected_version périmé) :
+      // on recharge la version FRAÎCHE du serveur, on réinjecte les demandes
+      // d'absence / attestation locales manquantes (ajouts purs, rien ne peut
+      // être écrasé), puis on RENVOIE la sauvegarde sans verrou optimiste —
+      // la soumission n'est ainsi jamais perdue silencieusement.
+      if (result && result.ok === false && result.conflict) {
         const fresh = await sb('POST', 'rpc/get_school_data_staff', '', { p_school_id: id, p_staff_id: staffId, p_code: staffCode });
         const freshData = fresh && fresh.data;
-        const freshVersion = (fresh && fresh.version) ?? null;
-        if (!freshData || freshVersion == null) throw e1;
-        const merged = mergeStaffRequestArrays(freshData, clean);
-        const mergedClean = { ...merged };
+        if (!freshData) throw new Error(result.error || 'Enregistrement refusé');
+        const mergedClean = { ...mergeStaffRequestArrays(freshData, clean) };
         delete mergedClean.__version;
-        result = await sb('POST', 'rpc/save_school_data_staff', '', { p_school_id: id, p_staff_id: staffId, p_code: staffCode, p_payload: mergedClean, p_expected_version: freshVersion });
+        result = await sb('POST', 'rpc/save_school_data_staff', '', { p_school_id: id, p_staff_id: staffId, p_code: staffCode, p_payload: mergedClean, p_expected_version: null });
       }
     } else if (adminCode) {
     try {
