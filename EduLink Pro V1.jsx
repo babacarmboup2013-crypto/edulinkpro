@@ -960,6 +960,34 @@ function emptySchoolState() {
 }
 
 /* ============================================================
+   MARQUE ÉCOLE — logo & en-tête des documents imprimables
+   Le logo est optionnel et stocké en base64 (data URL) dans
+   header.logo. Toutes les fonctions de rendu ci-dessous sont
+   partagées par les documents PDF (bulletins, cartes, reçus…).
+   ============================================================ */
+function escHtml(value) {
+  return String(value ?? '').replace(/[&<>"']/g, (ch) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[ch]));
+}
+function schoolLogoData(state) {
+  return (state && state.header && state.header.logo) || '';
+}
+// CSS commun aux fenêtres d'impression (popup) : en-tête document avec logo.
+const PRINT_DOC_CSS = `.doc-head{display:flex;align-items:center;gap:14px;border-bottom:2px solid #176b49;padding-bottom:10px;margin-bottom:14px}.doc-head .doc-logo{width:auto;max-height:56px;max-width:90px;object-fit:contain;flex-shrink:0}.doc-head .doc-head-txt{flex:1}.doc-head .doc-school{font-size:13px;font-weight:bold;color:#176b49}.doc-head .doc-title{font-size:20px;font-weight:bold;color:#17251d;margin-top:2px}`;
+// En-tête HTML complet pour les documents ouverts dans une popup d'impression.
+function docHeadHtml(state, title) {
+  const logo = schoolLogoData(state);
+  const school = escHtml((state && state.header && state.header.ecole) || 'Établissement scolaire');
+  return `<div class="doc-head">${logo ? `<img class="doc-logo" src="${escHtml(logo)}" alt="Logo" />` : ''}<div class="doc-head-txt"><div class="doc-school">${school}</div><div class="doc-title">${escHtml(title)}</div></div></div>`;
+}
+// Logo de l'école affiché sur les documents imprimés à l'écran (bulletins,
+// cartes, certificats, reçus…). Rend null si aucun logo n'est configuré.
+function SchoolLogoMark({ state, width = 48, style }) {
+  const logo = schoolLogoData(state);
+  if (!logo) return null;
+  return <img className="school-logo" src={logo} alt="Logo de l'école" style={{ width, height: 'auto', maxHeight: 80, objectFit: 'contain', flexShrink: 0, ...style }} />;
+}
+
+/* ============================================================
    STATISTIQUES CONSOLIDÉES — présences du personnel & score trimestriel
    (utilisées par le tableau de bord École/Directeur et par la vue
    d'ensemble IEF / Super Admin)
@@ -1819,6 +1847,7 @@ function GlobalStyles({ dark }) {
         #student-card-print .student-id-card-front .text-sm, #staff-card-print .student-id-card-front .text-sm{ font-size:10pt !important; }
         #student-card-print .student-id-card-front .text-xs, #student-card-print .student-id-card-back .text-xs, #staff-card-print .student-id-card-front .text-xs, #staff-card-print .student-id-card-back .text-xs{ font-size:9pt !important; }
         #student-card-print .student-id-card-front img, #staff-card-print .student-id-card-front img{ max-height:38mm !important; }
+        #student-card-print .school-logo, #staff-card-print .school-logo, #student-cert-print .school-logo{ max-height:15mm !important; width:auto !important; height:auto !important; }
         #student-card-print .student-id-card-back svg, #staff-card-print .student-id-card-back svg{ width:58mm !important; height:58mm !important; }
         #student-cert-print, #student-cert-print *{ visibility:visible; }
         #student-cert-print{ position:absolute !important; left:0 !important; top:0 !important; width:100% !important; height:auto !important; padding:0 !important; margin:0 !important; overflow:visible !important; background:#fff !important; }
@@ -4533,7 +4562,7 @@ function TimetableView({ state, classId, teacherName, updateState, notify, readO
     const popup = window.open('', '_blank', 'width=900,height=700,scrollbars=yes');
     if (!popup) { notify('Autorisez les fenêtres pop-up pour générer le PDF.', true); return; }
     popup.document.open();
-    popup.document.write(`<!doctype html><html lang="fr"><head><meta charset="utf-8"><title>Emploi du temps - ${esc(selectedClass?.name || 'semaine')}</title><style>html,body{background:#fff}body{font-family:Arial,sans-serif;color:#17251d;margin:0;padding:15mm}h1{font-size:22px;margin:0 0 4px}h2{font-size:17px;margin:24px 0 8px;color:#176b49}.meta{font-size:12px;color:#637269;margin-bottom:18px}table{width:100%;border-collapse:collapse;font-size:12px}th,td{border:1px solid #cfd8d2;padding:8px;text-align:left}th{background:#e8f3ed}section{break-inside:avoid} @media print{body{margin:0;padding:15mm} @page{size:A4 portrait;margin:0}}</style></head><body><h1>Emploi du temps hebdomadaire</h1><div class="meta"><strong>${esc(schoolName)}</strong> · ${esc(selectedClass?.name || 'Toutes les classes')} · Année ${esc(state?.header?.annee || '')}</div>${sections || emptyNotice}</body></html>`);
+    popup.document.write(`<!doctype html><html lang="fr"><head><meta charset="utf-8"><title>Emploi du temps - ${escHtml(selectedClass?.name || 'semaine')}</title><style>html,body{background:#fff}body{font-family:Arial,sans-serif;color:#17251d;margin:0;padding:15mm}${PRINT_DOC_CSS}h2{font-size:17px;margin:24px 0 8px;color:#176b49}.meta{font-size:12px;color:#637269;margin-bottom:18px}table{width:100%;border-collapse:collapse;font-size:12px}th,td{border:1px solid #cfd8d2;padding:8px;text-align:left}th{background:#e8f3ed}section{break-inside:avoid} @media print{body{margin:0;padding:15mm} @page{size:A4 portrait;margin:0}}</style></head><body>${docHeadHtml(state, 'EMPLOI DU TEMPS HEBDOMADAIRE')}<div class="meta"><strong>${escHtml(schoolName)}</strong> · ${escHtml(selectedClass?.name || 'Toutes les classes')} · Année ${escHtml(state?.header?.annee || '')}</div>${sections || emptyNotice}</body></html>`);
     popup.document.close();
     popup.focus();
     setTimeout(() => { try { popup.print(); } catch (_) { popup.focus(); } }, 900);
@@ -5214,10 +5243,10 @@ function StudentIdentityCard({ state, cls, student }) {
     : '';
   const qrValue = `SYGENOP|CARTE|${code}|${student.id}`;
   return <div className="student-id-card-sheet"><div className="student-id-card-front sygenop-card p-5" style={{ border: '2px solid var(--green-d)' }}>
-    <div className="flex items-start justify-between gap-4"><SenegalFlag className="w-16 h-auto flex-shrink-0" /><div><div className="text-lg font-bold" style={{ color: 'var(--green-d)' }}>{school}</div><div className="text-xs" style={{ color: 'var(--muted)' }}>CARTE D’IDENTITÉ SCOLAIRE · RECTO · Année {state.header?.annee || 'en cours'}</div></div><QRBadge value={qrValue} size={72} label="" /></div>
+    <div className="flex items-start justify-between gap-4"><div className="flex items-center gap-2 flex-shrink-0"><SenegalFlag className="w-16 h-auto flex-shrink-0" /><SchoolLogoMark state={state} width={58} /></div><div><div className="text-lg font-bold" style={{ color: 'var(--green-d)' }}>{school}</div><div className="text-xs" style={{ color: 'var(--muted)' }}>CARTE D’IDENTITÉ SCOLAIRE · RECTO · Année {state.header?.annee || 'en cours'}</div></div><QRBadge value={qrValue} size={72} label="" /></div>
     <div className="grid grid-cols-[1fr_120px] gap-4 mt-4 pt-4" style={{ borderTop: '1px solid var(--line)' }}><div className="space-y-2 text-sm"><div><b>Élève :</b> {student.prenom || '—'} {student.nom || ''}</div><div><b>Identifiant :</b> {code}</div><div><b>Classe :</b> {cls.name} · {cls.level}</div><div><b>Né(e) le :</b> {birthDate || '—'}</div><div><b>Lieu de naissance :</b> {student.lieuNaissance || '—'}</div><div><b>Genre :</b> {student.genre === 'F' ? 'Féminin' : student.genre === 'M' ? 'Masculin' : (student.genre || '—')}</div><div><b>Tuteur / Responsable :</b> {student.tuteurNom || 'Non renseigné'}</div><div><b>Contact tuteur :</b> {student.tuteurTel || 'Non renseigné'}</div></div><div className="border rounded-lg flex items-center justify-center overflow-hidden" style={{ borderColor: 'var(--line)', minHeight: 145, background: 'var(--bg)' }}>{student.photoData ? <img src={student.photoData} alt={`Photo de ${student.prenom || 'l’élève'}`} className="w-full h-full object-cover" /> : <span className="text-xs text-center px-2" style={{ color: 'var(--muted)' }}>Photo de l’élève</span>}</div></div>
     <div className="mt-4 text-[10px]" style={{ color: 'var(--muted)' }}>Scannez le QR code pour vérifier la situation des mensualités dans l’application.</div>
-  </div><div className="student-id-card-back sygenop-card p-6 text-center" style={{ border: '2px solid var(--green-d)' }}><div className="font-bold text-lg" style={{ color: 'var(--green-d)' }}>{school}</div><div className="text-xs mb-5" style={{ color: 'var(--muted)' }}>CARTE D’IDENTITÉ SCOLAIRE · VERSO</div><QRBadge value={qrValue} size={230} label="Identifiant permanent de l’élève" /><div className="mt-5 text-xs" style={{ color: 'var(--muted)' }}>Ce QR ne change jamais. La comptabilité le scanne pour consulter les mensualités à jour dans le système.</div></div></div>;
+  </div><div className="student-id-card-back sygenop-card p-6 text-center" style={{ border: '2px solid var(--green-d)' }}><SchoolLogoMark state={state} width={62} style={{ margin: '0 auto 6px' }} /><div className="font-bold text-lg" style={{ color: 'var(--green-d)' }}>{school}</div><div className="text-xs mb-5" style={{ color: 'var(--muted)' }}>CARTE D’IDENTITÉ SCOLAIRE · VERSO</div><QRBadge value={qrValue} size={230} label="Identifiant permanent de l’élève" /><div className="mt-5 text-xs" style={{ color: 'var(--muted)' }}>Ce QR ne change jamais. La comptabilité le scanne pour consulter les mensualités à jour dans le système.</div></div></div>;
 }
 
 /* ---- Carte professionnelle du personnel — même format que la carte élève ---- */
@@ -5230,10 +5259,10 @@ function StaffIdentityCard({ state, person }) {
   const school = state.header?.ecole || 'Établissement scolaire';
   const qrValue = `SYGENOP|STAFF|${code}|${person.id}`;
   return <div className="student-id-card-sheet"><div className="student-id-card-front sygenop-card p-5" style={{ border: '2px solid var(--gold, #b8862f)' }}>
-    <div className="flex items-start justify-between gap-4"><SenegalFlag className="w-16 h-auto flex-shrink-0" /><div><div className="text-lg font-bold" style={{ color: 'var(--green-d)' }}>{school}</div><div className="text-xs" style={{ color: 'var(--muted)' }}>CARTE PROFESSIONNELLE · RECTO · Année {state.header?.annee || 'en cours'}</div></div><QRBadge value={qrValue} size={72} label="" /></div>
+    <div className="flex items-start justify-between gap-4"><div className="flex items-center gap-2 flex-shrink-0"><SenegalFlag className="w-16 h-auto flex-shrink-0" /><SchoolLogoMark state={state} width={58} /></div><div><div className="text-lg font-bold" style={{ color: 'var(--green-d)' }}>{school}</div><div className="text-xs" style={{ color: 'var(--muted)' }}>CARTE PROFESSIONNELLE · RECTO · Année {state.header?.annee || 'en cours'}</div></div><QRBadge value={qrValue} size={72} label="" /></div>
     <div className="grid grid-cols-[1fr_120px] gap-4 mt-4 pt-4" style={{ borderTop: '1px solid var(--line)' }}><div className="space-y-2 text-sm"><div><b>Agent :</b> {person.prenom || '—'} {person.nom || ''}</div><div><b>Matricule :</b> {code}</div><div><b>Fonction :</b> {person.role || '—'}</div>{person.specialites?.length > 0 && <div><b>Spécialités :</b> {person.specialites.join(', ')}</div>}<div><b>Téléphone :</b> {person.telephone || '—'}</div><div><b>Statut :</b> {person.statut || 'Actif'}</div></div><div className="border rounded-lg flex items-center justify-center overflow-hidden" style={{ borderColor: 'var(--line)', minHeight: 145, background: 'var(--bg)' }}>{person.photoData ? <img src={person.photoData} alt={`Photo de ${person.prenom || 'l’agent'}`} className="w-full h-full object-cover" /> : <span className="text-xs text-center px-2" style={{ color: 'var(--muted)' }}>Photo de l’agent</span>}</div></div>
     <div className="mt-4 text-[10px]" style={{ color: 'var(--muted)' }}>Cette carte fait office de badge d’accès : scannez le QR code au portail.</div>
-  </div><div className="student-id-card-back sygenop-card p-6 text-center" style={{ border: '2px solid var(--gold, #b8862f)' }}><div className="font-bold text-lg" style={{ color: 'var(--green-d)' }}>{school}</div><div className="text-xs mb-5" style={{ color: 'var(--muted)' }}>CARTE PROFESSIONNELLE · VERSO</div><QRBadge value={qrValue} size={230} label="Identifiant permanent de l’agent" /><div className="mt-5 text-xs" style={{ color: 'var(--muted)' }}>Ce QR ne change jamais. Il sert de badge d’accès et d’identification du personnel dans le système.</div></div></div>;
+  </div><div className="student-id-card-back sygenop-card p-6 text-center" style={{ border: '2px solid var(--gold, #b8862f)' }}><SchoolLogoMark state={state} width={62} style={{ margin: '0 auto 6px' }} /><div className="font-bold text-lg" style={{ color: 'var(--green-d)' }}>{school}</div><div className="text-xs mb-5" style={{ color: 'var(--muted)' }}>CARTE PROFESSIONNELLE · VERSO</div><QRBadge value={qrValue} size={230} label="Identifiant permanent de l’agent" /><div className="mt-5 text-xs" style={{ color: 'var(--muted)' }}>Ce QR ne change jamais. Il sert de badge d’accès et d’identification du personnel dans le système.</div></div></div>;
 }
 
 function StudentSchoolCertificate({ state, cls, student }) {
@@ -5262,7 +5291,7 @@ function StudentSchoolCertificate({ state, cls, student }) {
               <div className="text-[10px]" style={{ color: '#4b6a5c' }}>République du Sénégal · Un Peuple, Un But, Une Foi</div>
               <div className="text-[10px]" style={{ color: '#4b6a5c' }}>Adresse : {localite} — {num}</div>
             </div>
-            <svg width="38" height="38" viewBox="0 0 24 24" fill="none" stroke="#b8862f" strokeWidth="1.5"><circle cx="12" cy="12" r="9" /><path d="M8 7h8M8 12h8M8 17h5" /></svg>
+            {schoolLogoData(state) ? <SchoolLogoMark state={state} width={44} /> : <svg width="38" height="38" viewBox="0 0 24 24" fill="none" stroke="#b8862f" strokeWidth="1.5"><circle cx="12" cy="12" r="9" /><path d="M8 7h8M8 12h8M8 17h5" /></svg>}
           </div>
           <div className="mt-3 text-center">
             <div className="inline-block px-5 py-1 font-extrabold text-base tracking-wide" style={{ border: '2px solid var(--green-d, #0a4f3a)', color: 'var(--green-d, #0a4f3a)' }}>CERTIFICAT DE SCOLARITÉ</div>
@@ -5780,12 +5809,11 @@ function GradeGrid({ state, classId, cls, cfg, periodKey, periods, updateState, 
   }
 
   function printStudentList() {
-    const esc = (value) => String(value ?? '').replace(/[&<>"']/g, (char) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[char]));
-    const rows = students.map((st, i) => `<tr><td class="num">${i + 1}</td><td>${esc((st.prenom || '') + ' ' + (st.nom || ''))}</td><td class="num">${esc(st.genre || '—')}</td><td class="num">${esc(st.age || '—')}</td></tr>`).join('');
+    const rows = students.map((st, i) => `<tr><td class="num">${i + 1}</td><td>${escHtml((st.prenom || '') + ' ' + (st.nom || ''))}</td><td class="num">${escHtml(st.genre || '—')}</td><td class="num">${escHtml(st.age || '—')}</td></tr>`).join('');
     const popup = window.open('', '_blank', 'width=800,height=650,scrollbars=yes');
     if (!popup) { notify('Autorisez les fenêtres pop-up pour générer le PDF.', true); return; }
     popup.document.open();
-    popup.document.write(`<!doctype html><html lang="fr"><head><meta charset="utf-8"><title>Liste des élèves — ${esc(cls.name)}</title><style>html,body{background:#fff}body{font-family:Arial,sans-serif;color:#17251d;margin:0;padding:15mm}h1{font-size:20px;margin:0 0 4px}.meta{font-size:12px;color:#637269;margin-bottom:18px}table{width:100%;border-collapse:collapse;font-size:13px}th,td{border:1px solid #cfd8d2;padding:8px;text-align:left}th{background:#e8f3ed}td.num{text-align:center}@media print{body{margin:0;padding:15mm}@page{size:A4 portrait;margin:0}}</style></head><body><h1>Liste des élèves — ${esc(cls.name)}</h1><div class="meta"><strong>${esc(state?.header?.ecole || '')}</strong> · Niveau ${esc(cls.level || '')} · Année ${esc(state?.header?.annee || '')} · ${students.length} élève(s)</div><table><thead><tr><th class="num">N°</th><th>Élève</th><th class="num">Genre</th><th class="num">Âge</th></tr></thead><tbody>${rows}</tbody></table></body></html>`);
+    popup.document.write(`<!doctype html><html lang="fr"><head><meta charset="utf-8"><title>Liste des élèves — ${escHtml(cls.name)}</title><style>html,body{background:#fff}body{font-family:Arial,sans-serif;color:#17251d;margin:0;padding:15mm}${PRINT_DOC_CSS}.meta{font-size:12px;color:#637269;margin-bottom:18px}table{width:100%;border-collapse:collapse;font-size:13px}th,td{border:1px solid #cfd8d2;padding:8px;text-align:left}th{background:#e8f3ed}td.num{text-align:center}@media print{body{margin:0;padding:15mm}@page{size:A4 portrait;margin:0}}</style></head><body>${docHeadHtml(state, 'LISTE DES ÉLÈVES')}<div class="meta"><strong>${escHtml(state?.header?.ecole || '')}</strong> · Niveau ${escHtml(cls.level || '')} · Classe ${escHtml(cls.name)} · Année ${escHtml(state?.header?.annee || '')} · ${students.length} élève(s)</div><table><thead><tr><th class="num">N°</th><th>Élève</th><th class="num">Genre</th><th class="num">Âge</th></tr></thead><tbody>${rows}</tbody></table></body></html>`);
     popup.document.close();
     popup.focus();
     setTimeout(() => { try { popup.print(); } catch (_) { popup.focus(); } }, 900);
@@ -6521,6 +6549,7 @@ function BulletinSheet({ state, cls, level, cfg, student, studentIndex, period }
           <div style={{ fontWeight: 800, fontSize: 13, marginTop: 2 }}>{(h.ecole || 'ÉCOLE').toUpperCase()}</div>
           <div style={{ fontSize: 10, marginTop: 2 }}>ANNÉE SCOLAIRE : {h.annee}</div>
         </div>
+        <SchoolLogoMark state={state} width={66} style={{ flexShrink: 0 }} />
       </div>
       <div className="grid grid-cols-2 gap-3" style={{ fontSize: 11, margin: '10px 0' }}>
         <div className="space-y-0.5">
@@ -7137,7 +7166,8 @@ function ReceiptSheet({ state, cls, student, payment }) {
 
   return (
     <div className="recu-sheet sygenop-card">
-      <div className="flex items-start gap-3 pb-2" style={{ borderBottom: '2px solid #0a4f3a' }}>
+      <div className="flex items-center gap-3 pb-2" style={{ borderBottom: '2px solid #0a4f3a' }}>
+        <SchoolLogoMark state={state} width={50} />
         <div className="flex-1 text-center" style={{ fontSize: 10.5, lineHeight: 1.3 }}>
           <div>République du Sénégal</div>
           <div style={{ fontWeight: 800, fontSize: 13, marginTop: 2 }}>{(h.ecole || 'ÉCOLE').toUpperCase()}</div>
@@ -7597,7 +7627,7 @@ function ExpenseReceipt({ state, expense }) {
   const code = expense.recu || expense.id;
   const editStamp = new Date().toLocaleString('fr-FR', { dateStyle: 'medium', timeStyle: 'short' });
   return <div className="recu-sheet sygenop-card">
-    <div className="flex items-start justify-between"><div><div className="font-bold text-lg">{state.header?.ecole || 'EduLink Pro'}</div><div className="text-xs" style={{ color: 'var(--muted)' }}>Gestion scolaire</div></div><QRBadge value={`EduLink Pro|Sortie|${code}`} /></div>
+    <div className="flex items-start justify-between"><div className="flex items-center gap-2"><SchoolLogoMark state={state} width={48} /><div><div className="font-bold text-lg">{state.header?.ecole || 'EduLink Pro'}</div><div className="text-xs" style={{ color: 'var(--muted)' }}>Gestion scolaire</div></div></div><QRBadge value={`EduLink Pro|Sortie|${code}`} /></div>
     <h2 className="text-center font-bold py-2 mt-3" style={{ background: '#7f1d1d', color: '#fff' }}>REÇU DE SORTIE / DÉPENSE</h2>
     <div className="space-y-2 mt-4 text-sm"><div><b>Code :</b> {code}</div><div><b>Date :</b> {fmtDateFr(expense.date)}</div><div><b>Rubrique :</b> {expense.categorie}</div><div><b>Libellé :</b> {expense.libelle}</div><div><b>Bénéficiaire :</b> {expense.beneficiaire || '—'}</div><div><b>Mode :</b> {MODES_PAIEMENT[expense.mode] || expense.mode || '—'}</div><div><b>Montant sorti :</b> {fmtFCFA(expense.montant)}</div>{expense.note && <div><b>Note :</b> {expense.note}</div>}</div>
     <p className="recu-stub">Document vérifiable par QR code · édité le {editStamp}</p>
@@ -7692,6 +7722,14 @@ function RecapTab({ state, notify, session, updateState }) {
           {showAllYear ? 'Année entière' : 'Mois sélectionné'}
         </button>
         <span className="text-xs ml-auto" style={{ color: 'var(--muted)' }}>Période affichée : <b style={{ color: 'var(--ink)' }}>{periodLabel}</b></span>
+      </div>
+      <div className="flex items-center gap-3 pb-3 mb-1" style={{ borderBottom: '2px solid var(--green-d)' }}>
+        <SchoolLogoMark state={state} width={52} style={{ margin: '0 auto' }} />
+        <div className="flex-1 text-center">
+          <div className="text-sm font-bold" style={{ color: 'var(--green-d)' }}>{(state.header && state.header.ecole) || 'Établissement scolaire'}</div>
+          <div className="text-base font-extrabold" style={{ color: 'var(--ink)' }}>RÉCAPITULATIF ENTRÉES / SORTIES</div>
+          <div className="text-xs" style={{ color: 'var(--muted)' }}>Période : {periodLabel}{showAllYear ? ' · Année entière' : ' · Mois'} · Année {state.header?.annee || ''}</div>
+        </div>
       </div>
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
         <StatCard icon={ArrowUpCircle} label={showAllYear ? 'Total entrées (encaissé)' : `Entrées — ${monthLabel(activeMonth)}`} value={fmtFCFA(scopedIn)} sub={showAllYear ? `${incoming.effectif} élève(s) · ${incoming.aJour} à jour` : `${monthInRows.length} versement(s)`} tone="green" />
@@ -7883,10 +7921,10 @@ function MaterielJournal({ items, affectations, classes, onEdit, onDelete, readO
   </div>;
 }
 
-function MaterielAffectationReceipt({ affectation, item, cls }) {
+function MaterielAffectationReceipt({ state, affectation, item, cls }) {
   const code = affectation.code || affectation.id;
   const qr = `https://api.qrserver.com/v1/create-qr-code/?size=110x110&data=${encodeURIComponent(`EduLink Pro|${code}`)}`;
-  return <div className="recu-sheet sygenop-card p-6"><div className="flex justify-between items-start"><div><h2 className="font-bold">EduLink Pro</h2><p className="text-xs">La plateforme intelligente de gestion scolaire</p></div><img src={qr} alt="QR code du reçu" width="80" height="80" /></div><h3 className="text-center font-bold py-2 mt-3" style={{ background: '#0a4f3a', color: '#fff' }}>REÇU D’AFFECTATION DE MATÉRIEL</h3><div className="space-y-2 mt-4 text-sm"><div><b>Code :</b> {code}</div><div><b>Date :</b> {fmtDateFr(affectation.date)}</div><div><b>Classe :</b> {cls?.name} — {cls?.level}</div><div><b>Matériel :</b> {item?.nom}</div><div><b>Catégorie :</b> {item?.categorie || '—'}</div><div><b>Quantité affectée :</b> {affectation.quantite}</div></div><p className="text-xs mt-6" style={{ color: 'var(--muted)' }}>Document vérifiable avec le QR code.</p></div>;
+  return <div className="recu-sheet sygenop-card p-6"><div className="flex justify-between items-start"><div className="flex items-center gap-2"><SchoolLogoMark state={state} width={48} /><div><h2 className="font-bold">{state?.header?.ecole || 'EduLink Pro'}</h2><p className="text-xs">La plateforme intelligente de gestion scolaire</p></div></div><img src={qr} alt="QR code du reçu" width="80" height="80" /></div><h3 className="text-center font-bold py-2 mt-3" style={{ background: '#0a4f3a', color: '#fff' }}>REÇU D’AFFECTATION DE MATÉRIEL</h3><div className="space-y-2 mt-4 text-sm"><div><b>Code :</b> {code}</div><div><b>Date :</b> {fmtDateFr(affectation.date)}</div><div><b>Classe :</b> {cls?.name} — {cls?.level}</div><div><b>Matériel :</b> {item?.nom}</div><div><b>Catégorie :</b> {item?.categorie || '—'}</div><div><b>Quantité affectée :</b> {affectation.quantite}</div></div><p className="text-xs mt-6" style={{ color: 'var(--muted)' }}>Document vérifiable avec le QR code.</p></div>;
 }
 
 function PaiementsView({ state, loading, updateState, notify, activeSchoolId, role, readOnly, session }) {
@@ -8187,7 +8225,7 @@ function PaiementsView({ state, loading, updateState, notify, activeSchoolId, ro
     const popup = window.open('', '_blank', 'width=900,height=700,scrollbars=yes');
     if (!popup) { notify('Autorisez les fenêtres pop-up pour générer le PDF.', true); return; }
     popup.document.open();
-    popup.document.write(`<!doctype html><html lang="fr"><head><meta charset="utf-8"><title>Récap paiements ${esc(monthLabel(effectiveMonth))}</title><style>html,body{background:#fff}body{font-family:Arial,sans-serif;color:#17251d;margin:0;padding:15mm}h1{font-size:20px;margin:0 0 4px}.meta{font-size:12px;color:#637269;margin-bottom:18px}table{width:100%;border-collapse:collapse;font-size:12px;margin-bottom:18px}th,td{border:1px solid #cfd8d2;padding:8px;text-align:left}th{background:#e8f3ed}td.num{text-align:right}th.num{text-align:right}h2{font-size:14px;margin:16px 0 8px;color:#176b49}@media print{body{margin:0;padding:15mm}@page{size:A4 portrait;margin:0}}</style></head><body><h1>Récapitulatif des paiements — ${esc(monthLabel(effectiveMonth))}</h1><div class="meta"><strong>${esc(state?.header?.ecole || '')}</strong> · Classe ${esc(currentClass.name)} (${esc(level)}) · Année ${esc(state?.header?.annee || '')} · Mensualité de référence : ${fmtFCFA(monthlyDue)}</div><table><thead><tr><th>Élève</th><th>Classe</th><th>Rel. Inscription</th><th>Versé</th><th>Reliquat</th><th>Situation du mois</th></tr></thead><tbody>${rows}</tbody><tfoot><tr><th colspan="2">Totaux</th><th class="num">${fmtFCFA(filteredStudents.reduce((s, st) => s + studentReliquatByType(state, level, st).inscription, 0))}</th><th class="num">${fmtFCFA(monthTotal)}</th><th class="num">${fmtFCFA(monthStats.reste)}</th><th>${monthPaymentCount} versement(s)</th></tr></tfoot></table>${modeRows ? `<h2>Répartition par mode de paiement</h2><table><thead><tr><th>Mode</th><th>Montant</th></tr></thead><tbody>${modeRows}</tbody></table>` : ''}</body></html>`);
+    popup.document.write(`<!doctype html><html lang="fr"><head><meta charset="utf-8"><title>Récap paiements ${escHtml(monthLabel(effectiveMonth))}</title><style>html,body{background:#fff}body{font-family:Arial,sans-serif;color:#17251d;margin:0;padding:15mm}${PRINT_DOC_CSS}.meta{font-size:12px;color:#637269;margin-bottom:18px}table{width:100%;border-collapse:collapse;font-size:12px;margin-bottom:18px}th,td{border:1px solid #cfd8d2;padding:8px;text-align:left}th{background:#e8f3ed}td.num{text-align:right}th.num{text-align:right}h2{font-size:14px;margin:16px 0 8px;color:#176b49}@media print{body{margin:0;padding:15mm}@page{size:A4 portrait;margin:0}}</style></head><body>${docHeadHtml(state, `RÉCAPITULATIF DES PAIEMENTS — ${escHtml(monthLabel(effectiveMonth)).toUpperCase()}`)}<div class="meta"><strong>${escHtml(state?.header?.ecole || '')}</strong> · Classe ${escHtml(currentClass.name)} (${escHtml(level)}) · Année ${escHtml(state?.header?.annee || '')} · Mensualité de référence : ${fmtFCFA(monthlyDue)}</div><table><thead><tr><th>Élève</th><th>Classe</th><th>Rel. Inscription</th><th>Versé</th><th>Reliquat</th><th>Situation du mois</th></tr></thead><tbody>${rows}</tbody><tfoot><tr><th colspan="2">Totaux</th><th class="num">${fmtFCFA(filteredStudents.reduce((s, st) => s + studentReliquatByType(state, level, st).inscription, 0))}</th><th class="num">${fmtFCFA(monthTotal)}</th><th class="num">${fmtFCFA(monthStats.reste)}</th><th>${monthPaymentCount} versement(s)</th></tr></tfoot></table>${modeRows ? `<h2>Répartition par mode de paiement</h2><table><thead><tr><th>Mode</th><th>Montant</th></tr></thead><tbody>${modeRows}</tbody></table>` : ''}</body></html>`);
     popup.document.close();
     popup.focus();
     setTimeout(() => { try { popup.print(); } catch (_) { popup.focus(); } }, 900);
@@ -8660,7 +8698,7 @@ function PaiementsView({ state, loading, updateState, notify, activeSchoolId, ro
       )}
       {toDeleteAffectation && <ConfirmModal title="Supprimer cette affectation ?" message={`Les ${toDeleteAffectation.quantite} unité(s) seront remises dans le stock disponible.`} danger onConfirm={deleteAffectationMateriel} onCancel={() => setToDeleteAffectation(null)} />}
       {printingAffectation && (
-        <div className="fixed inset-0 z-50 overflow-auto p-4" style={{ background: 'rgba(10,20,15,.45)' }}><div className="max-w-lg mx-auto mt-4"><div className="flex justify-end gap-2 mb-2"><button onClick={() => window.print()} className="px-3 py-2 rounded-lg text-white" style={{ background: 'var(--green-d)' }}><Printer size={14} /> Imprimer</button><button onClick={() => setPrintingAffectation(null)} className="px-3 py-2 rounded-lg" style={{ background: 'var(--panel)' }}>Fermer</button></div><MaterielAffectationReceipt affectation={printingAffectation} item={(state.materiel || []).find((item) => item.id === printingAffectation.materielId)} cls={(state.classes || {})[printingAffectation.classId]} /></div></div>
+        <div className="fixed inset-0 z-50 overflow-auto p-4" style={{ background: 'rgba(10,20,15,.45)' }}><div className="max-w-lg mx-auto mt-4"><div className="flex justify-end gap-2 mb-2"><button onClick={() => window.print()} className="px-3 py-2 rounded-lg text-white" style={{ background: 'var(--green-d)' }}><Printer size={14} /> Imprimer</button><button onClick={() => setPrintingAffectation(null)} className="px-3 py-2 rounded-lg" style={{ background: 'var(--panel)' }}>Fermer</button></div><MaterielAffectationReceipt state={state} affectation={printingAffectation} item={(state.materiel || []).find((item) => item.id === printingAffectation.materielId)} cls={(state.classes || {})[printingAffectation.classId]} /></div></div>
       )}
       {printingExpense && (
         <div className="fixed inset-0 z-50 overflow-auto p-4" style={{ background: 'rgba(10,20,15,.45)' }}><div className="max-w-lg mx-auto mt-4"><div className="flex justify-end gap-2 mb-2"><button onClick={() => window.print()} className="px-3 py-2 rounded-lg text-white flex items-center gap-1" style={{ background: 'var(--red)' }}><Printer size={14} /> Imprimer</button><button onClick={() => setPrintingExpense(null)} className="px-3 py-2 rounded-lg" style={{ background: 'var(--panel)' }}>Fermer</button></div><ExpenseReceipt state={state} expense={printingExpense} /></div></div>
@@ -9163,6 +9201,7 @@ function PresenceElevesCard({ state, updateState, notify, readOnly, session }) {
   const [form, setForm] = useState({
     ecole: h.ecole || '', type: h.type || 'École Publique', ia: h.ia || '',
     ief: h.ief || '', directeur: h.directeur || '', tel: h.tel || '', annee: h.annee || '',
+    logo: h.logo || '',
   });
   const [mohebs, setMohebs] = useState(!!(state && state.mohebs));
   const [dirty, setDirty] = useState(false);
@@ -9172,6 +9211,7 @@ function PresenceElevesCard({ state, updateState, notify, readOnly, session }) {
     setForm({
       ecole: hh.ecole || '', type: hh.type || 'École Publique', ia: hh.ia || '',
       ief: hh.ief || '', directeur: hh.directeur || '', tel: hh.tel || '', annee: hh.annee || '',
+      logo: hh.logo || '',
     });
     setMohebs(!!(state && state.mohebs));
     setDirty(false);
@@ -9217,6 +9257,22 @@ function PresenceElevesCard({ state, updateState, notify, readOnly, session }) {
           <EtabField label={cycleTerminology(form.cycle || state.header?.cycle).head} value={form.directeur} onChange={(v) => set('directeur', v)} disabled={readOnly} placeholder={`Nom du/de la ${cycleTerminology(form.cycle || state.header?.cycle).head.toLowerCase()}`} />
           <EtabField label="Téléphone" value={form.tel} onChange={(v) => set('tel', v)} disabled={readOnly} placeholder="Ex : 77 000 00 00" />
           <EtabField label="Année scolaire" value={form.annee} onChange={(v) => set('annee', v)} disabled={readOnly} placeholder="Ex : 2026/2027" />
+        </div>
+        <div className="pt-2" style={{ borderTop: '1px solid var(--line)' }}>
+          <label className="text-xs font-semibold block mb-1" style={{ color: 'var(--muted)' }}>Logo de l’école (affiché sur les bulletins, cartes, certificats, reçus et PDF)</label>
+          <div className="flex items-center gap-3">
+            <div className="w-16 h-16 rounded-lg border overflow-hidden flex items-center justify-center" style={{ borderColor: 'var(--line)', background: 'var(--bg)' }}>
+              {form.logo ? <img src={form.logo} alt="Aperçu du logo" className="w-full h-full object-contain" /> : <span className="text-[10px] text-center px-1" style={{ color: 'var(--muted)' }}>Aucun logo</span>}
+            </div>
+            {!readOnly && <>
+              <label className="px-3 py-2 rounded-lg text-sm font-semibold cursor-pointer text-white" style={{ background: 'var(--green-d)' }}>
+                {form.logo ? 'Changer le logo' : 'Ajouter un logo'}
+                <input type="file" accept="image/*" className="hidden" onChange={(e) => { const file = e.target.files?.[0]; if (!file) return; const reader = new FileReader(); reader.onload = () => set('logo', String(reader.result || '')); reader.readAsDataURL(file); }} />
+              </label>
+              {form.logo && <button type="button" onClick={() => set('logo', '')} className="px-3 py-2 rounded-lg text-sm font-semibold" style={{ background: 'var(--bg)', color: 'var(--red)' }}>Retirer le logo</button>}
+            </>}
+            {readOnly && form.logo && <span className="text-xs" style={{ color: 'var(--muted)' }}>Logo actuel affiché sur les documents.</span>}
+          </div>
         </div>
         <div className="pt-2" style={{ borderTop: '1px solid var(--line)' }}>
           <label className="flex items-start gap-2.5 text-sm cursor-pointer" style={{ color: 'var(--ink)' }}>
