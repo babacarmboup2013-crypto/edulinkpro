@@ -7520,6 +7520,15 @@ function RecapTab({ state, notify, session, updateState }) {
   });
   const catRows = Object.entries(byCategorie).sort((a, b) => b[1] - a[1]);
   const periodLabel = showAllYear ? `année ${(state.header && state.header.annee) || ''}`.trim() : monthLabel(activeMonth);
+  // Tableau mensuel : entrées / sorties / solde pour chaque mois (tous les
+  // mois ayant au moins une opération ou appartenant à l'année scolaire).
+  const monthlyRows = months.map((m) => {
+    let ent = 0, sort = 0, nbIn = 0, nbOut = 0;
+    classesList.forEach((cls) => (cls.students || []).forEach((s) => studentPaiements(s).forEach((p) => { if (paymentMonthKey(p) === m) { ent += Number(p.montant) || 0; nbIn += 1; } })));
+    depenses.forEach((d) => { if (String(d.date || '').slice(0, 7) === m) { sort += Number(d.montant) || 0; nbOut += 1; } });
+    return { month: m, ent, sort, nbIn, nbOut, solde: ent - sort };
+  });
+  const monthlyTotals = monthlyRows.reduce((acc, r) => ({ ent: acc.ent + r.ent, sort: acc.sort + r.sort, solde: acc.solde + (r.ent - r.sort), nbIn: acc.nbIn + r.nbIn, nbOut: acc.nbOut + r.nbOut }), { ent: 0, sort: 0, solde: 0, nbIn: 0, nbOut: 0 });
 
   function exportRecap() {
     const header = ['Indicateur', 'Montant (FCFA)'];
@@ -8169,7 +8178,41 @@ function PaiementsView({ state, loading, updateState, notify, activeSchoolId, ro
             ))}
           </div>
 
-          <div className="no-print flex flex-wrap items-center gap-2">
+<div className="sygenop-card overflow-x-auto">
+        <div className="px-4 py-3 text-xs font-bold uppercase tracking-wide" style={{ color: 'var(--muted)' }}>Tableau mensuel — Entrées / Sorties / Solde</div>
+        <table className="w-full text-sm">
+          <thead>
+            <tr className="text-left" style={{ borderBottom: '1px solid var(--line)' }}>
+              {['Mois', 'Entrées (encaissées)', 'Nb', 'Sorties (dépenses)', 'Nb', 'Solde du mois'].map((hh) => (
+                <th key={hh} className="px-4 py-3 text-[11px] font-bold uppercase tracking-wide whitespace-nowrap" style={{ color: 'var(--muted)' }}>{hh}</th>
+              ))}
+            </tr>
+          </thead>
+          <tbody>
+            {monthlyRows.map((row) => (
+              <tr key={row.month} onClick={() => { setMonth(row.month); setShowAllYear(false); }} className="cursor-pointer" style={{ borderBottom: '1px solid var(--line)' }}>
+                <td className="px-4 py-3 font-semibold whitespace-nowrap" style={{ color: row.month === activeMonth ? 'var(--green-d)' : 'var(--ink)' }}>{monthLabel(row.month)}</td>
+                <td className="px-4 py-3 whitespace-nowrap" style={{ color: 'var(--green-d)' }}>{row.ent > 0 ? fmtFCFA(row.ent) : '—'}</td>
+                <td className="px-4 py-3 whitespace-nowrap text-xs" style={{ color: 'var(--muted)' }}>{row.nbIn || ''}</td>
+                <td className="px-4 py-3 whitespace-nowrap" style={{ color: 'var(--red)' }}>{row.sort > 0 ? fmtFCFA(row.sort) : '—'}</td>
+                <td className="px-4 py-3 whitespace-nowrap text-xs" style={{ color: 'var(--muted)' }}>{row.nbOut || ''}</td>
+                <td className="px-4 py-3 font-bold whitespace-nowrap" style={{ color: row.solde >= 0 ? 'var(--green-d)' : 'var(--red)' }}>{fmtFCFA(row.solde)}</td>
+              </tr>
+            ))}
+          </tbody>
+          <tfoot>
+            <tr style={{ borderTop: '2px solid var(--line)' }}>
+              <td className="px-4 py-3 text-[11px] font-bold uppercase tracking-wide" style={{ color: 'var(--muted)' }}>Totaux</td>
+              <td className="px-4 py-3 font-bold whitespace-nowrap" style={{ color: 'var(--green-d)' }}>{fmtFCFA(monthlyTotals.ent)}</td>
+              <td className="px-4 py-3 whitespace-nowrap text-xs" style={{ color: 'var(--muted)' }}>{monthlyTotals.nbIn}</td>
+              <td className="px-4 py-3 font-bold whitespace-nowrap" style={{ color: 'var(--red)' }}>{fmtFCFA(monthlyTotals.sort)}</td>
+              <td className="px-4 py-3 whitespace-nowrap text-xs" style={{ color: 'var(--muted)' }}>{monthlyTotals.nbOut}</td>
+              <td className="px-4 py-3 font-bold whitespace-nowrap" style={{ color: monthlyTotals.solde >= 0 ? 'var(--green-d)' : 'var(--red)' }}>{fmtFCFA(monthlyTotals.solde)}</td>
+            </tr>
+          </tfoot>
+        </table>
+      </div>
+      <div className="no-print flex flex-wrap items-center gap-2">
             {classEntries.map(([id, c]) => (
               <button
                 key={id} onClick={() => setClassId(id)}
