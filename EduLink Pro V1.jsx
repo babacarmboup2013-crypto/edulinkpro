@@ -7330,10 +7330,13 @@ function ExpenseModal({ expense, personnel = [], onSave, onClose }) {
   );
 }
 
-function DepensesTab({ depenses, onAdd, onEdit, onDelete, onPrint, readOnly, onExport, baseMonths = [] }) {
+function DepensesTab({ depenses, onAdd, onEdit, onDelete, onPrint, readOnly, onExport, baseMonths = [], focusMonth = null }) {
   const [q, setQ] = useState('');
   const [month, setMonth] = useState('');
   const [showAllYear, setShowAllYear] = useState(false);
+  useEffect(() => {
+    if (focusMonth) setMonth(focusMonth);
+  }, [focusMonth]);
   const todayKey = todayISO().slice(0, 7);
   const baseMonthList = [...new Set([...(baseMonths || []), ...depenses.map((d) => String(d.date || '').slice(0, 7)).filter(Boolean)])].sort();
   const expenseMonths = [...new Set(depenses.map((d) => String(d.date || '').slice(0, 7)).filter(Boolean))].sort();
@@ -7725,6 +7728,7 @@ function PaiementsView({ state, loading, updateState, notify, activeSchoolId, ro
   const [expenseModal, setExpenseModal] = useState(undefined); // undefined=closed, null=new, obj=edit
   const [toDeleteExpense, setToDeleteExpense] = useState(null);
   const [printingExpense, setPrintingExpense] = useState(null);
+  const [expenseFocusMonth, setExpenseFocusMonth] = useState(null);
   const [materielModal, setMaterielModal] = useState(undefined);
   const [toDeleteMateriel, setToDeleteMateriel] = useState(null);
   const [affectationModal, setAffectationModal] = useState(false);
@@ -7965,6 +7969,7 @@ function PaiementsView({ state, loading, updateState, notify, activeSchoolId, ro
     });
     notify(expenseModal && expenseModal.id ? 'Dépense modifiée' : 'Dépense enregistrée (sortie d\u2019argent)');
     setExpenseModal(undefined);
+    setExpenseFocusMonth(String(form.date || todayISO()).slice(0, 7));
     setPrintingExpense(receipt);
   }
 
@@ -8130,6 +8135,7 @@ function PaiementsView({ state, loading, updateState, notify, activeSchoolId, ro
         <DepensesTab
           depenses={state.depenses || []}
           baseMonths={schoolYearMonths(state)}
+          focusMonth={expenseFocusMonth}
           onAdd={() => setExpenseModal(null)}
           onEdit={(d) => setExpenseModal(d)}
           onDelete={(d) => setToDeleteExpense(d)}
