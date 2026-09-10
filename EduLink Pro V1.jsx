@@ -8209,12 +8209,18 @@ function PaiementsView({ state, loading, updateState, notify, activeSchoolId, ro
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-4">
               <StatCard icon={Wallet} label="À payer (classe, année)" value={fmtFCFA(due * students.length)} tone="gold" />
               <StatCard icon={CheckCircle2} label="Versé (année)" value={fmtFCFA(students.reduce((s, st) => s + studentTotalPaid(st), 0))} tone="green" />
-              <StatCard icon={AlertTriangle} label="Reliquat annuel (classe)" value={fmtFCFA(students.reduce((s, st) => s + Math.max(0, due - studentTotalPaid(st)), 0))} tone="red" />
-              <StatCard
-                icon={TrendingUp} label="Taux de recouvrement" tone="green"
-                value={`${due * students.length > 0 ? Math.round((students.reduce((s, st) => s + Math.min(studentTotalPaid(st), due), 0) / (due * students.length)) * 100) : 0}%`}
-              />
-              <StatCard icon={Users} label="Élèves sans versement" tone="red" value={students.filter((st) => paymentStatus(due, studentTotalPaid(st)).key === 'retard').length} />
+              {(() => {
+                const totalRelInscription = students.reduce((s, st) => s + studentReliquatByType(state, level, st).inscription, 0);
+                const totalRelMensualite = students.reduce((s, st) => s + studentReliquatByType(state, level, st).mensualite, 0);
+                const totalRel = totalRelInscription + totalRelMensualite;
+                return (
+                  <>
+                    <StatCard icon={ClipboardCheck} label="Rel. Inscription (classe)" value={fmtFCFA(totalRelInscription)} tone="gold" />
+                    <StatCard icon={AlertTriangle} label="Rel. Scolarité (classe)" value={fmtFCFA(totalRelMensualite)} tone="red" />
+                    <StatCard icon={TrendingUp} label="Reliquat total (classe)" value={fmtFCFA(totalRel)} tone={totalRel > 0 ? 'red' : 'green'} />
+                  </>
+                );
+              })()}
             </div>
           )}
 
