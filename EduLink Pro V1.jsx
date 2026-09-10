@@ -4407,6 +4407,10 @@ function StaffAbsencesView({ state, loading, updateState, notify, session, readO
   const allRequests = Array.isArray(state.staffAbsenceRequests) ? state.staffAbsenceRequests : [];
   const myRequests = allRequests.filter((request) => request.requesterId === requesterId);
   const pendingRequests = allRequests.filter((request) => request.statut === 'pending');
+  const handleDocument = (request, mode) => {
+    if (mode === 'download') downloadAbsenceDocument(state, request, notify);
+    else openAbsenceDocument(state, request, notify);
+  };
   const finDate = dateFin || dateDebut;
   const nbJours = dateDebut && finDate ? Math.max(1, Math.round((new Date(finDate + 'T00:00:00').getTime() - new Date(dateDebut + 'T00:00:00').getTime()) / 86400000) + 1) : 0;
 
@@ -4493,7 +4497,7 @@ function StaffAbsencesView({ state, loading, updateState, notify, session, readO
           )}
           <div className="space-y-1.5">
             <div className="text-xs font-bold">Mes demandes ({myRequests.length})</div>
-            {myRequests.length === 0 ? <p className="text-xs" style={{ color: 'var(--muted)' }}>Aucune demande pour le moment.</p> : myRequests.slice().reverse().map((request) => <StaffAbsenceStatus key={request.id} request={request} />)}
+            {myRequests.length === 0 ? <p className="text-xs" style={{ color: 'var(--muted)' }}>Aucune demande pour le moment.</p> : myRequests.slice().reverse().map((request) => <StaffAbsenceStatus key={request.id} request={request} onDocument={handleDocument} />)}
           </div>
         </div>
 
@@ -4536,7 +4540,7 @@ function StaffAbsencesView({ state, loading, updateState, notify, session, readO
         <div className="sygenop-card p-4 space-y-2">
           <div className="text-xs font-bold">Historique des décisions ({decidedRequests.length})</div>
           <div className="space-y-1.5">
-            {decidedRequests.slice(0, 30).map((request) => <StaffAbsenceStatus key={request.id} request={request} showDecider />)}
+            {decidedRequests.slice(0, 30).map((request) => <StaffAbsenceStatus key={request.id} request={request} showDecider onDocument={handleDocument} />)}
           </div>
         </div>
       )}
@@ -4544,7 +4548,7 @@ function StaffAbsencesView({ state, loading, updateState, notify, session, readO
   );
 }
 
-function StaffAbsenceStatus({ request, showDecider }) {
+function StaffAbsenceStatus({ request, showDecider, onDocument }) {
   const status = ABSENCE_STATUS[request.statut] || { label: request.statut, tone: 'muted' };
   return (
     <div className="flex flex-wrap items-center gap-x-2 gap-y-1 text-xs">
@@ -4552,9 +4556,158 @@ function StaffAbsenceStatus({ request, showDecider }) {
       <span>{request.requesterLabel} — {request.motif}</span>
       <span style={{ color: 'var(--muted)' }}>{fmtDateFr(request.dateDebut)}{request.dateFin ? ' → ' + fmtDateFr(request.dateFin) : ''}</span>
       <Pill tone={status.tone}>{status.label}</Pill>
+      {onDocument && request.statut === 'approved' && (
+        <>
+          <button type="button" onClick={() => onDocument(request, 'print')} className="flex items-center gap-1 px-1.5 py-0.5 rounded-md text-[10px] font-bold" style={{ background: 'var(--green-d)', color: '#fff' }}><Printer size={11} /> Imprimer</button>
+          <button type="button" onClick={() => onDocument(request, 'download')} className="flex items-center gap-1 px-1.5 py-0.5 rounded-md text-[10px] font-bold" style={{ background: '#1d4ed8', color: '#fff' }}><Download size={11} /> Télécharger</button>
+        </>
+      )}
       {showDecider && request.decidedBy && <span style={{ color: 'var(--muted)' }}>· décidé(e) par {request.decidedBy}{request.decisionNote ? ` (« ${request.decisionNote} »)` : ''}</span>}
     </div>
   );
+}
+
+/* ---- Document officiel : autorisation d'absence (acceptée) ---- */
+function escapeHtml(value) {
+  return String(value == null ? '' : value)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
+}
+
+function absenceDocumentHtml(state, request) {
+  const header = state.header || {};
+  const cycle = header.cycle || LEGACY_DEFAULT_CYCLE;
+  const term = cycleTerminology(cycle);
+  const schoolName = escapeHtml(header.nom || 'École');
+  const ville = escapeHtml(header.ville || '');
+  const annee = escapeHtml(header.annee || header.anneeScolaire || '');
+  const decider = escapeHtml(request.decidedBy || header.directeur || 'La direction');
+  const fonction = escapeHtml(term.head);
+  const agent = escapeHtml(request.requesterLabel || '');
+  const agentPerson = (state.personnel || []).find((item) => item.id === request.requesterId);
+  const agentRole = escapeHtml(agentPerson && agentPerson.role ? displayStaffRole(agentPerson.role, cycle) : '');
+  const motif = escapeHtml(request.motif || '');
+  const commentaire = escapeHtml(request.commentaire || '');
+  const note = escapeHtml(request.decisionNote || '');
+  const debut = fmtDateFr(request.dateDebut);
+  const fin = fmtDateFr(request.dateFin || request.dateDebut);
+  let nbJours = 1;
+  if (request.dateDebut) {
+    const finD = request.dateFin || request.dateDebut;
+    nbJours = Math.max(1, Math.round((new Date(finD + 'T00:00:00').getTime() - new Date(request.dateDebut + 'T00:00:00').getTime()) / 86400000) + 1);
+  }
+  const ref = escapeHtml(request.id ? String(request.id).toUpperCase() : 'AUTORISATION');
+  const decidedOn = request.decidedAt ? fmtDateFr(request.decidedAt.slice(0, 10)) : fmtDateFr(new Date().toISOString().slice(0, 10));
+  const today = fmtDateFr(new Date().toISOString().slice(0, 10));
+  const filename = `Autorisation-absence-${(request.requesterLabel || 'agent').replace(/[^a-zA-Z0-9]+/g, '_')}.html`;
+
+  const bodyHtml = `<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8"/>
+<title>Autorisation d'absence — ${agent}</title>
+<style>
+  @page { size: A4; margin: 20mm 18mm; }
+  * { box-sizing: border-box; }
+  body { font-family: Georgia, 'Times New Roman', serif; color: #151515; margin: 0; padding: 26px; }
+  .toolbar { font-family: Arial, Helvetica, sans-serif; display: flex; align-items: center; gap: 10px; padding: 10px; margin-bottom: 20px; background: #f1f5f9; border-radius: 10px; position: sticky; top: 0; z-index: 10; }
+  .toolbar button { padding: 9px 16px; border: 0; border-radius: 7px; color: #fff; font-weight: 700; font-size: 13px; cursor: pointer; }
+  .toolbar .print { background: #15803d; }
+  .toolbar .dl { background: #1d4ed8; }
+  .toolbar span { margin-left: auto; font-size: 12px; color: #475569; }
+  @media print { .toolbar { display: none; } }
+  .head { text-align: center; }
+  .school { font-weight: 800; font-size: 20px; text-transform: uppercase; letter-spacing: 1px; }
+  .info { font-size: 13px; margin-top: 3px; }
+  .title { text-align: center; font-weight: 800; font-size: 23px; margin: 40px 0 8px; text-decoration: underline; text-underline-offset: 7px; }
+  .bref { text-align: center; font-size: 12px; color: #444; margin-bottom: 34px; }
+  .body { font-size: 15px; line-height: 1.9; text-align: justify; }
+  table.grid { width: 100%; border-collapse: collapse; margin: 22px 0; font-size: 14px; }
+  table.grid th, table.grid td { border: 1px solid #222; padding: 8px 12px; text-align: left; }
+  table.grid th { width: 30%; background: #f8fafc; }
+  .sig { margin-top: 56px; display: flex; flex-direction: column; align-items: flex-end; gap: 40px; }
+  .sig .who { font-size: 14px; font-weight: 700; }
+  .sig .line { border-top: 1px solid #111; width: 280px; padding-top: 5px; font-size: 12px; text-align: center; }
+  .meta { margin-top: 34px; font-size: 11.5px; color: #555; border-top: 1px solid #ccc; padding-top: 8px; text-align: center; }
+</style>
+</head>
+<body>
+  <div class="toolbar">
+    <button class="print" onclick="window.print()">Imprimer</button>
+    <button class="dl" onclick="downloadDoc()">Télécharger (.html)</button>
+    <span>Impression : choisissez « Enregistrer en PDF » comme imprimante pour obtenir un PDF.</span>
+  </div>
+
+  <div class="head">
+    <div class="school">${schoolName}</div>
+    <div class="info">${ville}${annee ? ' — ' + annee : ''}</div>
+  </div>
+
+  <div class="title">Autorisation d'absence</div>
+  <div class="bref">N° ${ref} — délivrée le ${today}</div>
+
+  <div class="body">
+    <p>Je soussigné(e), <b>${decider}</b>, en qualité de <b>${fonction}</b>, autorise <b>${agent}</b>${agentRole ? ` (${agentRole})` : ''} à s'absenter de l'établissement pour la durée suivante :</p>
+    <table class="grid">
+      <tr><th>Du</th><td>${debut}</td></tr>
+      <tr><th>Au</th><td>${fin}</td></tr>
+      <tr><th>Durée</th><td>${nbJours} jour(s)</td></tr>
+      <tr><th>Motif</th><td>${motif}</td></tr>
+    </table>
+    ${commentaire ? `<p>Observations du personnel : <i>${commentaire}</i></p>` : ''}
+    ${note ? `<p>Note de décision : <i>${note}</i></p>` : ''}
+    <p style="margin-top:18px">La présente autorisation d'absence est délivrée pour servir et valoir ce que de droit.</p>
+  </div>
+
+  <div class="sig">
+    <div class="who">Décision : <b>ACCORDÉE</b> le ${decidedOn}</div>
+    <div class="line">Signature et cachet de la direction</div>
+  </div>
+
+  <div class="meta">Document généré par EduLink Pro — ${schoolName} — le ${today}.</div>
+</body>
+</html>`;
+
+  const page = bodyHtml.replace('</body>', `<script>
+  window.DOC_HTML = ${JSON.stringify(bodyHtml)};
+  function downloadDoc() {
+    var b = new Blob([window.DOC_HTML], { type: 'text/html;charset=utf-8' });
+    var a = document.createElement('a');
+    a.href = URL.createObjectURL(b);
+    a.download = ${JSON.stringify(filename)};
+    document.body.appendChild(a);
+    a.click();
+    setTimeout(function(){ URL.revokeObjectURL(a.href); }, 1500);
+  }
+<\/script></body>`);
+  return page;
+}
+
+function openAbsenceDocument(state, request, notify) {
+  const win = window.open('', '_blank', 'width=900,height=1040');
+  if (!win) { notify('Autorisez les fenêtres (pop-up) pour imprimer le document.', true); return; }
+  win.document.write(absenceDocumentHtml(state, request));
+  win.document.close();
+  win.focus();
+}
+
+function downloadAbsenceDocument(state, request, notify) {
+  try {
+    const blob = new Blob([absenceDocumentHtml(state, request)], { type: 'text/html;charset=utf-8' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `Autorisation-absence-${(request.requesterLabel || 'agent').replace(/[^a-zA-Z0-9]+/g, '_')}.html`;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    setTimeout(() => URL.revokeObjectURL(url), 2000);
+  } catch (error) {
+    notify('Impossible de générer le document.', true);
+  }
 }
 
 function StaffAttestStatus({ request, showDecider }) {
@@ -4589,6 +4742,10 @@ function StaffMyRequestsView({ state, loading, updateState, notify, session, rea
   const requesterLabel = me ? personFullName(me) : 'Agent';
   const absences = (state.staffAbsenceRequests || []).filter((request) => request.requesterId === requesterId).slice().reverse();
   const attestations = (state.staffAttestRequests || []).filter((request) => request.requesterId === requesterId).slice().reverse();
+  const handleDocument = (request, mode) => {
+    if (mode === 'download') downloadAbsenceDocument(state, request, notify);
+    else openAbsenceDocument(state, request, notify);
+  };
   const finDate = dateFin || dateDebut;
   const nbJours = dateDebut && finDate ? Math.max(1, Math.round((new Date(finDate + 'T00:00:00').getTime() - new Date(dateDebut + 'T00:00:00').getTime()) / 86400000) + 1) : 0;
 
@@ -4669,7 +4826,7 @@ function StaffMyRequestsView({ state, loading, updateState, notify, session, rea
           )}
           <div className="space-y-1.5">
             <div className="text-xs font-bold">Mes demandes d'absence ({absences.length})</div>
-            {absences.length === 0 ? <p className="text-xs" style={{ color: 'var(--muted)' }}>Aucune demande pour le moment.</p> : absences.map((request) => <StaffAbsenceStatus key={request.id} request={request} showDecider />)}
+            {absences.length === 0 ? <p className="text-xs" style={{ color: 'var(--muted)' }}>Aucune demande pour le moment.</p> : absences.map((request) => <StaffAbsenceStatus key={request.id} request={request} showDecider onDocument={handleDocument} />)}
           </div>
         </div>
 
@@ -4834,6 +4991,10 @@ function PersonnelProfileModal({ person, state, updateState, notify, readOnly, o
   const fullName = personFullName(person);
   const requests = (state?.staffAbsenceRequests || []).filter((request) => request.requesterId === person.id).slice().reverse();
   const statutTone = person.statut === 'Actif' ? 'green' : person.statut === 'Absent' ? 'red' : 'gold';
+  const handleDocument = (request, mode) => {
+    if (mode === 'download') downloadAbsenceDocument(state, request, notify);
+    else openAbsenceDocument(state, request, notify);
+  };
 
   function submitAbsence(event) {
     event.preventDefault();
@@ -4926,7 +5087,7 @@ function PersonnelProfileModal({ person, state, updateState, notify, readOnly, o
         {requests.length > 0 && (
           <div className="mt-4 pt-4 space-y-1.5" style={{ borderTop: '1px solid var(--line)' }}>
             <div className="text-xs font-bold">Demandes d'absence ({requests.length})</div>
-            {requests.map((request) => <StaffAbsenceStatus key={request.id} request={request} showDecider />)}
+            {requests.map((request) => <StaffAbsenceStatus key={request.id} request={request} showDecider onDocument={handleDocument} />)}
           </div>
         )}
 
