@@ -6830,7 +6830,8 @@ function PaymentModal({ student, payment, rubriques = [], onSave, onClose, defau
         if (selectedType === 'inscription') return { ...line, checked: rubrique?.nature === 'entree', montant: rubrique?.nature === 'entree' ? Number(rubrique.montant) || 0 : line.montant };
         return { ...line, checked: rubrique?.nature !== 'entree', montant: rubrique?.nature !== 'entree' ? Math.round((Number(rubrique?.montant) || 0) / Math.max(1, Number(rubrique?.mensualites) || 10)) : line.montant };
       });
-      return { ...f, type_paiement: selectedType, lignes: updatedLignes, montant: '' };
+      const autoMontant = updatedLignes.filter((l) => l.checked).reduce((sum, l) => sum + (Number(l.montant) || 0), 0);
+      return { ...f, type_paiement: selectedType, lignes: updatedLignes, montant: autoMontant > 0 ? String(autoMontant) : '' };
     });
   }
   if (!isEdit && !typePaiement) {
@@ -6983,13 +6984,14 @@ function PaymentModal({ student, payment, rubriques = [], onSave, onClose, defau
 
 function ReceiptSheet({ state, cls, student, payment }) {
   const h = state.header || {};
-  const due = studentTotalDue(state, cls.level);
   const reliquat = studentReliquatByType(state, cls.level, student);
   const list = studentPaiements(student);
   const idx = list.findIndex((p) => p.id === payment.id);
-  const paidBefore = list.slice(0, idx < 0 ? list.length : idx).reduce((s, p) => s + (Number(p.montant) || 0), 0);
-  const paidTotal = paidBefore + (Number(payment.montant) || 0);
-  const solde = Math.max(0, due - paidTotal);
+  const isTypeInscription = payment.type_paiement === 'inscription';
+  const typeDue = isTypeInscription ? reliquat.due.inscription : reliquat.due.mensualite;
+  const paidBeforeType = list.slice(0, idx < 0 ? list.length : idx).filter((p) => isTypeInscription ? p.type_paiement === 'inscription' : p.type_paiement === 'mensualite').reduce((s, p) => s + (Number(p.montant) || 0), 0);
+  const paidTotalType = paidBeforeType + (Number(payment.montant) || 0);
+  const soldeType = Math.max(0, typeDue - paidTotalType);
   const now = new Date();
   const editStamp = now.toLocaleDateString('fr-FR') + ' à ' + now.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' });
   const rubrique = feeForLevel(state, cls.level).rubriques.find((item) => item.id === payment.rubrique);
@@ -7025,18 +7027,20 @@ function ReceiptSheet({ state, cls, student, payment }) {
           {(payment.lignes?.length ? payment.lignes : [{ label: periodeLabel, montant: payment.montant }]).map((line, index) => <tr key={index}><td>{line.label}{moisPaiement ? ` — ${moisPaiement}` : ''}{payment.note && index === 0 ? ` — ${payment.note}` : ''}</td><td className="text-center">{fmtFCFA(line.montant)}</td></tr>)}
           <tr className="recu-total"><td>Montant reçu</td><td className="text-center">{fmtFCFA(payment.montant)}</td></tr>
           {payment.type_paiement === 'inscription' && <tr><td>Reliquat inscription</td><td className="text-center" style={{ color: reliquat.inscription > 0 ? '#a8402f' : '#0a4f3a', fontWeight: 700 }}>{fmtFCFA(reliquat.inscription)}</td></tr>}
-          {payment.type_paiement === 'mensualite' && <tr><td>Reliquat scolarité</td><td className="text-center" style={{ color: reliquat.mensualite > 0 ? '#a8402f' : '#0a4f3a', fontWeight: 700 }}>{fmtFCFA(reliquat.mensualite)}</td></tr>}
-          <tr><td>Reliquat mensuel</td><td className="text-center">{fmtFCFA(reliquatMensuel)}</td></tr>
+          {payment.type_paiement === 'mensualite' && <>
+            <tr><td>Reliquat scolarité</td><td className="text-center" style={{ color: reliquat.mensualite > 0 ? '#a8402f' : '#0a4f3a', fontWeight: 700 }}>{fmtFCFA(reliquat.mensualite)}</td></tr>
+            <tr><td>Reliquat mensuel</td><td className="text-center">{fmtFCFA(reliquatMensuel)}</td></tr>
+          </>}
         </tbody>
       </table>
       <div style={{ fontSize: 10.5, fontStyle: 'italic', margin: '8px 0' }}>
         Arrêté le présent reçu à la somme de : <b>{montantEnLettres(payment.montant)} francs CFA</b>.
       </div>
       <div className="grid grid-cols-2 gap-2" style={{ fontSize: 11 }}>
-        <div><b>Total dû (année) :</b> {fmtFCFA(due)}</div>
-        <div><b>Total versé à ce jour :</b> {fmtFCFA(paidTotal)}</div>
+        <div><b>{isTypeInscription ? 'Total dû (inscription) :' : 'Total dû (scolarité) :'}</b> {fmtFCFA(typeDue)}</div>
+        <div><b>Total versé à ce jour :</b> {fmtFCFA(paidTotalType)}</div>
         <div style={{ gridColumn: '1 / -1' }}>
-          <b>Solde restant :</b> <span style={{ color: solde > 0 ? '#a8402f' : '#0a4f3a', fontWeight: 700 }}>{fmtFCFA(solde)}</span>
+          <b>Solde restant :</b> <span style={{ color: soldeType > 0 ? '#a8402f' : '#0a4f3a', fontWeight: 700 }}>{fmtFCFA(soldeType)}</span>
         </div>
         <div style={{ gridColumn: '1 / -1', borderTop: '1px solid #d8ded9', paddingTop: 6, marginTop: 4 }}>
           <b style={{ color: '#b8862f' }}>Reliquat inscription :</b> <span style={{ color: reliquat.inscription > 0 ? '#a8402f' : '#0a4f3a', fontWeight: 700 }}>{fmtFCFA(reliquat.inscription)}</span>
