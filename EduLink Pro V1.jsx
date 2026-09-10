@@ -3656,7 +3656,7 @@ function ClassModal({ cls, level, personnel, materiel = [], affectations = [], c
   );
 }
 
-function PersonnelListTab({ personnel, onAdd, onEdit, onDelete, onCard, onAttest, readOnly, cycle }) {
+function PersonnelListTab({ personnel, onAdd, onEdit, onDelete, onCard, onAttest, onProfile, readOnly, cycle }) {
   const [q, setQ] = useState('');
   const filtered = personnel.filter((p) => {
     const full = personFullName(p).toLowerCase();
@@ -3705,7 +3705,7 @@ function PersonnelListTab({ personnel, onAdd, onEdit, onDelete, onCard, onAttest
               {filtered.map((p) => (
                 <tr key={p.id} style={{ borderBottom: '1px solid var(--line)' }}>
                   <td className="px-4 py-3">
-                    <div className="flex items-center gap-3">
+                    <button type="button" onClick={() => onProfile(p)} className="flex items-center gap-3 text-left w-full hover:opacity-80" title="Voir la fiche">
                       <span style={{ lineHeight: 0 }}>
                         {isFemale(p.genre) ? <AvatarGirl size={36} /> : <AvatarBoy size={36} />}
                       </span>
@@ -3717,11 +3717,11 @@ function PersonnelListTab({ personnel, onAdd, onEdit, onDelete, onCard, onAttest
                         {STAFF_LOGIN_ROLES.has(p.role) && p.code && (
                           <div className="text-[11px] flex items-center gap-1.5 mt-0.5" style={{ color: 'var(--green-d)' }}>
                             <KeyRound size={11} /> Code : <span className="font-mono font-semibold tracking-widest">{p.code}</span>
-                            <button onClick={() => copyToClipboard(p.code, () => {})} style={{ color: 'var(--muted)' }} title="Copier le code"><FileSpreadsheet size={12} /></button>
+                            <button onClick={(e) => { e.stopPropagation(); copyToClipboard(p.code, () => {}); }} style={{ color: 'var(--muted)' }} title="Copier le code"><FileSpreadsheet size={12} /></button>
                           </div>
                         )}
                       </div>
-                    </div>
+                    </button>
                   </td>
                   <td className="px-4 py-3" style={{ color: 'var(--muted)' }}>
                     {displayStaffRole(p.role, cycle)}
@@ -3740,6 +3740,9 @@ function PersonnelListTab({ personnel, onAdd, onEdit, onDelete, onCard, onAttest
                   </td>
                   <td className="px-4 py-3">
                     <div className="flex items-center justify-end gap-1.5">
+                      <button onClick={() => onProfile(p)} className="p-1.5 rounded-lg hover:bg-black/5" style={{ color: 'var(--green-d)' }} title="Fiche du personnel">
+                        <UserRound size={15} />
+                      </button>
                       <button onClick={() => onCard(p)} className="p-1.5 rounded-lg hover:bg-black/5" style={{ color: 'var(--gold)' }} title="Carte professionnelle">
                         <CreditCard size={15} />
                       </button>
@@ -4575,6 +4578,121 @@ function StaffServiceAttestation({ state, person }) {
   );
 }
 
+function PersonnelProfileModal({ person, state, updateState, notify, readOnly, onClose, onCard, onAttest, onEdit, onDelete, cycle }) {
+  const [motif, setMotif] = useState('');
+  const [dateDebut, setDateDebut] = useState(todayISO());
+  const [dateFin, setDateFin] = useState('');
+  const [commentaire, setCommentaire] = useState('');
+  const fullName = personFullName(person);
+  const requests = (state?.staffAbsenceRequests || []).filter((request) => request.requesterId === person.id).slice().reverse();
+  const statutTone = person.statut === 'Actif' ? 'green' : person.statut === 'Absent' ? 'red' : 'gold';
+
+  function submitAbsence(event) {
+    event.preventDefault();
+    if (readOnly) return;
+    const motifClean = String(motif || '').trim();
+    if (!motifClean) { notify('Indiquez le motif de l’absence.', true); return; }
+    if (!dateDebut) { notify('Indiquez la date de début.', true); return; }
+    const fin = dateFin || dateDebut;
+    if (fin < dateDebut) { notify('La date de fin ne peut pas précéder la date de début.', true); return; }
+    updateState((prev) => ({
+      ...prev,
+      staffAbsenceRequests: [...(prev.staffAbsenceRequests || []), {
+        id: uid('absence'),
+        requesterId: person.id,
+        requesterLabel: fullName,
+        motif: motifClean,
+        dateDebut,
+        dateFin: fin,
+        commentaire: String(commentaire || '').trim(),
+        statut: 'pending',
+        createdAt: new Date().toISOString(),
+      }],
+      auditLog: pushAuditEntry(prev.auditLog, { actor: fullName, role: 'staff', action: 'Demande d’autorisation d’absence', details: `${motifClean} (${dateDebut}${fin ? ' → ' + fin : ''})` }),
+    }));
+    setMotif(''); setDateDebut(todayISO()); setDateFin(''); setCommentaire('');
+    notify('Demande d’autorisation d’absence envoyée, en attente de validation.');
+  }
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4" style={{ background: 'rgba(10,20,15,.45)' }}>
+      <div className="sygenop-card p-6 max-w-xl w-full sygenop-fade max-h-[90vh] overflow-y-auto">
+        <div className="flex items-start justify-between gap-3">
+          <div className="flex items-center gap-3">
+            <div className="w-16 h-16 rounded-xl border overflow-hidden flex items-center justify-center flex-shrink-0" style={{ borderColor: 'var(--line)', background: 'var(--bg)' }}>
+              {person.photoData ? <img src={person.photoData} alt={`Photo de ${fullName}`} className="w-full h-full object-cover" /> : (isFemale(person.genre) ? <AvatarGirl size={44} /> : <AvatarBoy size={44} />)}
+            </div>
+            <div>
+              <div className="font-bold text-lg leading-tight" style={{ color: 'var(--ink)' }}>{fullName}</div>
+              <div className="text-xs mt-0.5" style={{ color: 'var(--muted)' }}>{displayStaffRole(person.role, cycle)}</div>
+              <div className="mt-1"><Pill tone={statutTone}>{person.statut || 'Actif'}</Pill></div>
+            </div>
+          </div>
+          <button type="button" onClick={onClose} style={{ color: 'var(--muted)' }}><X size={18} /></button>
+        </div>
+
+        <div className="mt-4 grid grid-cols-1 sm:grid-cols-2 gap-x-5 gap-y-1.5 text-sm">
+          <div><b className="text-xs" style={{ color: 'var(--muted)' }}>Téléphone</b><div style={{ color: 'var(--ink)' }}>{person.telephone || '—'}</div></div>
+          <div><b className="text-xs" style={{ color: 'var(--muted)' }}>Genre</b><div style={{ color: 'var(--ink)' }}>{person.genre || '—'}</div></div>
+          <div><b className="text-xs" style={{ color: 'var(--muted)' }}>Matricule</b><div className="font-mono" style={{ color: 'var(--ink)' }}>{staffCardCode(person)}</div></div>
+          <div><b className="text-xs" style={{ color: 'var(--muted)' }}>Date d'embauche</b><div style={{ color: 'var(--ink)' }}>{person.dateEmbauche ? fmtDateFr(person.dateEmbauche) : '—'}</div></div>
+          <div><b className="text-xs" style={{ color: 'var(--muted)' }}>Salaire de base</b><div style={{ color: 'var(--ink)' }}>{fmtFCFA(person.salaireBase)}</div></div>
+          <div><b className="text-xs" style={{ color: 'var(--muted)' }}>Statut</b><div style={{ color: 'var(--ink)' }}>{person.statut || 'Actif'}</div></div>
+          {person.specialites?.length > 0 && (
+            <div className="sm:col-span-2"><b className="text-xs" style={{ color: 'var(--muted)' }}>Spécialités</b><div className="flex flex-wrap gap-1 mt-1">{person.specialites.map((specialite) => <span key={specialite} className="text-[11px] px-2 py-0.5 rounded-full" style={{ background: 'var(--green-l)', color: 'var(--green-d)' }}>{specialite}</span>)}</div></div>
+          )}
+          {STAFF_LOGIN_ROLES.has(person.role) && person.code && (
+            <div className="sm:col-span-2"><b className="text-xs" style={{ color: 'var(--muted)' }}>Code de connexion</b><div className="flex items-center gap-1.5 mt-0.5"><span className="font-mono font-semibold tracking-widest text-sm" style={{ color: 'var(--green-d)' }}>{person.code}</span><button onClick={() => copyToClipboard(person.code, () => {})} style={{ color: 'var(--muted)' }} title="Copier le code"><FileSpreadsheet size={13} /></button></div></div>
+          )}
+        </div>
+
+        <div className="flex flex-wrap gap-2 mt-4 pt-4" style={{ borderTop: '1px solid var(--line)' }}>
+          <button type="button" onClick={onCard} className="px-3.5 py-2 rounded-lg text-sm font-semibold text-white flex items-center gap-1.5" style={{ background: 'var(--green-d)' }}><CreditCard size={15} /> Carte professionnelle</button>
+          <button type="button" onClick={onAttest} className="px-3.5 py-2 rounded-lg text-sm font-semibold flex items-center gap-1.5" style={{ background: 'var(--gold-l)', color: 'var(--gold)' }}><FileText size={15} /> Attestation de service</button>
+        </div>
+
+        {!readOnly && (
+          <form onSubmit={submitAbsence} className="mt-4 pt-4 space-y-3" style={{ borderTop: '1px solid var(--line)' }}>
+            <div className="font-bold text-sm" style={{ color: 'var(--ink)' }}>Demande d'autorisation d'absence</div>
+            <label className="block text-xs font-semibold">Motif de l'absence
+              <input value={motif} onChange={(event) => setMotif(event.target.value)} className="sygenop-input mt-1" placeholder="Ex : maladie, convocation, deuil…" maxLength={160} />
+            </label>
+            <div className="flex flex-wrap gap-1.5">
+              {ABSENCE_MOTIFS.map((item) => <button key={item} type="button" onClick={() => setMotif(item)} className="px-2 py-1 rounded-lg text-[11px] font-semibold" style={motif === item ? { background: 'var(--green-d)', color: '#fff' } : { background: 'var(--bg)', color: 'var(--muted)', border: '1px solid var(--line)' }}>{item}</button>)}
+            </div>
+            <div className="grid grid-cols-2 gap-3">
+              <label className="block text-xs font-semibold">Du
+                <input type="date" value={dateDebut} onChange={(event) => setDateDebut(event.target.value)} className="sygenop-input mt-1" />
+              </label>
+              <label className="block text-xs font-semibold">Au
+                <input type="date" value={dateFin} onChange={(event) => setDateFin(event.target.value)} className="sygenop-input mt-1" />
+              </label>
+            </div>
+            <label className="block text-xs font-semibold">Commentaire (facultatif)
+              <textarea value={commentaire} onChange={(event) => setCommentaire(event.target.value)} className="sygenop-input mt-1" rows={2} placeholder="Justificatif, précisions, remplacement prévu…" maxLength={500} />
+            </label>
+            <button type="submit" className="sygenop-btn sygenop-btn--gold text-sm"><ClipboardCheck size={14} /> Envoyer la demande</button>
+          </form>
+        )}
+
+        {requests.length > 0 && (
+          <div className="mt-4 pt-4 space-y-1.5" style={{ borderTop: '1px solid var(--line)' }}>
+            <div className="text-xs font-bold">Demandes d'absence ({requests.length})</div>
+            {requests.map((request) => <StaffAbsenceStatus key={request.id} request={request} showDecider />)}
+          </div>
+        )}
+
+        {!readOnly && (
+          <div className="flex items-center justify-between mt-5 pt-4" style={{ borderTop: '1px solid var(--line)' }}>
+            <button type="button" onClick={onDelete} className="px-3.5 py-2 rounded-lg text-sm font-semibold text-white flex items-center gap-1.5" style={{ background: 'var(--red)' }}><Trash2 size={15} /> Supprimer</button>
+            <button type="button" onClick={onEdit} className="px-3.5 py-2 rounded-lg text-sm font-semibold flex items-center gap-1.5" style={{ background: 'var(--bg)', color: 'var(--ink)' }}><Pencil size={15} /> Modifier</button>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
 function PersonnelView({ state, loading, updateState, notify, session, readOnly }) {
   const schoolCycle = state?.header?.cycle || LEGACY_DEFAULT_CYCLE;
   const [tab, setTab] = useState('liste');
@@ -4582,6 +4700,7 @@ function PersonnelView({ state, loading, updateState, notify, session, readOnly 
   const [toDelete, setToDelete] = useState(null);
   const [cardPerson, setCardPerson] = useState(null);
   const [attestPerson, setAttestPerson] = useState(null);
+  const [profilePerson, setProfilePerson] = useState(null);
 
   function saveStaffPhoto(personId, photoData) {
     updateState((prev) => ({ ...prev, personnel: (prev.personnel || []).map((p) => (p.id === personId ? { ...p, photoData } : p)) }));
@@ -4684,6 +4803,7 @@ function PersonnelView({ state, loading, updateState, notify, session, readOnly 
           onDelete={(p) => setToDelete(p)}
           onCard={(p) => setCardPerson(p)}
           onAttest={(p) => setAttestPerson(p)}
+          onProfile={(p) => setProfilePerson(p)}
           readOnly={readOnly}
           cycle={schoolCycle}
         />
@@ -4714,6 +4834,22 @@ function PersonnelView({ state, loading, updateState, notify, session, readOnly 
 
       {attestPerson && (
         <div id="staff-cert-print" className="fixed inset-0 z-50 overflow-auto p-4" style={{ background: 'rgba(10,20,15,.45)' }}><div className="max-w-[220mm] mx-auto mt-4"><div className="no-print flex flex-wrap justify-end gap-2 mb-2"><button onClick={() => window.print()} className="px-3 py-2 rounded-lg text-white flex items-center gap-1" style={{ background: 'var(--green-d)' }}><Printer size={14} /> Imprimer / PDF</button><button onClick={() => setAttestPerson(null)} className="px-3 py-2 rounded-lg" style={{ background: 'var(--panel)' }}>Fermer</button></div><StaffServiceAttestation state={state} person={attestPerson} /></div></div>
+      )}
+
+      {profilePerson && (
+        <PersonnelProfileModal
+          person={profilePerson}
+          state={state}
+          updateState={updateState}
+          notify={notify}
+          readOnly={readOnly}
+          cycle={schoolCycle}
+          onClose={() => setProfilePerson(null)}
+          onCard={() => { setProfilePerson(null); setCardPerson(profilePerson); }}
+          onAttest={() => { setProfilePerson(null); setAttestPerson(profilePerson); }}
+          onEdit={() => { setProfilePerson(null); setModalPerson(profilePerson); }}
+          onDelete={() => { setProfilePerson(null); setToDelete(profilePerson); }}
+        />
       )}
 
       {toDelete && (
