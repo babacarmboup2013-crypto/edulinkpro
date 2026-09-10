@@ -950,6 +950,7 @@ function emptySchoolState() {
     personnel: [],
     studentTransferRequests: [],
     staffAbsenceRequests: [],
+    staffAttestRequests: [],
     staffCertCounter: 0,
     pointage: {},
     fees: {},
@@ -2570,6 +2571,7 @@ const NAV_ITEMS = (session) => {
     items.push(
       { id: 'dash', label: 'Tableau de bord', icon: LayoutDashboard, needsSchool: true },
       { id: 'actualites', label: 'Actualités', icon: MessageCircle, needsSchool: true },
+      { id: 'mesdemandes', label: 'Mes demandes', icon: ClipboardCheck, needsSchool: true },
       {
         id: 'eleves', label: 'Élèves', icon: GraduationCap, needsSchool: true, expandable: true,
         children: [
@@ -2580,12 +2582,13 @@ const NAV_ITEMS = (session) => {
     return items;
   }
   if (session.role === 'guard') {
-    return [{ id: 'gate', label: 'Contrôle portail', icon: ScanLine, needsSchool: true }];
+    return [{ id: 'gate', label: 'Contrôle portail', icon: ScanLine, needsSchool: true }, { id: 'mesdemandes', label: 'Mes demandes', icon: ClipboardCheck, needsSchool: true }];
   }
   if (session.role === 'accountant') {
     return [
       { id: 'dash', label: 'Tableau de bord', icon: LayoutDashboard, needsSchool: true },
       { id: 'paiements', label: 'Comptabilité', icon: CreditCard, needsSchool: true },
+      { id: 'mesdemandes', label: 'Mes demandes', icon: ClipboardCheck, needsSchool: true },
       { id: 'data', label: 'Données', icon: Database, needsSchool: true },
     ];
   }
@@ -2593,6 +2596,7 @@ const NAV_ITEMS = (session) => {
     return [
       { id: 'dash', label: 'Tableau de bord', icon: LayoutDashboard, needsSchool: true },
       { id: 'actualites', label: 'Actualités', icon: MessageCircle, needsSchool: true },
+      { id: 'mesdemandes', label: 'Mes demandes', icon: ClipboardCheck, needsSchool: true },
       { id: 'personnel', label: 'Personnel', icon: Users, needsSchool: true },
       { id: 'eleves', label: 'Élèves', icon: GraduationCap, needsSchool: true, expandable: true, children: [{ id: 'classes', label: 'Classes et élèves' }] },
       { id: 'admin', label: 'Administration', icon: Settings, needsSchool: true },
@@ -2621,6 +2625,7 @@ const PAGE_TITLES = {
   superadmin: ['Gestion des écoles', 'Créer, modifier, supprimer des écoles et des administrateurs'],
   dash: ['Tableau de bord', 'Vue d\u2019ensemble de l\u2019établissement'],
   personnel: ['Personnel', 'Gestion du personnel et pointage'],
+  mesdemandes: ['Mes demandes', 'Autorisation d\u2019absence et demande d\u2019attestation de service'],
   actualites: ['Actualités', 'Publications et informations de l\u2019école'],
   classes: ['Classes et élèves', 'Gestion des classes et des élèves'],
   saisie: ['Saisie des notes', 'Élèves — Saisie des notes'],
@@ -4519,6 +4524,222 @@ function StaffAbsenceStatus({ request, showDecider }) {
   );
 }
 
+function StaffAttestStatus({ request, showDecider }) {
+  const status = ABSENCE_STATUS[request.statut] || { label: request.statut, tone: 'muted' };
+  return (
+    <div className="flex flex-wrap items-center gap-x-2 gap-y-1 text-xs">
+      <FileText size={12} style={{ color: 'var(--muted)' }} />
+      <span>{request.requesterLabel} — attestation de service</span>
+      <span style={{ color: 'var(--muted)' }}>{request.usage}</span>
+      <span style={{ color: 'var(--muted)' }}>{fmtDateFr(request.dateDebut || (request.createdAt || '').slice(0, 10))}</span>
+      <Pill tone={status.tone}>{status.label}</Pill>
+      {showDecider && request.decidedBy && <span style={{ color: 'var(--muted)' }}>· décidé(e) par {request.decidedBy}{request.decisionNote ? ` (« ${request.decisionNote} »)` : ''}</span>}
+    </div>
+  );
+}
+
+const ATTEST_USAGES = ['Dossier administratif', 'Ouverture de compte bancaire', 'Voyage', 'Scolarité des enfants', 'Autre (préciser)'];
+
+/* ---- Espace personnel : chaque agent demande via son compte ---- */
+function StaffMyRequestsView({ state, loading, updateState, notify, session, readOnly }) {
+  const [motif, setMotif] = useState('');
+  const [dateDebut, setDateDebut] = useState(todayISO());
+  const [dateFin, setDateFin] = useState('');
+  const [commentaire, setCommentaire] = useState('');
+  const [usage, setUsage] = useState('');
+  const [commentaireAtt, setCommentaireAtt] = useState('');
+
+  if (loading || !state) return <AppLoader />;
+
+  const me = (session && session.staffId) ? (state.personnel || []).find((item) => item.id === session.staffId) : null;
+  const requesterId = me ? me.id : 'agent-session';
+  const requesterLabel = me ? personFullName(me) : 'Agent';
+  const absences = (state.staffAbsenceRequests || []).filter((request) => request.requesterId === requesterId).slice().reverse();
+  const attestations = (state.staffAttestRequests || []).filter((request) => request.requesterId === requesterId).slice().reverse();
+  const finDate = dateFin || dateDebut;
+  const nbJours = dateDebut && finDate ? Math.max(1, Math.round((new Date(finDate + 'T00:00:00').getTime() - new Date(dateDebut + 'T00:00:00').getTime()) / 86400000) + 1) : 0;
+
+  function submitAbsence(event) {
+    event.preventDefault();
+    if (readOnly) return;
+    const motifClean = String(motif || '').trim();
+    if (!motifClean) { notify('Indiquez le motif de l’absence.', true); return; }
+    if (!dateDebut) { notify('Indiquez la date de début.', true); return; }
+    const fin = dateFin || dateDebut;
+    if (fin < dateDebut) { notify('La date de fin ne peut pas précéder la date de début.', true); return; }
+    updateState((prev) => ({
+      ...prev,
+      staffAbsenceRequests: [...(prev.staffAbsenceRequests || []), {
+        id: uid('absence'), requesterId, requesterLabel, motif: motifClean, dateDebut, dateFin: fin,
+        commentaire: String(commentaire || '').trim(), statut: 'pending', createdAt: new Date().toISOString(),
+      }],
+      auditLog: pushAuditEntry(prev.auditLog, { actor: requesterLabel, role: (session && session.role) || '', action: 'Demande d’autorisation d’absence', details: `${motifClean} (${dateDebut}${fin ? ' → ' + fin : ''})` }),
+    }));
+    setMotif(''); setDateDebut(todayISO()); setDateFin(''); setCommentaire('');
+    notify('Demande d’autorisation d’absence envoyée, en attente de validation.');
+  }
+
+  function submitAttestation(event) {
+    event.preventDefault();
+    if (readOnly) return;
+    const usageClean = String(usage || '').trim();
+    if (!usageClean) { notify('Indiquez l’usage prévu de l’attestation.', true); return; }
+    updateState((prev) => ({
+      ...prev,
+      staffAttestRequests: [...(prev.staffAttestRequests || []), {
+        id: uid('attest'), requesterId, requesterLabel, usage: usageClean,
+        commentaire: String(commentaireAtt || '').trim(), statut: 'pending', createdAt: new Date().toISOString(),
+      }],
+      auditLog: pushAuditEntry(prev.auditLog, { actor: requesterLabel, role: (session && session.role) || '', action: 'Demande d’attestation de service', details: usageClean }),
+    }));
+    setUsage(''); setCommentaireAtt('');
+    notify('Demande d’attestation de service envoyée, en attente de validation.');
+  }
+
+  return (
+    <div className="space-y-4 sygenop-fade">
+      <div className="grid grid-cols-1 xl:grid-cols-2 gap-4">
+        <div className="sygenop-card p-4 space-y-3">
+          <div className="flex items-center gap-2">
+            <CalendarX size={16} style={{ color: 'var(--gold)' }} />
+            <div>
+              <div className="font-bold text-sm">Autorisation d’absence</div>
+              <p className="text-xs" style={{ color: 'var(--muted)' }}>La demande est transmise à la direction (directeur, censeur ou proviseur) qui seule décide.</p>
+            </div>
+          </div>
+          {readOnly ? (
+            <p className="text-xs" style={{ color: 'var(--muted)' }}>Lecture seule : aucune demande ne peut être soumise.</p>
+          ) : (
+            <form onSubmit={submitAbsence} className="space-y-3">
+              <label className="block text-xs font-semibold">Motif de l'absence
+                <input value={motif} onChange={(event) => setMotif(event.target.value)} className="sygenop-input mt-1" placeholder="Ex : maladie, convocation, deuil…" maxLength={160} />
+              </label>
+              <div className="flex flex-wrap gap-1.5">
+                {ABSENCE_MOTIFS.map((item) => <button key={item} type="button" onClick={() => setMotif(item)} className="px-2 py-1 rounded-lg text-[11px] font-semibold" style={motif === item ? { background: 'var(--green-d)', color: '#fff' } : { background: 'var(--bg)', color: 'var(--muted)', border: '1px solid var(--line)' }}>{item}</button>)}
+              </div>
+              <div className="grid grid-cols-2 gap-3">
+                <label className="block text-xs font-semibold">Du
+                  <input type="date" value={dateDebut} onChange={(event) => setDateDebut(event.target.value)} className="sygenop-input mt-1" />
+                </label>
+                <label className="block text-xs font-semibold">Au
+                  <input type="date" value={dateFin} onChange={(event) => setDateFin(event.target.value)} className="sygenop-input mt-1" />
+                </label>
+              </div>
+              <label className="block text-xs font-semibold">Commentaire (facultatif)
+                <textarea value={commentaire} onChange={(event) => setCommentaire(event.target.value)} className="sygenop-input mt-1" rows={2} placeholder="Justificatif, précisions, remplacement prévu…" maxLength={500} />
+              </label>
+              <div className="flex items-center justify-between gap-2">
+                <div className="text-[11px]" style={{ color: 'var(--muted)' }}>{dateDebut ? (nbJours > 1 ? `${nbJours} jour(s) d'absence` : '1 jour') : ''}</div>
+                <button type="submit" className="sygenop-btn sygenop-btn--gold text-sm"><ClipboardCheck size={14} /> Envoyer la demande</button>
+              </div>
+            </form>
+          )}
+          <div className="space-y-1.5">
+            <div className="text-xs font-bold">Mes demandes d'absence ({absences.length})</div>
+            {absences.length === 0 ? <p className="text-xs" style={{ color: 'var(--muted)' }}>Aucune demande pour le moment.</p> : absences.map((request) => <StaffAbsenceStatus key={request.id} request={request} showDecider />)}
+          </div>
+        </div>
+
+        <div className="sygenop-card p-4 space-y-3">
+          <div className="flex items-center gap-2">
+            <FileText size={16} style={{ color: 'var(--green-d)' }} />
+            <div>
+              <div className="font-bold text-sm">Attestation de service</div>
+              <p className="text-xs" style={{ color: 'var(--muted)' }}>Une fois validée par la direction, l'attestation est délivrée au format officiel imprimable.</p>
+            </div>
+          </div>
+          {readOnly ? (
+            <p className="text-xs" style={{ color: 'var(--muted)' }}>Lecture seule : aucune demande ne peut être soumise.</p>
+          ) : (
+            <form onSubmit={submitAttestation} className="space-y-3">
+              <label className="block text-xs font-semibold">Usage prévu de l'attestation
+                <input value={usage} onChange={(event) => setUsage(event.target.value)} className="sygenop-input mt-1" placeholder="Ex : dossier administratif, banque, voyage…" maxLength={160} />
+              </label>
+              <div className="flex flex-wrap gap-1.5">
+                {ATTEST_USAGES.map((item) => <button key={item} type="button" onClick={() => setUsage(item)} className="px-2 py-1 rounded-lg text-[11px] font-semibold" style={usage === item ? { background: 'var(--green-d)', color: '#fff' } : { background: 'var(--bg)', color: 'var(--muted)', border: '1px solid var(--line)' }}>{item}</button>)}
+              </div>
+              <label className="block text-xs font-semibold">Précisions (facultatif)
+                <textarea value={commentaireAtt} onChange={(event) => setCommentaireAtt(event.target.value)} className="sygenop-input mt-1" rows={2} placeholder="Informations complémentaires…" maxLength={500} />
+              </label>
+              <div className="flex justify-end">
+                <button type="submit" className="sygenop-btn text-sm" style={{ background: 'var(--green-d)', color: '#fff' }}><FileText size={14} /> Envoyer la demande</button>
+              </div>
+            </form>
+          )}
+          <div className="space-y-1.5">
+            <div className="text-xs font-bold">Mes demandes d'attestation ({attestations.length})</div>
+            {attestations.length === 0 ? <p className="text-xs" style={{ color: 'var(--muted)' }}>Aucune demande pour le moment.</p> : attestations.map((request) => <StaffAttestStatus key={request.id} request={request} showDecider />)}
+          </div>
+        </div>
+      </div>
+      <p className="text-[11px]" style={{ color: 'var(--muted)' }}>Le statut de vos demandes est mis à jour ici dès qu’une décision est prise par la direction.</p>
+    </div>
+  );
+}
+
+/* ---- Validation direction : demandes d'attestation de service ---- */
+function StaffAttestRequestsPanel({ state, updateState, notify, session, readOnly }) {
+  const [noteDeco, setNoteDeco] = useState({});
+  const requests = Array.isArray(state?.staffAttestRequests) ? state.staffAttestRequests : [];
+  const pending = requests.filter((request) => request.statut === 'pending');
+  const decided = requests.filter((request) => request.statut !== 'pending').slice().reverse();
+  const me = (session && session.staffId) ? (state.personnel || []).find((item) => item.id === session.staffId) : null;
+  const validatorLabel = me ? personFullName(me) : ((state.header && state.header.directeur) || 'La direction');
+
+  function decideRequest(request, decision) {
+    if (readOnly || request.statut !== 'pending') return;
+    const note = String(noteDeco[request.id] || '').trim();
+    updateState((prev) => ({
+      ...prev,
+      staffAttestRequests: (prev.staffAttestRequests || []).map((item) => item.id === request.id
+        ? { ...item, statut: decision, decisionNote: note, decidedBy: validatorLabel, decidedAt: new Date().toISOString() }
+        : item),
+      auditLog: pushAuditEntry(prev.auditLog, { actor: validatorLabel, role: (session && session.role) || '', action: decision === 'approved' ? 'Attestation de service validée' : 'Attestation de service refusée', details: `${request.requesterLabel} — ${request.usage}` }),
+    }));
+    notify(decision === 'approved' ? 'Attestation de service autorisée.' : 'Demande d’attestation refusée.');
+  }
+
+  return (
+    <div className="sygenop-card p-4 space-y-3">
+      <div className="flex items-center justify-between gap-2">
+        <div>
+          <div className="font-bold text-sm">Demandes d'attestation de service</div>
+          <p className="text-xs" style={{ color: 'var(--muted)' }}>Validez pour délivrer l'attestation, ou refusez une demande.</p>
+        </div>
+        <Pill tone={pending.length ? 'gold' : 'green'}>{pending.length} en attente</Pill>
+      </div>
+      {pending.length === 0 ? <p className="text-sm" style={{ color: 'var(--muted)' }}>Aucune demande en attente.</p> : (
+        <div className="space-y-2">
+          {pending.map((request) => (
+            <div key={request.id} className="rounded-lg border p-3 space-y-2" style={{ borderColor: 'var(--line)' }}>
+              <div className="text-sm">
+                <div className="font-semibold">{request.requesterLabel} <span className="text-[11px] font-normal" style={{ color: 'var(--muted)' }}>demandé(e) le {fmtDateFr((request.createdAt || '').slice(0, 10))}</span></div>
+                <div className="text-xs flex items-center gap-1.5 mt-0.5" style={{ color: 'var(--gold)' }}><FileText size={12} /> {request.usage}</div>
+                {request.commentaire && <div className="text-xs mt-1" style={{ color: 'var(--muted)' }}>{request.commentaire}</div>}
+              </div>
+              {!readOnly && (
+                <>
+                  <input value={noteDeco[request.id] || ''} onChange={(event) => setNoteDeco((notes) => ({ ...notes, [request.id]: event.target.value }))} className="sygenop-input" placeholder="Note de décision (facultatif)" maxLength={240} />
+                  <div className="flex gap-2">
+                    <button onClick={() => decideRequest(request, 'approved')} className="sygenop-btn text-sm" style={{ background: 'var(--green-d)', color: '#fff' }}><CheckCircle2 size={14} /> Autoriser</button>
+                    <button onClick={() => decideRequest(request, 'rejected')} className="sygenop-btn sygenop-btn--danger text-sm"><X size={14} /> Refuser</button>
+                  </div>
+                </>
+              )}
+            </div>
+          ))}
+        </div>
+      )}
+      {decided.length > 0 && (
+        <div className="space-y-1.5">
+          <div className="text-xs font-bold">Historique des décisions ({decided.length})</div>
+          {decided.slice(0, 30).map((request) => <StaffAttestStatus key={request.id} request={request} showDecider />)}
+        </div>
+      )}
+    </div>
+  );
+}
+
 /* ============================================================
    ATTESTATION DE SERVICE — document imprimable pour le personnel
    ============================================================ */
@@ -4815,7 +5036,12 @@ function PersonnelView({ state, loading, updateState, notify, session, readOnly 
         </div>
       )}
       {tab === 'paie' && <PaieTab personnel={personnel} pointage={pointage} state={state} updateState={updateState} readOnly={readOnly} />}
-      {tab === 'absences' && <StaffAbsencesView state={state} updateState={updateState} notify={notify} session={session} readOnly={readOnly} />}
+      {tab === 'absences' && (
+        <div className="space-y-4">
+          <StaffAbsencesView state={state} updateState={updateState} notify={notify} session={session} readOnly={readOnly} />
+          <StaffAttestRequestsPanel state={state} updateState={updateState} notify={notify} session={session} readOnly={readOnly} />
+        </div>
+      )}
       {tab === 'demandes' && <StudentTransferRequestsPanel state={state} updateState={updateState} notify={notify} mode="director" />}
 
       {modalPerson !== undefined && (
@@ -12620,6 +12846,8 @@ function openSchool(id, name, actif) {
     );
   } else if (active === 'personnel') {
     body = <PersonnelView state={schoolState} loading={loadingState} updateState={updateState} notify={notify} session={session} readOnly={readOnly} />;
+  } else if (active === 'mesdemandes') {
+    body = <StaffMyRequestsView state={schoolState} loading={loadingState} updateState={updateState} notify={notify} session={session} readOnly={readOnly} />;
   } else if (active === 'classes' || active === 'saisie') {
     body = <SaisieView state={schoolState} loading={loadingState} updateState={updateState} notify={notify} teacherName={teacherName} teacherStaffId={session.staffId} readOnly={readOnly} />;
   } else if (active === 'synth') {
