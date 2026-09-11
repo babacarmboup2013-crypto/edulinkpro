@@ -4700,8 +4700,8 @@ function absenceDocumentHtml(state, request) {
       <div class="head">
         <img class="flag" src="${flagSenegal}" alt="Drapeau officiel du Sénégal" />
         <div class="center">
-          <div class="school">${schoolName}</div>
           <div class="republic">République du Sénégal · Un Peuple, Un But, Une Foi</div>
+          <div class="school">${schoolName}</div>
           <div class="addr">${ville}${annee ? ' · Année scolaire ' + annee : ''}</div>
         </div>
         ${logoHtml}
@@ -4713,7 +4713,7 @@ function absenceDocumentHtml(state, request) {
       <div class="bref">N° ${ref} — délivrée le ${today}</div>
 
       <div class="body">
-        <p>Je soussigné(e), <b>${decider}</b>, en qualité de <b>${fonction}</b>, autorise <b>${agent}</b>${agentRole ? ` (${agentRole})` : ''} à s'absenter de l'établissement pour la durée suivante :</p>
+        <p>Je soussigné(e), <b>${decider}</b>, en qualité de <b>${fonction}</b>, autorise <b>${agent}</b>${agentRole ? ` (${agentRole})` : ''} à s'absenter de l'établissement <b>${schoolName}</b> pour la durée suivante :</p>
         <table class="grid">
           <tr><th>Du</th><td>${debut}</td></tr>
           <tr><th>Au</th><td>${fin}</td></tr>
@@ -5024,8 +5024,8 @@ function StaffServiceAttestation({ state, person }) {
           <div className="flex items-center justify-between border-b-2 pb-3" style={{ borderColor: 'var(--green-d, #0a4f3a)' }}>
             <SenegalFlag className="w-12 h-auto" />
             <div className="text-center">
-              <div className="text-base font-extrabold leading-tight" style={{ color: 'var(--green-d, #0a4f3a)' }}>{school}</div>
               <div className="text-[10px]" style={{ color: '#4b6a5c' }}>République du Sénégal · Un Peuple, Un But, Une Foi</div>
+              <div className="text-base font-extrabold leading-tight" style={{ color: 'var(--green-d, #0a4f3a)' }}>{school}</div>
               <div className="text-[10px]" style={{ color: '#4b6a5c' }}>Adresse : {localite} — {num}</div>
             </div>
             {schoolLogoData(state) ? <SchoolLogoMark state={state} width={44} /> : <svg width="38" height="38" viewBox="0 0 24 24" fill="none" stroke="#b8862f" strokeWidth="1.5"><circle cx="12" cy="12" r="9" /><path d="M8 7h8M8 12h8M8 17h5" /></svg>}
@@ -6280,8 +6280,8 @@ function StudentSchoolCertificate({ state, cls, student }) {
           <div className="flex items-center justify-between border-b-2 pb-3" style={{ borderColor: 'var(--green-d, #0a4f3a)' }}>
             <SenegalFlag className="w-12 h-auto" />
             <div className="text-center">
-              <div className="text-base font-extrabold leading-tight" style={{ color: 'var(--green-d, #0a4f3a)' }}>{school}</div>
               <div className="text-[10px]" style={{ color: '#4b6a5c' }}>République du Sénégal · Un Peuple, Un But, Une Foi</div>
+              <div className="text-base font-extrabold leading-tight" style={{ color: 'var(--green-d, #0a4f3a)' }}>{school}</div>
               <div className="text-[10px]" style={{ color: '#4b6a5c' }}>Adresse : {localite} — {num}</div>
             </div>
             {schoolLogoData(state) ? <SchoolLogoMark state={state} width={44} /> : <svg width="38" height="38" viewBox="0 0 24 24" fill="none" stroke="#b8862f" strokeWidth="1.5"><circle cx="12" cy="12" r="9" /><path d="M8 7h8M8 12h8M8 17h5" /></svg>}
