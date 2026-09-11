@@ -1794,6 +1794,10 @@ function GlobalStyles({ dark }) {
       .sygenop-card{ background:var(--panel); border:1px solid var(--line); border-radius:16px; box-shadow:0 1px 2px rgba(10,30,20,.04),0 12px 30px -8px rgba(10,30,20,.10); transition:transform .25s cubic-bezier(.22,1,.36,1), box-shadow .25s, border-color .25s; will-change:transform; }
       .sygenop-card:hover{ transform:translateY(-3px); box-shadow:0 4px 10px rgba(10,30,20,.06),0 22px 45px -14px rgba(13,138,90,.32); border-color:rgba(13,138,90,.18); }
 
+      /* ---------- Modales : centrage + scroll sûr (le haut reste atteignable) ---------- */
+      .sygenop-root .fixed.inset-0.z-50{ max-height:100vh; overflow-y:auto; overscroll-behavior:contain; }
+      .sygenop-root .fixed.inset-0.z-50 > *{ margin-top:auto; margin-bottom:auto; }
+
       /* ---------- Accessibilité clavier ---------- */
       .sygenop-root button:focus-visible, .sygenop-root input:focus-visible, .sygenop-root select:focus-visible, .sygenop-root textarea:focus-visible, .sygenop-root a:focus-visible{ outline:2px solid var(--gold); outline-offset:2px; border-radius:6px; box-shadow:0 0 0 4px rgba(184,134,47,.18); }
       .sygenop-root input:focus, .sygenop-root select:focus, .sygenop-root textarea:focus{ border-color:var(--green); box-shadow:0 0 0 3px rgba(13,138,90,.12); }
@@ -3390,22 +3394,30 @@ function PersonnelModal({ person, onSave, onClose, cycle }) {
     });
   }
 
-  return (
+return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4" style={{ background: 'rgba(10,20,15,.45)' }}>
-      <form onSubmit={submit} className="sygenop-card p-6 max-w-md w-full sygenop-fade max-h-[90vh] overflow-auto">
-        <div className="flex items-center justify-between mb-4">
-          <div className="font-bold" style={{ color: 'var(--ink)' }}>{isEdit ? 'Modifier le membre du personnel' : 'Ajouter un membre du personnel'}</div>
-          <button type="button" onClick={onClose} style={{ color: 'var(--muted)' }}><X size={18} /></button>
+      <form onSubmit={submit} className="sygenop-card w-full max-w-lg max-h-[92vh] flex flex-col overflow-hidden sygenop-fade">
+        <div className="flex items-center justify-between gap-3 px-6 py-4 flex-shrink-0 bg-white" style={{ borderBottom: '1px solid var(--line)' }}>
+          <div>
+            <div className="font-bold text-[15px]" style={{ color: 'var(--ink)' }}>{isEdit ? 'Modifier le membre du personnel' : 'Ajouter un membre du personnel'}</div>
+            <div className="text-[11px]" style={{ color: 'var(--muted)' }}>{isEdit ? 'Mise à jour de la fiche agent' : 'Création dʼune nouvelle fiche agent'}</div>
+          </div>
+          <button type="button" onClick={onClose} className="p-1.5 rounded-lg transition-colors" style={{ color: 'var(--muted)', background: 'var(--bg)' }}><X size={17} /></button>
         </div>
-        <div className="space-y-3">
-          <div className="grid grid-cols-2 gap-3">
+
+        <div className="flex-1 overflow-y-auto px-6 py-4 space-y-3">
+          <div className="flex items-center gap-2">
+            <span className="w-1 h-3.5 rounded-full" style={{ background: 'var(--green-d)' }} />
+            <span className="text-[11px] font-bold uppercase tracking-wide" style={{ color: 'var(--green-d)' }}>Identité</span>
+          </div>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <div>
               <label className="text-xs font-semibold block mb-1" style={{ color: 'var(--muted)' }}>Prénom(s) *</label>
               <input
                 autoFocus
                 value={form.prenom}
                 onChange={(e) => set('prenom', e.target.value)}
-                className="w-full px-3 py-2.5 rounded-lg border text-sm"
+                className="w-full px-3 py-2 rounded-lg border text-sm"
                 style={{ borderColor: 'var(--line)', background: 'var(--panel)', color: 'var(--ink)' }}
                 placeholder="Ex : Aïssatou"
               />
@@ -3415,19 +3427,19 @@ function PersonnelModal({ person, onSave, onClose, cycle }) {
               <input
                 value={form.nom}
                 onChange={(e) => set('nom', e.target.value)}
-                className="w-full px-3 py-2.5 rounded-lg border text-sm"
+                className="w-full px-3 py-2 rounded-lg border text-sm"
                 style={{ borderColor: 'var(--line)', background: 'var(--panel)', color: 'var(--ink)' }}
                 placeholder="Ex : Diop"
               />
             </div>
           </div>
-          <div className="grid grid-cols-2 gap-3">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <div>
               <label className="text-xs font-semibold block mb-1" style={{ color: 'var(--muted)' }}>Genre</label>
               <select
                 value={form.genre}
                 onChange={(e) => set('genre', e.target.value)}
-                className="w-full px-3 py-2.5 rounded-lg border text-sm"
+                className="w-full px-3 py-2 rounded-lg border text-sm"
                 style={{ borderColor: 'var(--line)', background: 'var(--panel)', color: 'var(--ink)' }}
               >
                 {[{ value: 'Homme', label: 'Homme' }, { value: 'Femme', label: 'Femme' }].map((item) => (
@@ -3440,7 +3452,7 @@ function PersonnelModal({ person, onSave, onClose, cycle }) {
               <select
                 value={form.role}
                 onChange={(e) => set('role', e.target.value)}
-                className="w-full px-3 py-2.5 rounded-lg border text-sm"
+                className="w-full px-3 py-2 rounded-lg border text-sm"
                 style={{ borderColor: 'var(--line)', background: 'var(--panel)', color: 'var(--ink)' }}
               >
                 {STAFF_ROLES.map((r) => <option key={r} value={r}>{displayStaffRole(r, cycle)}</option>)}
@@ -3448,11 +3460,11 @@ function PersonnelModal({ person, onSave, onClose, cycle }) {
             </div>
           </div>
           {['moyen', 'secondaire'].includes(cycle) && form.role === 'Enseignant(e)' && (
-            <div>
-              <label className="text-xs font-semibold block mb-1" style={{ color: 'var(--muted)' }}>
+            <div className="rounded-xl p-3" style={{ border: '1px solid var(--line)', background: 'var(--bg)' }}>
+              <label className="text-xs font-semibold block mb-1.5" style={{ color: 'var(--muted)' }}>
                 Spécialités enseignées {form.specialites?.length ? `(${form.specialites.length})` : ''}
               </label>
-              <div className="grid grid-cols-2 gap-1.5 p-3 rounded-lg border" style={{ borderColor: 'var(--line)', background: 'var(--bg)' }}>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-4 gap-y-1.5">
                 {specialitesForCycle(cycle).map((matiere) => {
                   const checked = (form.specialites || []).includes(matiere);
                   return (
@@ -3473,42 +3485,44 @@ function PersonnelModal({ person, onSave, onClose, cycle }) {
                   );
                 })}
               </div>
-              <p className="text-[11px] mt-1" style={{ color: 'var(--muted)' }}>
-                Ce/cette {cycleTerminology(cycle).teacher.toLowerCase()} peut enseigner plusieurs matières : cochez toutes celles qui s'appliquent.
-              </p>
             </div>
           )}
-          <div className="grid grid-cols-2 gap-3">
+
+          <div className="flex items-center gap-2 pt-3" style={{ borderTop: '1px dashed var(--line)' }}>
+            <span className="w-1 h-3.5 rounded-full" style={{ background: 'var(--gold)' }} />
+            <span className="text-[11px] font-bold uppercase tracking-wide" style={{ color: 'var(--gold)' }}>Informations</span>
+          </div>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <div>
               <label className="text-xs font-semibold block mb-1" style={{ color: 'var(--muted)' }}>Statut</label>
               <select
                 value={form.statut}
                 onChange={(e) => set('statut', e.target.value)}
-                className="w-full px-3 py-2.5 rounded-lg border text-sm"
+                className="w-full px-3 py-2 rounded-lg border text-sm"
                 style={{ borderColor: 'var(--line)', background: 'var(--panel)', color: 'var(--ink)' }}
               >
                 {['Actif', 'Congé', 'Suspendu', 'Absent'].map((s) => <option key={s} value={s}>{s}</option>)}
               </select>
             </div>
+            <div>
+              <label className="text-xs font-semibold block mb-1" style={{ color: 'var(--muted)' }}>Téléphone</label>
+              <input
+                value={form.telephone}
+                onChange={(e) => set('telephone', e.target.value)}
+                className="w-full px-3 py-2 rounded-lg border text-sm"
+                style={{ borderColor: 'var(--line)', background: 'var(--panel)', color: 'var(--ink)' }}
+                placeholder="77 000 00 00"
+              />
+            </div>
           </div>
-          <div>
-            <label className="text-xs font-semibold block mb-1" style={{ color: 'var(--muted)' }}>Téléphone</label>
-            <input
-              value={form.telephone}
-              onChange={(e) => set('telephone', e.target.value)}
-              className="w-full px-3 py-2.5 rounded-lg border text-sm"
-              style={{ borderColor: 'var(--line)', background: 'var(--panel)', color: 'var(--ink)' }}
-              placeholder="77 000 00 00"
-            />
-          </div>
-          <div className="grid grid-cols-2 gap-3">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <div>
               <label className="text-xs font-semibold block mb-1" style={{ color: 'var(--muted)' }}>Salaire de base (FCFA)</label>
               <input
                 type="number" min="0" step="1000"
                 value={form.salaireBase}
                 onChange={(e) => set('salaireBase', e.target.value)}
-                className="w-full px-3 py-2.5 rounded-lg border text-sm"
+                className="w-full px-3 py-2 rounded-lg border text-sm"
                 style={{ borderColor: 'var(--line)', background: 'var(--panel)', color: 'var(--ink)' }}
                 placeholder="0"
               />
@@ -3519,15 +3533,19 @@ function PersonnelModal({ person, onSave, onClose, cycle }) {
                 type="date"
                 value={form.dateEmbauche}
                 onChange={(e) => set('dateEmbauche', e.target.value)}
-                className="w-full px-3 py-2.5 rounded-lg border text-sm"
+                className="w-full px-3 py-2 rounded-lg border text-sm"
                 style={{ borderColor: 'var(--line)', background: 'var(--panel)', color: 'var(--ink)' }}
               />
             </div>
           </div>
           {STAFF_LOGIN_ROLES.has(form.role) && (
-            <div className="rounded-xl p-3" style={{ background: 'var(--green-l)', border: '1px solid rgba(13,138,90,.25)' }}>
+            <div className="rounded-xl p-3.5" style={{ background: 'var(--green-l)', border: '1px solid rgba(13,138,90,.25)' }}>
+              <div className="flex items-center gap-2 pt-1 pb-2">
+                <span className="w-1 h-3.5 rounded-full" style={{ background: 'var(--green-d)' }} />
+                <span className="text-[11px] font-bold uppercase tracking-wide" style={{ color: 'var(--green-d)' }}>Accès personnel</span>
+              </div>
               <label className="text-xs font-semibold block mb-1" style={{ color: 'var(--green-d)' }}>
-                <KeyRound size={13} className="inline -mt-0.5 mr-1" /> Code d'accès du personnel
+                Code d'accès
               </label>
               <div className="flex gap-2">
                 <div className="relative flex-1">
@@ -3536,7 +3554,7 @@ function PersonnelModal({ person, onSave, onClose, cycle }) {
                     type={showCode ? 'text' : 'password'}
                     value={form.code}
                     onChange={(e) => set('code', e.target.value.toUpperCase())}
-                    className="w-full pl-9 pr-3 py-2.5 rounded-lg border text-sm font-mono tracking-widest"
+                    className="w-full pl-9 pr-3 py-2 rounded-lg border text-sm font-mono tracking-widest"
                     style={{ borderColor: 'var(--line)', background: 'var(--panel)', color: 'var(--ink)' }}
                   />
                   <button type="button" onClick={() => setShowCode((s) => !s)} className="absolute right-3 top-1/2 -translate-y-1/2" style={{ color: 'var(--muted)' }}>
@@ -3553,15 +3571,16 @@ function PersonnelModal({ person, onSave, onClose, cycle }) {
                 </button>
               </div>
               <p className="text-[11px] mt-1.5" style={{ color: 'var(--green-d)' }}>
-                Ce code permettra à ce membre du personnel d’ouvrir son espace selon les droits de son rôle. À lui communiquer confidentiellement.
+                Ce code permettra à ce membre du personnel d'ouvrir son espace selon les droits de son rôle. À lui communiquer confidentiellement.
               </p>
             </div>
           )}
         </div>
-        <div className="flex justify-end gap-2 mt-6">
-          <button type="button" onClick={onClose} className="px-3.5 py-2 rounded-lg text-sm font-semibold" style={{ background: 'var(--bg)', color: 'var(--ink)' }}>Annuler</button>
-          <button type="submit" className="px-3.5 py-2 rounded-lg text-sm font-semibold text-white" style={{ background: 'var(--green-d)' }}>
-            {isEdit ? 'Enregistrer' : 'Ajouter'}
+
+        <div className="flex items-center justify-end gap-2 px-6 py-4 flex-shrink-0 bg-white" style={{ borderTop: '1px solid var(--line)' }}>
+          <button type="button" onClick={onClose} className="px-4 py-2 rounded-lg text-sm font-semibold transition-colors" style={{ background: 'var(--bg)', color: 'var(--ink)' }}>Annuler</button>
+          <button type="submit" className="px-5 py-2 rounded-lg text-sm font-semibold text-white transition-colors" style={{ background: 'var(--green-d)' }}>
+            {isEdit ? <><Save size={14} className="inline -mt-0.5 mr-1" /> Enregistrer</> : <><Plus size={14} className="inline -mt-0.5 mr-1" /> Ajouter</>}
           </button>
         </div>
       </form>
@@ -5786,53 +5805,68 @@ function AddStudentModal({ onSave, onClose }) {
   }
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4" style={{ background: 'rgba(10,20,15,.45)' }}>
-      <form onSubmit={submit} className="sygenop-card p-6 max-w-lg w-full sygenop-fade">
-        <div className="flex items-center justify-between mb-4">
-          <div className="font-bold" style={{ color: 'var(--ink)' }}>Ajouter un élève</div>
-          <button type="button" onClick={onClose} style={{ color: 'var(--muted)' }}><X size={18} /></button>
+      <form onSubmit={submit} className="sygenop-card w-full max-w-lg max-h-[92vh] flex flex-col overflow-hidden sygenop-fade">
+        <div className="flex items-center justify-between gap-3 px-6 py-4 flex-shrink-0 bg-white" style={{ borderBottom: '1px solid var(--line)' }}>
+          <div>
+            <div className="font-bold text-[15px]" style={{ color: 'var(--ink)' }}>Ajouter un élève</div>
+            <div className="text-[11px]" style={{ color: 'var(--muted)' }}>Création d'une nouvelle fiche élève</div>
+          </div>
+          <button type="button" onClick={onClose} className="p-1.5 rounded-lg transition-colors" style={{ color: 'var(--muted)', background: 'var(--bg)' }}><X size={17} /></button>
         </div>
-        <div className="space-y-3">
-          <div>
-            <label className="text-xs font-semibold block mb-1" style={{ color: 'var(--muted)' }}>Prénom</label>
-            <input autoFocus value={form.prenom} onChange={(e) => set('prenom', e.target.value)}
-              className="w-full px-3 py-2.5 rounded-lg border text-sm" style={fieldStyle} placeholder="Prénom de l'élève" />
+
+        <div className="flex-1 overflow-y-auto px-6 py-4 space-y-3">
+          <div className="flex items-center gap-2">
+            <span className="w-1 h-3.5 rounded-full" style={{ background: 'var(--green-d)' }} />
+            <span className="text-[11px] font-bold uppercase tracking-wide" style={{ color: 'var(--green-d)' }}>Identité</span>
           </div>
-          <div>
-            <label className="text-xs font-semibold block mb-1" style={{ color: 'var(--muted)' }}>Nom</label>
-            <input value={form.nom} onChange={(e) => set('nom', e.target.value)}
-              className="w-full px-3 py-2.5 rounded-lg border text-sm" style={fieldStyle} placeholder="Nom de l'élève" />
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <div>
+              <label className="text-xs font-semibold block mb-1" style={{ color: 'var(--muted)' }}>Prénom</label>
+              <input autoFocus value={form.prenom} onChange={(e) => set('prenom', e.target.value)}
+                className="w-full px-3 py-2 rounded-lg border text-sm" style={fieldStyle} placeholder="Prénom de l'élève" />
+            </div>
+            <div>
+              <label className="text-xs font-semibold block mb-1" style={{ color: 'var(--muted)' }}>Nom</label>
+              <input value={form.nom} onChange={(e) => set('nom', e.target.value)}
+                className="w-full px-3 py-2 rounded-lg border text-sm" style={fieldStyle} placeholder="Nom de l'élève" />
+            </div>
           </div>
-          <div className="grid grid-cols-2 gap-3">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <div>
               <label className="text-xs font-semibold block mb-1" style={{ color: 'var(--muted)' }}>Date de naissance</label>
               <input type="date" value={form.dateNaissance} onChange={(e) => set('dateNaissance', e.target.value)}
-                className="w-full px-3 py-2.5 rounded-lg border text-sm" style={fieldStyle} />
+                className="w-full px-3 py-2 rounded-lg border text-sm" style={fieldStyle} />
             </div>
             <div>
               <label className="text-xs font-semibold block mb-1" style={{ color: 'var(--muted)' }}>Lieu de naissance</label>
               <input value={form.lieuNaissance} onChange={(e) => set('lieuNaissance', e.target.value)}
-                className="w-full px-3 py-2.5 rounded-lg border text-sm" style={fieldStyle} placeholder="Ex : Dakar" />
+                className="w-full px-3 py-2 rounded-lg border text-sm" style={fieldStyle} placeholder="Ex : Dakar" />
             </div>
           </div>
           <div>
             <label className="text-xs font-semibold block mb-1" style={{ color: 'var(--muted)' }}>Genre</label>
             <select value={form.genre} onChange={(e) => set('genre', e.target.value)}
-              className="w-full px-3 py-2.5 rounded-lg border text-sm" style={fieldStyle}>
+              className="w-full px-3 py-2 rounded-lg border text-sm" style={fieldStyle}>
               <option value="">—</option>
               <option value="M">Masculin</option>
               <option value="F">Féminin</option>
             </select>
           </div>
+
+          <div className="flex items-center gap-2 pt-3" style={{ borderTop: '1px dashed var(--line)' }}>
+            <span className="w-1 h-3.5 rounded-full" style={{ background: 'var(--gold)' }} />
+            <span className="text-[11px] font-bold uppercase tracking-wide" style={{ color: 'var(--gold)' }}>Situation</span>
+          </div>
           <div>
             <label className="text-xs font-semibold block mb-1" style={{ color: 'var(--muted)' }}>Adresse</label>
             <input value={form.adresse} onChange={(e) => set('adresse', e.target.value)}
-              className="w-full px-3 py-2.5 rounded-lg border text-sm" style={fieldStyle} placeholder="Ex : Parcelles Assainies, Dakar" />
+              className="w-full px-3 py-2 rounded-lg border text-sm" style={fieldStyle} placeholder="Ex : Parcelles Assainies, Dakar" />
           </div>
-          <div className="grid grid-cols-2 gap-3">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <div>
               <label className="text-xs font-semibold block mb-1" style={{ color: 'var(--muted)' }}>Handicap</label>
               <select value={form.handicap} onChange={(e) => set('handicap', e.target.value)}
-                className="w-full px-3 py-2.5 rounded-lg border text-sm" style={fieldStyle}>
+                className="w-full px-3 py-2 rounded-lg border text-sm" style={fieldStyle}>
                 <option value="">—</option>
                 <option value="Oui">Oui</option>
                 <option value="Non">Non</option>
@@ -5841,7 +5875,7 @@ function AddStudentModal({ onSave, onClose }) {
             <div>
               <label className="text-xs font-semibold block mb-1" style={{ color: 'var(--muted)' }}>Cas social</label>
               <select value={form.casSocial} onChange={(e) => set('casSocial', e.target.value)}
-                className="w-full px-3 py-2.5 rounded-lg border text-sm" style={fieldStyle}>
+                className="w-full px-3 py-2 rounded-lg border text-sm" style={fieldStyle}>
                 <option value="">—</option>
                 <option value="Oui">Oui</option>
                 <option value="Non">Non</option>
@@ -5852,13 +5886,16 @@ function AddStudentModal({ onSave, onClose }) {
             <div>
               <label className="text-xs font-semibold block mb-1" style={{ color: 'var(--muted)' }}>Type de handicap</label>
               <input value={form.typeHandicap} onChange={(e) => set('typeHandicap', e.target.value)}
-                className="w-full px-3 py-2.5 rounded-lg border text-sm" style={fieldStyle} placeholder="Ex : moteur, visuel, auditif…" />
+                className="w-full px-3 py-2 rounded-lg border text-sm" style={fieldStyle} placeholder="Ex : moteur, visuel, auditif…" />
             </div>
           )}
         </div>
-        <div className="flex justify-end gap-2 mt-6">
-          <button type="button" onClick={onClose} className="px-3.5 py-2 rounded-lg text-sm font-semibold" style={{ background: 'var(--bg)', color: 'var(--ink)' }}>Annuler</button>
-          <button type="submit" className="px-3.5 py-2 rounded-lg text-sm font-semibold text-white" style={{ background: 'var(--green-d)' }}>Ajouter</button>
+
+        <div className="flex items-center justify-end gap-2 px-6 py-4 flex-shrink-0 bg-white" style={{ borderTop: '1px solid var(--line)' }}>
+          <button type="button" onClick={onClose} className="px-4 py-2 rounded-lg text-sm font-semibold transition-colors" style={{ background: 'var(--bg)', color: 'var(--ink)' }}>Annuler</button>
+          <button type="submit" className="px-5 py-2 rounded-lg text-sm font-semibold text-white transition-colors" style={{ background: 'var(--green-d)' }}>
+            <Plus size={14} className="inline -mt-0.5 mr-1" /> Ajouter l'élève
+          </button>
         </div>
       </form>
     </div>
@@ -5952,106 +5989,122 @@ function EditStudentModal({ student, onSave, onClose }) {
       casSocial: form.casSocial,
     });
   }
-  return (
+return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4" style={{ background: 'rgba(10,20,15,.45)' }}>
-      <form onSubmit={submit} className="sygenop-card p-6 max-w-lg w-full sygenop-fade">
-        <div className="flex items-center justify-between mb-4">
-          <div className="font-bold" style={{ color: 'var(--ink)' }}>Modifier les informations de l'élève</div>
-          <button type="button" onClick={onClose} style={{ color: 'var(--muted)' }}><X size={18} /></button>
+      <form onSubmit={submit} className="sygenop-card w-full max-w-lg max-h-[92vh] flex flex-col overflow-hidden sygenop-fade">
+        <div className="flex items-center justify-between gap-3 px-6 py-4 flex-shrink-0 bg-white" style={{ borderBottom: '1px solid var(--line)' }}>
+          <div>
+            <div className="font-bold text-[15px]" style={{ color: 'var(--ink)' }}>Modifier l'élève</div>
+            <div className="text-[11px]" style={{ color: 'var(--muted)' }}>Mise à jour de la fiche élève</div>
+          </div>
+          <button type="button" onClick={onClose} className="p-1.5 rounded-lg transition-colors" style={{ color: 'var(--muted)', background: 'var(--bg)' }}><X size={17} /></button>
         </div>
-        <div className="space-y-3">
-          <div className="grid grid-cols-2 gap-3">
+
+        <div className="flex-1 overflow-y-auto px-6 py-4 space-y-3">
+          <div className="flex items-center gap-2">
+            <span className="w-1 h-3.5 rounded-full" style={{ background: 'var(--green-d)' }} />
+            <span className="text-[11px] font-bold uppercase tracking-wide" style={{ color: 'var(--green-d)' }}>Identité</span>
+          </div>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <div>
               <label className="text-xs font-semibold block mb-1" style={{ color: 'var(--muted)' }}>Prénom</label>
               <input autoFocus value={form.prenom} onChange={(e) => set('prenom', e.target.value)}
-                className="w-full px-3 py-2.5 rounded-lg border text-sm" style={fieldStyle} placeholder="Prénom de l'élève" />
+                className="w-full px-3 py-2 rounded-lg border text-sm" style={fieldStyle} placeholder="Prénom de l'élève" />
             </div>
             <div>
               <label className="text-xs font-semibold block mb-1" style={{ color: 'var(--muted)' }}>Nom</label>
               <input value={form.nom} onChange={(e) => set('nom', e.target.value)}
-                className="w-full px-3 py-2.5 rounded-lg border text-sm" style={fieldStyle} placeholder="Nom de l'élève" />
+                className="w-full px-3 py-2 rounded-lg border text-sm" style={fieldStyle} placeholder="Nom de l'élève" />
             </div>
           </div>
-          <div className="grid grid-cols-2 gap-3">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <div>
               <label className="text-xs font-semibold block mb-1" style={{ color: 'var(--muted)' }}>Date de naissance</label>
               <input type="date" value={form.dateNaissance} onChange={(e) => set('dateNaissance', e.target.value)}
-                className="w-full px-3 py-2.5 rounded-lg border text-sm" style={fieldStyle} />
+                className="w-full px-3 py-2 rounded-lg border text-sm" style={fieldStyle} />
             </div>
             <div>
               <label className="text-xs font-semibold block mb-1" style={{ color: 'var(--muted)' }}>Lieu de naissance</label>
               <input value={form.lieuNaissance} onChange={(e) => set('lieuNaissance', e.target.value)}
-                className="w-full px-3 py-2.5 rounded-lg border text-sm" style={fieldStyle} placeholder="Ex : Dakar" />
+                className="w-full px-3 py-2 rounded-lg border text-sm" style={fieldStyle} placeholder="Ex : Dakar" />
             </div>
           </div>
           <div>
             <label className="text-xs font-semibold block mb-1" style={{ color: 'var(--muted)' }}>Genre</label>
             <select value={form.genre} onChange={(e) => set('genre', e.target.value)}
-              className="w-full px-3 py-2.5 rounded-lg border text-sm" style={fieldStyle}>
+              className="w-full px-3 py-2 rounded-lg border text-sm" style={fieldStyle}>
               <option value="">—</option>
               <option value="M">Masculin</option>
               <option value="F">Féminin</option>
             </select>
           </div>
-          <div className="pt-1" style={{ borderTop: '1px solid var(--line)' }}>
-            <div className="text-[11px] font-bold uppercase tracking-wide mb-2 mt-2" style={{ color: 'var(--muted)' }}>Situation</div>
+
+          <div className="flex items-center gap-2 pt-3" style={{ borderTop: '1px dashed var(--line)' }}>
+            <span className="w-1 h-3.5 rounded-full" style={{ background: 'var(--gold)' }} />
+            <span className="text-[11px] font-bold uppercase tracking-wide" style={{ color: 'var(--gold)' }}>Situation</span>
+          </div>
+          <div>
+            <label className="text-xs font-semibold block mb-1" style={{ color: 'var(--muted)' }}>Adresse</label>
+            <input value={form.adresse} onChange={(e) => set('adresse', e.target.value)}
+              className="w-full px-3 py-2 rounded-lg border text-sm" style={fieldStyle} placeholder="Ex : Parcelles Assainies, Dakar" />
+          </div>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <div>
-              <label className="text-xs font-semibold block mb-1" style={{ color: 'var(--muted)' }}>Adresse</label>
-              <input value={form.adresse} onChange={(e) => set('adresse', e.target.value)}
-                className="w-full px-3 py-2.5 rounded-lg border text-sm" style={fieldStyle} placeholder="Ex : Parcelles Assainies, Dakar" />
+              <label className="text-xs font-semibold block mb-1" style={{ color: 'var(--muted)' }}>Handicap</label>
+              <select value={form.handicap} onChange={(e) => set('handicap', e.target.value)}
+                className="w-full px-3 py-2 rounded-lg border text-sm" style={fieldStyle}>
+                <option value="">—</option>
+                <option value="Oui">Oui</option>
+                <option value="Non">Non</option>
+              </select>
             </div>
-            <div className="grid grid-cols-2 gap-3 mt-3">
-              <div>
-                <label className="text-xs font-semibold block mb-1" style={{ color: 'var(--muted)' }}>Handicap</label>
-                <select value={form.handicap} onChange={(e) => set('handicap', e.target.value)}
-                  className="w-full px-3 py-2.5 rounded-lg border text-sm" style={fieldStyle}>
-                  <option value="">—</option>
-                  <option value="Oui">Oui</option>
-                  <option value="Non">Non</option>
-                </select>
-              </div>
-              <div>
-                <label className="text-xs font-semibold block mb-1" style={{ color: 'var(--muted)' }}>Cas social</label>
-                <select value={form.casSocial} onChange={(e) => set('casSocial', e.target.value)}
-                  className="w-full px-3 py-2.5 rounded-lg border text-sm" style={fieldStyle}>
-                  <option value="">—</option>
-                  <option value="Oui">Oui</option>
-                  <option value="Non">Non</option>
-                </select>
-              </div>
-            </div>
-            {form.handicap === 'Oui' && (
-              <div className="mt-3">
-                <label className="text-xs font-semibold block mb-1" style={{ color: 'var(--muted)' }}>Type de handicap</label>
-                <input value={form.typeHandicap} onChange={(e) => set('typeHandicap', e.target.value)}
-                  className="w-full px-3 py-2.5 rounded-lg border text-sm" style={fieldStyle} placeholder="Ex : moteur, visuel, auditif…" />
-              </div>
-            )}
-          </div>
-          <div className="pt-1" style={{ borderTop: '1px solid var(--line)' }}>
-            <div className="text-[11px] font-bold uppercase tracking-wide mb-2 mt-2" style={{ color: 'var(--muted)' }}>Tuteur / Responsable</div>
-            <div className="grid grid-cols-2 gap-3">
-              <div>
-                <label className="text-xs font-semibold block mb-1" style={{ color: 'var(--muted)' }}>Nom du tuteur</label>
-                <input value={form.tuteurNom} onChange={(e) => set('tuteurNom', e.target.value)}
-                  className="w-full px-3 py-2.5 rounded-lg border text-sm" style={fieldStyle} placeholder="Ex : M. Diop" />
-              </div>
-              <div>
-                <label className="text-xs font-semibold block mb-1" style={{ color: 'var(--muted)' }}>Téléphone du tuteur</label>
-                <input value={form.tuteurTel} onChange={(e) => set('tuteurTel', e.target.value)}
-                  className="w-full px-3 py-2.5 rounded-lg border text-sm" style={fieldStyle} placeholder="77 000 00 00" />
-              </div>
+            <div>
+              <label className="text-xs font-semibold block mb-1" style={{ color: 'var(--muted)' }}>Cas social</label>
+              <select value={form.casSocial} onChange={(e) => set('casSocial', e.target.value)}
+                className="w-full px-3 py-2 rounded-lg border text-sm" style={fieldStyle}>
+                <option value="">—</option>
+                <option value="Oui">Oui</option>
+                <option value="Non">Non</option>
+              </select>
             </div>
           </div>
-          <div className="pt-1" style={{ borderTop: '1px solid var(--line)' }}>
-            <label className="text-xs font-semibold block mb-1" style={{ color: 'var(--muted)' }}>Photo de l’élève</label>
-            <div className="flex items-center gap-3"><div className="w-14 h-16 rounded border overflow-hidden flex items-center justify-center" style={{ borderColor: 'var(--line)', background: 'var(--bg)' }}>{form.photoData ? <img src={form.photoData} alt="Aperçu" className="w-full h-full object-cover" /> : <span className="text-[10px] text-center" style={{ color: 'var(--muted)' }}>Aucune photo</span>}</div><input type="file" accept="image/*" onChange={(e) => { const file = e.target.files?.[0]; if (!file) return; const reader = new FileReader(); reader.onload = () => set('photoData', String(reader.result || '')); reader.readAsDataURL(file); }} className="text-xs" /></div>
+          {form.handicap === 'Oui' && (
+            <div>
+              <label className="text-xs font-semibold block mb-1" style={{ color: 'var(--muted)' }}>Type de handicap</label>
+              <input value={form.typeHandicap} onChange={(e) => set('typeHandicap', e.target.value)}
+                className="w-full px-3 py-2 rounded-lg border text-sm" style={fieldStyle} placeholder="Ex : moteur, visuel, auditif…" />
+            </div>
+          )}
+
+          <div className="flex items-center gap-2 pt-3" style={{ borderTop: '1px dashed var(--line)' }}>
+            <span className="w-1 h-3.5 rounded-full" style={{ background: 'var(--green-d)' }} />
+            <span className="text-[11px] font-bold uppercase tracking-wide" style={{ color: 'var(--green-d)' }}>Tuteur / Responsable</span>
+          </div>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <div>
+              <label className="text-xs font-semibold block mb-1" style={{ color: 'var(--muted)' }}>Nom du tuteur</label>
+              <input value={form.tuteurNom} onChange={(e) => set('tuteurNom', e.target.value)}
+                className="w-full px-3 py-2 rounded-lg border text-sm" style={fieldStyle} placeholder="Ex : M. Diop" />
+            </div>
+            <div>
+              <label className="text-xs font-semibold block mb-1" style={{ color: 'var(--muted)' }}>Téléphone du tuteur</label>
+              <input value={form.tuteurTel} onChange={(e) => set('tuteurTel', e.target.value)}
+                className="w-full px-3 py-2 rounded-lg border text-sm" style={fieldStyle} placeholder="77 000 00 00" />
+            </div>
+          </div>
+          <div>
+            <label className="text-xs font-semibold block mb-1" style={{ color: 'var(--muted)' }}>Photo de l'élève</label>
+            <div className="flex items-center gap-3">
+              <div className="w-14 h-16 rounded-lg border overflow-hidden flex items-center justify-center" style={{ borderColor: 'var(--line)', background: 'var(--bg)' }}>{form.photoData ? <img src={form.photoData} alt="Aperçu" className="w-full h-full object-cover" /> : <span className="text-[10px] text-center" style={{ color: 'var(--muted)' }}>Aucune photo</span>}</div>
+              <input type="file" accept="image/*" onChange={(e) => { const file = e.target.files?.[0]; if (!file) return; const reader = new FileReader(); reader.onload = () => set('photoData', String(reader.result || '')); reader.readAsDataURL(file); }} className="text-xs" />
+            </div>
           </div>
         </div>
-        <div className="flex justify-end gap-2 mt-6">
-          <button type="button" onClick={onClose} className="px-3.5 py-2 rounded-lg text-sm font-semibold" style={{ background: 'var(--bg)', color: 'var(--ink)' }}>Annuler</button>
-          <button type="submit" className="px-3.5 py-2 rounded-lg text-sm font-semibold text-white flex items-center gap-1.5" style={{ background: 'var(--green-d)' }}>
-            <Save size={14} /> Enregistrer
+
+        <div className="flex items-center justify-end gap-2 px-6 py-4 flex-shrink-0 bg-white" style={{ borderTop: '1px solid var(--line)' }}>
+          <button type="button" onClick={onClose} className="px-4 py-2 rounded-lg text-sm font-semibold transition-colors" style={{ background: 'var(--bg)', color: 'var(--ink)' }}>Annuler</button>
+          <button type="submit" className="px-5 py-2 rounded-lg text-sm font-semibold text-white transition-colors" style={{ background: 'var(--green-d)' }}>
+            <Save size={14} className="inline -mt-0.5 mr-1" /> Enregistrer
           </button>
         </div>
       </form>
