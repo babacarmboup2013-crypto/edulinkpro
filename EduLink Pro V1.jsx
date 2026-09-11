@@ -2065,6 +2065,11 @@ function LoginScreen({ onLogin, dark, setDark, notify, onBack }) {
   const [showCode, setShowCode] = useState(false);
   const [busy, setBusy] = useState(false);
 
+  // Cache en mémoire des recherches d'école récentes : réaffiche les résultats
+  // instantanément pour une requête déjà effectuée (moins d'allers-retours
+  // serveur, écran de connexion plus réactif).
+  const schoolSearchCacheRef = useRef(new Map());
+
   // ---- Recherche d'école (remplace le menu déroulant listant tout) ----
   const [schoolQuery, setSchoolQuery] = useState('');
   const [schoolResults, setSchoolResults] = useState([]);
@@ -2078,8 +2083,19 @@ function LoginScreen({ onLogin, dark, setDark, notify, onBack }) {
     let cancelled = false;
     setSchoolSearching(true);
     const t = setTimeout(async () => {
+      const cache = schoolSearchCacheRef.current;
+      const cacheKey = 'q:' + q.toLowerCase();
+      const hit = cache.get(cacheKey);
+      if (hit) {
+        if (!cancelled) { setSchoolResults(hit); setSchoolSearching(false); }
+        return;
+      }
       try {
         const rows = (await sb('POST', 'rpc/search_public_schools', '', { p_query: q })) || [];
+        if (rows && rows.length) {
+          if (cache.size >= 24) cache.delete(cache.keys().next().value);
+          cache.set(cacheKey, rows);
+        }
         if (!cancelled) {
           setSchoolResults(rows);
           // Cache local incrémental (uniquement ce qui a été explicitement
@@ -12916,13 +12932,30 @@ setSession(saved);
       return undefined;
     }
     let cancelled = false;
+    const loadPending = async () => {
+      // Chemin léger : RPC list_pending_transfers (vérifie le code école et
+      // renvoie uniquement les demandes en attente — quelques kilo-octets au
+      // lieu du payload scolaire complet). Repli sur le chargement complet
+      // si la RPC n'est pas encore disponible (migration non appliquée).
+      try {
+        const sessionNow = loadSessionJSON(LS_SESSION, null);
+        const code = (sessionNow && sessionNow.schoolCode) || getActiveSchoolCode();
+        if (code) {
+          const res = await sb('POST', 'rpc/list_pending_transfers', '', { p_school_id: activeSchoolId, p_code: code });
+          if (res && res.ok === true && Array.isArray(res.pending)) {
+            return { pending: res.pending, latest: null };
+          }
+        }
+      } catch (_) { /* chute vers le chargement complet */ }
+      const latest = await loadSchoolData(activeSchoolId);
+      return { pending: (latest && latest.studentTransferRequests || []).filter((request) => request.status === 'pending'), latest };
+    };
     const checkForNewTransfers = async () => {
       try {
-        const latest = await loadSchoolData(activeSchoolId);
-        if (cancelled || !latest) return;
-        const pending = (latest.studentTransferRequests || []).filter((request) => request.status === 'pending');
+        const { pending, latest } = await loadPending();
+        if (cancelled) return;
         const knownIds = transferSnapshotRef.current;
-        if (knownIds) {
+        if (knownIds && pending.length) {
           const added = pending.filter((request) => !knownIds.has(request.id));
           if (added.length) {
             const first = added[0];
@@ -12930,7 +12963,7 @@ setSession(saved);
             if (typeof window !== 'undefined' && 'Notification' in window && Notification.permission === 'granted') {
               new Notification('Nouvelle demande de transfert', { body: `${first.studentName || 'Un élève'} — ${first.fromClassName || ''} → ${first.toClassName || ''}` });
             }
-            setSchoolState((previous) => previous ? { ...previous, studentTransferRequests: latest.studentTransferRequests || [] } : latest);
+            if (latest) setSchoolState((previous) => previous ? { ...previous, studentTransferRequests: latest.studentTransferRequests || [] } : latest);
           }
         }
         transferSnapshotRef.current = new Set(pending.map((request) => request.id));
