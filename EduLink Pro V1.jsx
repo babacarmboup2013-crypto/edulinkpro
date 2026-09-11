@@ -3426,7 +3426,7 @@ return (
           <button type="button" onClick={onClose} className="p-1.5 rounded-lg transition-colors" style={{ color: 'var(--muted)', background: 'var(--bg)' }}><X size={17} /></button>
         </div>
 
-        <div className="flex-1 overflow-y-auto px-6 py-4 space-y-3">
+        <div className="flex-1 min-h-0 overflow-y-auto px-6 py-4 space-y-3 overscroll-contain">
           <div className="flex items-center gap-2">
             <span className="w-1 h-3.5 rounded-full" style={{ background: 'var(--green-d)' }} />
             <span className="text-[11px] font-bold uppercase tracking-wide" style={{ color: 'var(--green-d)' }}>Identité</span>
@@ -5835,7 +5835,7 @@ function AddStudentModal({ onSave, onClose }) {
           <button type="button" onClick={onClose} className="p-1.5 rounded-lg transition-colors" style={{ color: 'var(--muted)', background: 'var(--bg)' }}><X size={17} /></button>
         </div>
 
-        <div className="flex-1 overflow-y-auto px-6 py-4 space-y-3">
+        <div className="flex-1 min-h-0 overflow-y-auto px-6 py-4 space-y-3 overscroll-contain">
           <div className="flex items-center gap-2">
             <span className="w-1 h-3.5 rounded-full" style={{ background: 'var(--green-d)' }} />
             <span className="text-[11px] font-bold uppercase tracking-wide" style={{ color: 'var(--green-d)' }}>Identité</span>
@@ -6021,7 +6021,7 @@ return (
           <button type="button" onClick={onClose} className="p-1.5 rounded-lg transition-colors" style={{ color: 'var(--muted)', background: 'var(--bg)' }}><X size={17} /></button>
         </div>
 
-        <div className="flex-1 overflow-y-auto px-6 py-4 space-y-3">
+        <div className="flex-1 min-h-0 overflow-y-auto px-6 py-4 space-y-3 overscroll-contain">
           <div className="flex items-center gap-2">
             <span className="w-1 h-3.5 rounded-full" style={{ background: 'var(--green-d)' }} />
             <span className="text-[11px] font-bold uppercase tracking-wide" style={{ color: 'var(--green-d)' }}>Identité</span>
