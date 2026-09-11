@@ -4643,6 +4643,10 @@ function absenceDocumentHtml(state, request) {
   const decidedOn = request.decidedAt ? fmtDateFr(request.decidedAt.slice(0, 10)) : fmtDateFr(new Date().toISOString().slice(0, 10));
   const today = fmtDateFr(new Date().toISOString().slice(0, 10));
   const filename = `Autorisation-absence-${(request.requesterLabel || 'agent').replace(/[^a-zA-Z0-9]+/g, '_')}.html`;
+  const qrValue = `SYGENOP|ABS|${request.id}`;
+  const qrImg = `https://api.qrserver.com/v1/create-qr-code/?size=200x200&ecc=M&margin=4&format=png&data=${encodeURIComponent(qrValue)}`;
+  const logoImg = schoolLogoData(state);
+  const logoHtml = logoImg ? `<img class="logo" src="${escapeHtml(logoImg)}" alt="Logo" />` : `<svg class="logo-fallback" width="44" height="44" viewBox="0 0 24 24" fill="none" stroke="#b8862f" strokeWidth="1.5"><circle cx="12" cy="12" r="9"/><path d="M8 7h8M8 12h8M8 17h5"/></svg>`;
 
   const bodyHtml = `<!doctype html>
 <html lang="fr">
@@ -4659,18 +4663,28 @@ function absenceDocumentHtml(state, request) {
   .toolbar .dl { background: #1d4ed8; }
   .toolbar span { margin-left: auto; font-size: 12px; color: #475569; }
   @media print { .toolbar { display: none; } }
-  .head { text-align: center; }
-  .school { font-weight: 800; font-size: 20px; text-transform: uppercase; letter-spacing: 1px; }
-  .info { font-size: 13px; margin-top: 3px; }
-  .title { text-align: center; font-weight: 800; font-size: 23px; margin: 40px 0 8px; text-decoration: underline; text-underline-offset: 7px; }
-  .bref { text-align: center; font-size: 12px; color: #444; margin-bottom: 34px; }
+  .frame { border: 4px solid #0a4f3a; padding: 6px; }
+  .inner { border: 2px solid #0a4f3a; padding: 22px 26px; }
+  .head { display: flex; align-items: center; justify-content: space-between; border-bottom: 2px solid #0a4f3a; padding-bottom: 14px; }
+  .head .flag { width: 54px; height: auto; flex-shrink: 0; display: block; object-fit: contain; }
+  .head .center { text-align: center; flex: 1; padding: 0 12px; }
+  .head .school { font-weight: 800; font-size: 19px; text-transform: uppercase; letter-spacing: .5px; color: #0a4f3a; }
+  .head .republic { font-size: 11px; color: #4b6a5c; margin-top: 3px; }
+  .head .addr { font-size: 10.5px; color: #4b6a5c; margin-top: 2px; }
+  .head .logo { max-height: 52px; max-width: 80px; object-fit: contain; flex-shrink: 0; }
+  .head .logo-fallback { flex-shrink: 0; }
+  .titlebox { text-align: center; margin: 18px 0 6px; }
+  .titlebox .t { display: inline-block; padding: 8px 22px; border: 2px solid #0a4f3a; color: #0a4f3a; font-weight: 800; font-size: 21px; letter-spacing: 1px; }
+  .bref { text-align: center; font-size: 12px; color: #444; margin-bottom: 26px; }
   .body { font-size: 15px; line-height: 1.9; text-align: justify; }
   table.grid { width: 100%; border-collapse: collapse; margin: 22px 0; font-size: 14px; }
   table.grid th, table.grid td { border: 1px solid #222; padding: 8px 12px; text-align: left; }
   table.grid th { width: 30%; background: #f8fafc; }
-  .sig { margin-top: 56px; display: flex; flex-direction: column; align-items: flex-end; gap: 40px; }
-  .sig .who { font-size: 14px; font-weight: 700; }
-  .sig .line { border-top: 1px solid #111; width: 280px; padding-top: 5px; font-size: 12px; text-align: center; }
+  .sig { margin-top: 48px; display: flex; align-items: flex-end; justify-content: space-between; gap: 24px; }
+  .sig .who { font-size: 13px; font-weight: 700; }
+  .sig .line { border-top: 1px solid #111; width: 260px; padding-top: 6px; font-size: 12px; text-align: center; margin-top: 6px; }
+  .sig-right .qr { width: 90px; height: 90px; background: #fff; padding: 3px; display: block; }
+  .sig-right .qr-label { text-align: center; font-size: 9.5px; color: #4b6a5c; margin-top: 4px; }
   .meta { margin-top: 34px; font-size: 11.5px; color: #555; border-top: 1px solid #ccc; padding-top: 8px; text-align: center; }
 </style>
 </head>
@@ -4681,33 +4695,50 @@ function absenceDocumentHtml(state, request) {
     <span>Impression : choisissez « Enregistrer en PDF » comme imprimante pour obtenir un PDF.</span>
   </div>
 
-  <div class="head">
-    <div class="school">${schoolName}</div>
-    <div class="info">${ville}${annee ? ' — ' + annee : ''}</div>
+  <div class="frame">
+    <div class="inner">
+      <div class="head">
+        <img class="flag" src="${flagSenegal}" alt="Drapeau officiel du Sénégal" />
+        <div class="center">
+          <div class="school">${schoolName}</div>
+          <div class="republic">République du Sénégal · Un Peuple, Un But, Une Foi</div>
+          <div class="addr">${ville}${annee ? ' · Année scolaire ' + annee : ''}</div>
+        </div>
+        ${logoHtml}
+      </div>
+
+      <div class="titlebox">
+        <div class="t">AUTORISATION D'ABSENCE</div>
+      </div>
+      <div class="bref">N° ${ref} — délivrée le ${today}</div>
+
+      <div class="body">
+        <p>Je soussigné(e), <b>${decider}</b>, en qualité de <b>${fonction}</b>, autorise <b>${agent}</b>${agentRole ? ` (${agentRole})` : ''} à s'absenter de l'établissement pour la durée suivante :</p>
+        <table class="grid">
+          <tr><th>Du</th><td>${debut}</td></tr>
+          <tr><th>Au</th><td>${fin}</td></tr>
+          <tr><th>Durée</th><td>${nbJours} jour(s)</td></tr>
+          <tr><th>Motif</th><td>${motif}</td></tr>
+        </table>
+        ${commentaire ? `<p>Observations du personnel : <i>${commentaire}</i></p>` : ''}
+        ${note ? `<p>Note de décision : <i>${note}</i></p>` : ''}
+        <p style="margin-top:18px">La présente autorisation d'absence est délivrée pour servir et valoir ce que de droit.</p>
+      </div>
+
+      <div class="sig">
+        <div>
+          <div class="who">Décision : <b>ACCORDÉE</b> — le ${decidedOn}</div>
+          <div class="line">Signature et cachet de la direction</div>
+        </div>
+        <div class="sig-right">
+          <img class="qr" src="${qrImg}" alt="QR code de vérification" width="90" height="90" />
+          <div class="qr-label">Vérifier l'autorisation</div>
+        </div>
+      </div>
+
+      <div class="meta">Document généré par EduLink Pro — ${schoolName} — édité le ${today}. Document vérifiable par QR code.</div>
+    </div>
   </div>
-
-  <div class="title">Autorisation d'absence</div>
-  <div class="bref">N° ${ref} — délivrée le ${today}</div>
-
-  <div class="body">
-    <p>Je soussigné(e), <b>${decider}</b>, en qualité de <b>${fonction}</b>, autorise <b>${agent}</b>${agentRole ? ` (${agentRole})` : ''} à s'absenter de l'établissement pour la durée suivante :</p>
-    <table class="grid">
-      <tr><th>Du</th><td>${debut}</td></tr>
-      <tr><th>Au</th><td>${fin}</td></tr>
-      <tr><th>Durée</th><td>${nbJours} jour(s)</td></tr>
-      <tr><th>Motif</th><td>${motif}</td></tr>
-    </table>
-    ${commentaire ? `<p>Observations du personnel : <i>${commentaire}</i></p>` : ''}
-    ${note ? `<p>Note de décision : <i>${note}</i></p>` : ''}
-    <p style="margin-top:18px">La présente autorisation d'absence est délivrée pour servir et valoir ce que de droit.</p>
-  </div>
-
-  <div class="sig">
-    <div class="who">Décision : <b>ACCORDÉE</b> le ${decidedOn}</div>
-    <div class="line">Signature et cachet de la direction</div>
-  </div>
-
-  <div class="meta">Document généré par EduLink Pro — ${schoolName} — le ${today}.</div>
 </body>
 </html>`;
 
