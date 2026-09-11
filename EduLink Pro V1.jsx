@@ -5775,18 +5775,18 @@ function ageFromBirth(dateNaissance) {
 }
 
 function AddStudentModal({ onSave, onClose }) {
-  const [form, setForm] = useState({ prenom: '', nom: '', dateNaissance: '', lieuNaissance: '', genre: '' });
+  const [form, setForm] = useState({ prenom: '', nom: '', dateNaissance: '', lieuNaissance: '', genre: '', adresse: '', handicap: '', typeHandicap: '', casSocial: '' });
   const fieldStyle = { borderColor: 'var(--line)', background: 'var(--panel)', color: 'var(--ink)' };
   function set(k, v) { setForm((f) => ({ ...f, [k]: v })); }
   function submit(e) {
     e.preventDefault();
     if (!form.nom.trim() && !form.prenom.trim()) { return; }
     const id = uid('stu');
-    onSave({ id, cardCode: `ELV-${id.slice(-8).toUpperCase()}`, prenom: form.prenom.trim(), nom: form.nom.trim(), dateNaissance: form.dateNaissance, lieuNaissance: form.lieuNaissance.trim(), age: ageFromBirth(form.dateNaissance), genre: form.genre.trim().toUpperCase().slice(0, 1), scores: {}, validated: {} });
+    onSave({ id, cardCode: `ELV-${id.slice(-8).toUpperCase()}`, prenom: form.prenom.trim(), nom: form.nom.trim(), dateNaissance: form.dateNaissance, lieuNaissance: form.lieuNaissance.trim(), age: ageFromBirth(form.dateNaissance), genre: form.genre.trim().toUpperCase().slice(0, 1), adresse: form.adresse.trim(), handicap: form.handicap, typeHandicap: form.handicap === 'Oui' ? form.typeHandicap.trim() : '', casSocial: form.casSocial, scores: {}, validated: {} });
   }
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4" style={{ background: 'rgba(10,20,15,.45)' }}>
-      <form onSubmit={submit} className="sygenop-card p-6 max-w-sm w-full sygenop-fade">
+      <form onSubmit={submit} className="sygenop-card p-6 max-w-lg w-full sygenop-fade">
         <div className="flex items-center justify-between mb-4">
           <div className="font-bold" style={{ color: 'var(--ink)' }}>Ajouter un élève</div>
           <button type="button" onClick={onClose} style={{ color: 'var(--muted)' }}><X size={18} /></button>
@@ -5823,6 +5823,38 @@ function AddStudentModal({ onSave, onClose }) {
               <option value="F">Féminin</option>
             </select>
           </div>
+          <div>
+            <label className="text-xs font-semibold block mb-1" style={{ color: 'var(--muted)' }}>Adresse</label>
+            <input value={form.adresse} onChange={(e) => set('adresse', e.target.value)}
+              className="w-full px-3 py-2.5 rounded-lg border text-sm" style={fieldStyle} placeholder="Ex : Parcelles Assainies, Dakar" />
+          </div>
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <label className="text-xs font-semibold block mb-1" style={{ color: 'var(--muted)' }}>Handicap</label>
+              <select value={form.handicap} onChange={(e) => set('handicap', e.target.value)}
+                className="w-full px-3 py-2.5 rounded-lg border text-sm" style={fieldStyle}>
+                <option value="">—</option>
+                <option value="Oui">Oui</option>
+                <option value="Non">Non</option>
+              </select>
+            </div>
+            <div>
+              <label className="text-xs font-semibold block mb-1" style={{ color: 'var(--muted)' }}>Cas social</label>
+              <select value={form.casSocial} onChange={(e) => set('casSocial', e.target.value)}
+                className="w-full px-3 py-2.5 rounded-lg border text-sm" style={fieldStyle}>
+                <option value="">—</option>
+                <option value="Oui">Oui</option>
+                <option value="Non">Non</option>
+              </select>
+            </div>
+          </div>
+          {form.handicap === 'Oui' && (
+            <div>
+              <label className="text-xs font-semibold block mb-1" style={{ color: 'var(--muted)' }}>Type de handicap</label>
+              <input value={form.typeHandicap} onChange={(e) => set('typeHandicap', e.target.value)}
+                className="w-full px-3 py-2.5 rounded-lg border text-sm" style={fieldStyle} placeholder="Ex : moteur, visuel, auditif…" />
+            </div>
+          )}
         </div>
         <div className="flex justify-end gap-2 mt-6">
           <button type="button" onClick={onClose} className="px-3.5 py-2 rounded-lg text-sm font-semibold" style={{ background: 'var(--bg)', color: 'var(--ink)' }}>Annuler</button>
@@ -5867,6 +5899,9 @@ function StudentFicheModal({ student, clsName, onCard, onCert, onEdit, onClose }
           {row('Date de naissance', birthDate)}
           {row('Lieu de naissance', student.lieuNaissance)}
           {row('Sexe', student.genre === 'F' ? 'Féminin' : student.genre === 'M' ? 'Masculin' : student.genre)}
+          {row('Adresse', student.adresse)}
+          {row('Handicap', student.handicap ? (student.handicap === 'Oui' && student.typeHandicap ? `Oui — ${student.typeHandicap}` : student.handicap) : '')}
+          {row('Cas social', student.casSocial)}
           {row('Tuteur / Responsable', student.tuteurNom)}
           {row('Contact tuteur', student.tuteurTel)}
         </div>
@@ -5891,6 +5926,10 @@ function EditStudentModal({ student, onSave, onClose }) {
     tuteurNom: student.tuteurNom || '',
     tuteurTel: student.tuteurTel || '',
     photoData: student.photoData || '',
+    adresse: student.adresse || '',
+    handicap: student.handicap || '',
+    typeHandicap: student.typeHandicap || '',
+    casSocial: student.casSocial || '',
   });
   const fieldStyle = { borderColor: 'var(--line)', background: 'var(--panel)', color: 'var(--ink)' };
   function set(k, v) { setForm((f) => ({ ...f, [k]: v })); }
@@ -5907,11 +5946,15 @@ function EditStudentModal({ student, onSave, onClose }) {
       tuteurNom: form.tuteurNom.trim(),
       tuteurTel: form.tuteurTel.trim(),
       photoData: form.photoData,
+      adresse: form.adresse.trim(),
+      handicap: form.handicap,
+      typeHandicap: form.handicap === 'Oui' ? form.typeHandicap.trim() : '',
+      casSocial: form.casSocial,
     });
   }
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4" style={{ background: 'rgba(10,20,15,.45)' }}>
-      <form onSubmit={submit} className="sygenop-card p-6 max-w-sm w-full sygenop-fade">
+      <form onSubmit={submit} className="sygenop-card p-6 max-w-lg w-full sygenop-fade">
         <div className="flex items-center justify-between mb-4">
           <div className="font-bold" style={{ color: 'var(--ink)' }}>Modifier les informations de l'élève</div>
           <button type="button" onClick={onClose} style={{ color: 'var(--muted)' }}><X size={18} /></button>
@@ -5949,6 +5992,41 @@ function EditStudentModal({ student, onSave, onClose }) {
               <option value="M">Masculin</option>
               <option value="F">Féminin</option>
             </select>
+          </div>
+          <div className="pt-1" style={{ borderTop: '1px solid var(--line)' }}>
+            <div className="text-[11px] font-bold uppercase tracking-wide mb-2 mt-2" style={{ color: 'var(--muted)' }}>Situation</div>
+            <div>
+              <label className="text-xs font-semibold block mb-1" style={{ color: 'var(--muted)' }}>Adresse</label>
+              <input value={form.adresse} onChange={(e) => set('adresse', e.target.value)}
+                className="w-full px-3 py-2.5 rounded-lg border text-sm" style={fieldStyle} placeholder="Ex : Parcelles Assainies, Dakar" />
+            </div>
+            <div className="grid grid-cols-2 gap-3 mt-3">
+              <div>
+                <label className="text-xs font-semibold block mb-1" style={{ color: 'var(--muted)' }}>Handicap</label>
+                <select value={form.handicap} onChange={(e) => set('handicap', e.target.value)}
+                  className="w-full px-3 py-2.5 rounded-lg border text-sm" style={fieldStyle}>
+                  <option value="">—</option>
+                  <option value="Oui">Oui</option>
+                  <option value="Non">Non</option>
+                </select>
+              </div>
+              <div>
+                <label className="text-xs font-semibold block mb-1" style={{ color: 'var(--muted)' }}>Cas social</label>
+                <select value={form.casSocial} onChange={(e) => set('casSocial', e.target.value)}
+                  className="w-full px-3 py-2.5 rounded-lg border text-sm" style={fieldStyle}>
+                  <option value="">—</option>
+                  <option value="Oui">Oui</option>
+                  <option value="Non">Non</option>
+                </select>
+              </div>
+            </div>
+            {form.handicap === 'Oui' && (
+              <div className="mt-3">
+                <label className="text-xs font-semibold block mb-1" style={{ color: 'var(--muted)' }}>Type de handicap</label>
+                <input value={form.typeHandicap} onChange={(e) => set('typeHandicap', e.target.value)}
+                  className="w-full px-3 py-2.5 rounded-lg border text-sm" style={fieldStyle} placeholder="Ex : moteur, visuel, auditif…" />
+              </div>
+            )}
           </div>
           <div className="pt-1" style={{ borderTop: '1px solid var(--line)' }}>
             <div className="text-[11px] font-bold uppercase tracking-wide mb-2 mt-2" style={{ color: 'var(--muted)' }}>Tuteur / Responsable</div>
