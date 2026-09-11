@@ -4,7 +4,7 @@
    Stratégie : cache-first pour les assets (app shell), network-first
    avec fallback cache pour les requêtes API.
    ============================================================ */
-const CACHE = 'sygenop-v3';
+const CACHE = 'sygenop-v4';
 const APP_SHELL = ['/', '/index.html', '/homme.png', '/femme.png'];
 
 // Installation : pré-cache du shell de l'application.

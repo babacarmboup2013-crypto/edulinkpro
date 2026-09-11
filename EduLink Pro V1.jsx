@@ -1,4 +1,4 @@
-﻿import React, { useState, useEffect, useMemo, useCallback, useRef } from 'react';
+import React, { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 
 import {
   LayoutDashboard, Users, GraduationCap, CalendarDays, CreditCard, Settings,
@@ -1562,7 +1562,7 @@ function AttendanceSettingsModal({ school, onSave, onClose }) {
     const joursNonOuvres = [...new Set(jours.split(/[\n,;]+/).map((d) => d.trim()).filter((d) => /^\d{4}-\d{2}-\d{2}$/.test(d)))].sort();
     onSave({ planningVersion: 2, heuresParJour: Object.fromEntries(JOURS_SEMAINE_POINTAGE.map(({ key }) => [key, Math.max(0, Math.min(24, Number(heuresParJour[key]) || 0))])), joursNonOuvres });
   }
-  return <div className="fixed inset-0 z-50 flex items-center justify-center p-4" style={{ background: 'rgba(10,20,15,.45)' }}>
+  return <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
     <form onSubmit={submit} className="sygenop-card p-6 max-w-md w-full space-y-4">
       <div className="flex items-center justify-between"><div className="font-bold" style={{ color: 'var(--ink)' }}>Règles de pointage — {school.name}</div><button type="button" onClick={onClose}><X size={18} /></button></div>
       <p className="text-xs" style={{ color: 'var(--muted)' }}>Réservé aux écoles publiques préscolaires et élémentaires.</p>
@@ -1585,7 +1585,7 @@ function JoursFeriesGlobauxModal({ isRacine, nbEcoles, applying, onApply, onClos
     const dates = [...new Set(jours.split(/[\n,;]+/).map((d) => d.trim()).filter((d) => /^\d{4}-\d{2}-\d{2}$/.test(d)))].sort();
     onApply(dates);
   }
-  return <div className="fixed inset-0 z-50 flex items-center justify-center p-4" style={{ background: 'rgba(10,20,15,.45)' }}>
+  return <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
     <form onSubmit={submit} className="sygenop-card p-6 max-w-md w-full space-y-4">
       <div className="flex items-center justify-between"><div className="font-bold" style={{ color: 'var(--ink)' }}>Jours non ouvrés et fériés — toutes les écoles</div><button type="button" onClick={onClose}><X size={18} /></button></div>
       <p className="text-xs" style={{ color: 'var(--muted)' }}>
@@ -1777,11 +1777,13 @@ const THEME_VARS_LIGHT = {
   '--ink': '#12241a', '--green': '#0d8a5a', '--green-d': '#0a4f3a', '--green-l': '#e8f4ee',
   '--gold': '#b8862f', '--gold-l': '#f8f0dc', '--red': '#a8402f', '--red-l': '#fbe9e6',
   '--bg': '#f1f4f1', '--panel': '#ffffff', '--line': '#e3e9e5', '--muted': '#6b7670',
+  '--modal-overlay': 'rgba(16,28,22,.5)', '--modal-card': 'rgba(255,255,255,.84)', '--modal-line': 'rgba(227,233,229,.85)',
 };
 const THEME_VARS_DARK = {
   '--ink': '#e7efe9', '--green': '#22b47a', '--green-d': '#3fd398', '--green-l': '#173327',
   '--gold': '#e0b358', '--gold-l': '#3a2f16', '--red': '#e07a63', '--red-l': '#3a2119',
   '--bg': '#0e1712', '--panel': '#16211b', '--line': '#2a3830', '--muted': '#8ba396',
+  '--modal-overlay': 'rgba(3,7,5,.62)', '--modal-card': 'rgba(24,34,28,.76)', '--modal-line': 'rgba(58,78,66,.6)',
 };
 
 function GlobalStyles({ dark }) {
@@ -1794,9 +1796,28 @@ function GlobalStyles({ dark }) {
       .sygenop-card{ background:var(--panel); border:1px solid var(--line); border-radius:16px; box-shadow:0 1px 2px rgba(10,30,20,.04),0 12px 30px -8px rgba(10,30,20,.10); transition:transform .25s cubic-bezier(.22,1,.36,1), box-shadow .25s, border-color .25s; will-change:transform; }
       .sygenop-card:hover{ transform:translateY(-3px); box-shadow:0 4px 10px rgba(10,30,20,.06),0 22px 45px -14px rgba(13,138,90,.32); border-color:rgba(13,138,90,.18); }
 
-      /* ---------- Modales : centrage + scroll sûr (le haut reste atteignable) ---------- */
-      .sygenop-root .fixed.inset-0.z-50{ max-height:100vh; overflow-y:auto; overscroll-behavior:contain; }
+      /* ---------- Modales : verre dépoli, opacité régulée + scroll sûr ---------- */
+      .sygenop-root .fixed.inset-0.z-50{
+        max-height:100vh; overflow-y:auto; overscroll-behavior:contain;
+        background: var(--modal-overlay);
+        backdrop-filter: blur(16px) saturate(150%);
+        -webkit-backdrop-filter: blur(16px) saturate(150%);
+      }
       .sygenop-root .fixed.inset-0.z-50 > *{ margin-top:auto; margin-bottom:auto; }
+      .sygenop-root .fixed.inset-0.z-50 > .sygenop-card,
+      .sygenop-root .fixed.inset-0.z-50 > form.sygenop-card{
+        background: var(--panel);
+        background: var(--modal-card);
+        border:1px solid var(--modal-line);
+        border-radius:22px;
+        box-shadow: inset 0 1px 0 rgba(255,255,255,.06), 0 30px 70px -20px rgba(0,0,0,.5), 0 10px 30px -14px rgba(0,0,0,.35);
+        backdrop-filter: blur(28px) saturate(160%);
+        -webkit-backdrop-filter: blur(28px) saturate(160%);
+      }
+      .sygenop-root .fixed.inset-0.z-50 > .sygenop-card .sygenop-input,
+      .sygenop-root .fixed.inset-0.z-50 > .sygenop-card select,
+      .sygenop-root .fixed.inset-0.z-50 > .sygenop-card input,
+      .sygenop-root .fixed.inset-0.z-50 > .sygenop-card textarea{ background: var(--panel); }
 
       /* ---------- Accessibilité clavier ---------- */
       .sygenop-root button:focus-visible, .sygenop-root input:focus-visible, .sygenop-root select:focus-visible, .sygenop-root textarea:focus-visible, .sygenop-root a:focus-visible{ outline:2px solid var(--gold); outline-offset:2px; border-radius:6px; box-shadow:0 0 0 4px rgba(184,134,47,.18); }
@@ -3350,7 +3371,7 @@ function Pill({ tone = 'muted', children }) {
 
 function ConfirmModal({ title, message, onConfirm, onCancel, danger }) {
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4" style={{ background: 'rgba(10,20,15,.45)' }}>
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
       <div className="sygenop-card p-6 max-w-sm w-full sygenop-fade">
         <div className="font-bold mb-2" style={{ color: 'var(--ink)' }}>{title}</div>
         <p className="text-sm mb-5" style={{ color: 'var(--muted)' }}>{message}</p>
@@ -3395,9 +3416,9 @@ function PersonnelModal({ person, onSave, onClose, cycle }) {
   }
 
 return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4" style={{ background: 'rgba(10,20,15,.45)' }}>
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
       <form onSubmit={submit} className="sygenop-card w-full max-w-lg max-h-[92vh] flex flex-col overflow-hidden sygenop-fade">
-        <div className="flex items-center justify-between gap-3 px-6 py-4 flex-shrink-0 bg-white" style={{ borderBottom: '1px solid var(--line)' }}>
+        <div className="flex items-center justify-between gap-3 px-6 py-4 flex-shrink-0" style={{ borderBottom: '1px solid var(--modal-line)' }}>
           <div>
             <div className="font-bold text-[15px]" style={{ color: 'var(--ink)' }}>{isEdit ? 'Modifier le membre du personnel' : 'Ajouter un membre du personnel'}</div>
             <div className="text-[11px]" style={{ color: 'var(--muted)' }}>{isEdit ? 'Mise à jour de la fiche agent' : 'Création dʼune nouvelle fiche agent'}</div>
@@ -3577,7 +3598,7 @@ return (
           )}
         </div>
 
-        <div className="flex items-center justify-end gap-2 px-6 py-4 flex-shrink-0 bg-white" style={{ borderTop: '1px solid var(--line)' }}>
+        <div className="flex items-center justify-end gap-2 px-6 py-4 flex-shrink-0" style={{ borderTop: '1px solid var(--modal-line)' }}>
           <button type="button" onClick={onClose} className="px-4 py-2 rounded-lg text-sm font-semibold transition-colors" style={{ background: 'var(--bg)', color: 'var(--ink)' }}>Annuler</button>
           <button type="submit" className="px-5 py-2 rounded-lg text-sm font-semibold text-white transition-colors" style={{ background: 'var(--green-d)' }}>
             {isEdit ? <><Save size={14} className="inline -mt-0.5 mr-1" /> Enregistrer</> : <><Plus size={14} className="inline -mt-0.5 mr-1" /> Ajouter</>}
@@ -3639,7 +3660,7 @@ function ClassModal({ cls, level, personnel, materiel = [], affectations = [], c
     onSave(form);
   }
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4" style={{ background: 'rgba(10,20,15,.45)' }}>
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
       <form onSubmit={submit} className="sygenop-card p-6 max-w-sm w-full sygenop-fade">
         <div className="flex items-center justify-between mb-4">
           <div className="font-bold" style={{ color: 'var(--ink)' }}>{isEdit ? 'Modifier la classe' : `Ajouter une classe (${level})`}</div>
@@ -5043,7 +5064,7 @@ function PersonnelProfileModal({ person, state, updateState, notify, readOnly, o
   }
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4" style={{ background: 'rgba(10,20,15,.45)' }}>
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
       <div className="sygenop-card p-6 max-w-xl w-full sygenop-fade max-h-[90vh] overflow-y-auto">
         <div className="flex items-start justify-between gap-3">
           <div className="flex items-center gap-3">
@@ -5262,11 +5283,11 @@ function PersonnelView({ state, loading, updateState, notify, session, readOnly 
       )}
 
       {cardPerson && (
-        <div id="staff-card-print" className="fixed inset-0 z-50 overflow-auto p-4" style={{ background: 'rgba(10,20,15,.45)' }}><div className="max-w-2xl mx-auto mt-4"><div className="no-print flex flex-wrap justify-end gap-2 mb-2"><label className="px-3 py-2 rounded-lg text-sm font-semibold cursor-pointer" style={{ background: 'var(--gold-l)', color: 'var(--gold)' }}>Ajouter / changer la photo<input type="file" accept="image/*" className="hidden" onChange={(e) => { const file = e.target.files?.[0]; if (!file) return; const reader = new FileReader(); reader.onload = () => saveStaffPhoto(cardPerson.id, String(reader.result || '')); reader.readAsDataURL(file); }} /></label><button onClick={() => window.print()} className="px-3 py-2 rounded-lg text-white flex items-center gap-1" style={{ background: 'var(--green-d)' }}><Printer size={14} /> Imprimer / PDF</button><button onClick={() => setCardPerson(null)} className="px-3 py-2 rounded-lg" style={{ background: 'var(--panel)' }}>Fermer</button></div><StaffIdentityCard state={state} person={cardPerson} /></div></div>
+        <div id="staff-card-print" className="fixed inset-0 z-50 overflow-auto p-4"><div className="max-w-2xl mx-auto mt-4"><div className="no-print flex flex-wrap justify-end gap-2 mb-2"><label className="px-3 py-2 rounded-lg text-sm font-semibold cursor-pointer" style={{ background: 'var(--gold-l)', color: 'var(--gold)' }}>Ajouter / changer la photo<input type="file" accept="image/*" className="hidden" onChange={(e) => { const file = e.target.files?.[0]; if (!file) return; const reader = new FileReader(); reader.onload = () => saveStaffPhoto(cardPerson.id, String(reader.result || '')); reader.readAsDataURL(file); }} /></label><button onClick={() => window.print()} className="px-3 py-2 rounded-lg text-white flex items-center gap-1" style={{ background: 'var(--green-d)' }}><Printer size={14} /> Imprimer / PDF</button><button onClick={() => setCardPerson(null)} className="px-3 py-2 rounded-lg" style={{ background: 'var(--panel)' }}>Fermer</button></div><StaffIdentityCard state={state} person={cardPerson} /></div></div>
       )}
 
       {attestPerson && (
-        <div id="staff-cert-print" className="fixed inset-0 z-50 overflow-auto p-4" style={{ background: 'rgba(10,20,15,.45)' }}><div className="max-w-[220mm] mx-auto mt-4"><div className="no-print flex flex-wrap justify-end gap-2 mb-2"><button onClick={() => window.print()} className="px-3 py-2 rounded-lg text-white flex items-center gap-1" style={{ background: 'var(--green-d)' }}><Printer size={14} /> Imprimer / PDF</button><button onClick={() => setAttestPerson(null)} className="px-3 py-2 rounded-lg" style={{ background: 'var(--panel)' }}>Fermer</button></div><StaffServiceAttestation state={state} person={attestPerson} /></div></div>
+        <div id="staff-cert-print" className="fixed inset-0 z-50 overflow-auto p-4"><div className="max-w-[220mm] mx-auto mt-4"><div className="no-print flex flex-wrap justify-end gap-2 mb-2"><button onClick={() => window.print()} className="px-3 py-2 rounded-lg text-white flex items-center gap-1" style={{ background: 'var(--green-d)' }}><Printer size={14} /> Imprimer / PDF</button><button onClick={() => setAttestPerson(null)} className="px-3 py-2 rounded-lg" style={{ background: 'var(--panel)' }}>Fermer</button></div><StaffServiceAttestation state={state} person={attestPerson} /></div></div>
       )}
 
       {profilePerson && (
@@ -5804,9 +5825,9 @@ function AddStudentModal({ onSave, onClose }) {
     onSave({ id, cardCode: `ELV-${id.slice(-8).toUpperCase()}`, prenom: form.prenom.trim(), nom: form.nom.trim(), dateNaissance: form.dateNaissance, lieuNaissance: form.lieuNaissance.trim(), age: ageFromBirth(form.dateNaissance), genre: form.genre.trim().toUpperCase().slice(0, 1), adresse: form.adresse.trim(), handicap: form.handicap, typeHandicap: form.handicap === 'Oui' ? form.typeHandicap.trim() : '', casSocial: form.casSocial, scores: {}, validated: {} });
   }
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4" style={{ background: 'rgba(10,20,15,.45)' }}>
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
       <form onSubmit={submit} className="sygenop-card w-full max-w-lg max-h-[92vh] flex flex-col overflow-hidden sygenop-fade">
-        <div className="flex items-center justify-between gap-3 px-6 py-4 flex-shrink-0 bg-white" style={{ borderBottom: '1px solid var(--line)' }}>
+        <div className="flex items-center justify-between gap-3 px-6 py-4 flex-shrink-0" style={{ borderBottom: '1px solid var(--modal-line)' }}>
           <div>
             <div className="font-bold text-[15px]" style={{ color: 'var(--ink)' }}>Ajouter un élève</div>
             <div className="text-[11px]" style={{ color: 'var(--muted)' }}>Création d'une nouvelle fiche élève</div>
@@ -5891,7 +5912,7 @@ function AddStudentModal({ onSave, onClose }) {
           )}
         </div>
 
-        <div className="flex items-center justify-end gap-2 px-6 py-4 flex-shrink-0 bg-white" style={{ borderTop: '1px solid var(--line)' }}>
+        <div className="flex items-center justify-end gap-2 px-6 py-4 flex-shrink-0" style={{ borderTop: '1px solid var(--modal-line)' }}>
           <button type="button" onClick={onClose} className="px-4 py-2 rounded-lg text-sm font-semibold transition-colors" style={{ background: 'var(--bg)', color: 'var(--ink)' }}>Annuler</button>
           <button type="submit" className="px-5 py-2 rounded-lg text-sm font-semibold text-white transition-colors" style={{ background: 'var(--green-d)' }}>
             <Plus size={14} className="inline -mt-0.5 mr-1" /> Ajouter l'élève
@@ -5913,7 +5934,7 @@ function StudentFicheModal({ student, clsName, onCard, onCert, onEdit, onClose }
     </div>
   );
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4" style={{ background: 'rgba(10,20,15,.45)' }}>
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
       <div className="sygenop-card p-8 max-w-2xl w-full sygenop-fade">
         <div className="flex items-center justify-between mb-5">
           <div className="font-bold text-lg" style={{ color: 'var(--ink)' }}>Fiche élève</div>
@@ -5990,9 +6011,9 @@ function EditStudentModal({ student, onSave, onClose }) {
     });
   }
 return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4" style={{ background: 'rgba(10,20,15,.45)' }}>
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
       <form onSubmit={submit} className="sygenop-card w-full max-w-lg max-h-[92vh] flex flex-col overflow-hidden sygenop-fade">
-        <div className="flex items-center justify-between gap-3 px-6 py-4 flex-shrink-0 bg-white" style={{ borderBottom: '1px solid var(--line)' }}>
+        <div className="flex items-center justify-between gap-3 px-6 py-4 flex-shrink-0" style={{ borderBottom: '1px solid var(--modal-line)' }}>
           <div>
             <div className="font-bold text-[15px]" style={{ color: 'var(--ink)' }}>Modifier l'élève</div>
             <div className="text-[11px]" style={{ color: 'var(--muted)' }}>Mise à jour de la fiche élève</div>
@@ -6101,7 +6122,7 @@ return (
           </div>
         </div>
 
-        <div className="flex items-center justify-end gap-2 px-6 py-4 flex-shrink-0 bg-white" style={{ borderTop: '1px solid var(--line)' }}>
+        <div className="flex items-center justify-end gap-2 px-6 py-4 flex-shrink-0" style={{ borderTop: '1px solid var(--modal-line)' }}>
           <button type="button" onClick={onClose} className="px-4 py-2 rounded-lg text-sm font-semibold transition-colors" style={{ background: 'var(--bg)', color: 'var(--ink)' }}>Annuler</button>
           <button type="submit" className="px-5 py-2 rounded-lg text-sm font-semibold text-white transition-colors" style={{ background: 'var(--green-d)' }}>
             <Save size={14} className="inline -mt-0.5 mr-1" /> Enregistrer
@@ -6998,7 +7019,7 @@ function addStudent(student) {
       )}
 
       {gradingStudent && !readOnly && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4" style={{ background: 'rgba(10,20,15,.45)' }}>
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
           <div className="sygenop-card p-6 max-w-2xl w-full sygenop-fade max-h-[90vh] overflow-auto">
             <div className="flex items-center justify-between mb-4">
               <div>
@@ -7135,11 +7156,11 @@ function addStudent(student) {
       )}
 
       {cardStudent && (
-        <div id="student-card-print" className="fixed inset-0 z-50 overflow-auto p-4" style={{ background: 'rgba(10,20,15,.45)' }}><div className="max-w-2xl mx-auto mt-4"><div className="no-print flex flex-wrap justify-end gap-2 mb-2"><label className="px-3 py-2 rounded-lg text-sm font-semibold cursor-pointer" style={{ background: 'var(--gold-l)', color: 'var(--gold)' }}>Ajouter / changer la photo<input type="file" accept="image/*" className="hidden" onChange={(e) => { const file = e.target.files?.[0]; if (!file) return; const reader = new FileReader(); reader.onload = () => { const photoData = String(reader.result || ''); const next = students.map((s) => s.id === cardStudent.id ? { ...s, photoData } : s); updateStudents(next); setCardStudent((s) => ({ ...s, photoData })); }; reader.readAsDataURL(file); }} /></label><button onClick={() => window.print()} className="px-3 py-2 rounded-lg text-white flex items-center gap-1" style={{ background: 'var(--green-d)' }}><Printer size={14} /> Imprimer / PDF</button><button onClick={() => setCardStudent(null)} className="px-3 py-2 rounded-lg" style={{ background: 'var(--panel)' }}>Fermer</button></div><StudentIdentityCard state={state} cls={cls} student={cardStudent} /></div></div>
+        <div id="student-card-print" className="fixed inset-0 z-50 overflow-auto p-4"><div className="max-w-2xl mx-auto mt-4"><div className="no-print flex flex-wrap justify-end gap-2 mb-2"><label className="px-3 py-2 rounded-lg text-sm font-semibold cursor-pointer" style={{ background: 'var(--gold-l)', color: 'var(--gold)' }}>Ajouter / changer la photo<input type="file" accept="image/*" className="hidden" onChange={(e) => { const file = e.target.files?.[0]; if (!file) return; const reader = new FileReader(); reader.onload = () => { const photoData = String(reader.result || ''); const next = students.map((s) => s.id === cardStudent.id ? { ...s, photoData } : s); updateStudents(next); setCardStudent((s) => ({ ...s, photoData })); }; reader.readAsDataURL(file); }} /></label><button onClick={() => window.print()} className="px-3 py-2 rounded-lg text-white flex items-center gap-1" style={{ background: 'var(--green-d)' }}><Printer size={14} /> Imprimer / PDF</button><button onClick={() => setCardStudent(null)} className="px-3 py-2 rounded-lg" style={{ background: 'var(--panel)' }}>Fermer</button></div><StudentIdentityCard state={state} cls={cls} student={cardStudent} /></div></div>
       )}
 
       {certStudent && (
-        <div id="student-cert-print" className="fixed inset-0 z-50 overflow-auto p-4" style={{ background: 'rgba(10,20,15,.45)' }}><div className="max-w-[220mm] mx-auto mt-4"><div className="no-print flex flex-wrap justify-end gap-2 mb-2"><button onClick={() => window.print()} className="px-3 py-2 rounded-lg text-white flex items-center gap-1" style={{ background: 'var(--green-d)' }}><Printer size={14} /> Imprimer / PDF</button><button onClick={() => setCertStudent(null)} className="px-3 py-2 rounded-lg" style={{ background: 'var(--panel)' }}>Fermer</button></div><StudentSchoolCertificate state={state} cls={cls} student={certStudent} /></div></div>
+        <div id="student-cert-print" className="fixed inset-0 z-50 overflow-auto p-4"><div className="max-w-[220mm] mx-auto mt-4"><div className="no-print flex flex-wrap justify-end gap-2 mb-2"><button onClick={() => window.print()} className="px-3 py-2 rounded-lg text-white flex items-center gap-1" style={{ background: 'var(--green-d)' }}><Printer size={14} /> Imprimer / PDF</button><button onClick={() => setCertStudent(null)} className="px-3 py-2 rounded-lg" style={{ background: 'var(--panel)' }}>Fermer</button></div><StudentSchoolCertificate state={state} cls={cls} student={certStudent} /></div></div>
       )}
 
       {toDelete && (
@@ -7804,7 +7825,7 @@ function FeesModal({ level, fees, onSave, onClose }) {
   const total = totalEntree + totalAnnuel;
   const nbMois = Math.max(1, Number(mensualites) || 10);
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4" style={{ background: 'rgba(10,20,15,.45)' }}>
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
       <form onSubmit={submit} className="sygenop-card p-6 max-w-5xl w-full sygenop-fade flex flex-col" style={{ maxHeight: '90vh' }}>
         <div className="flex items-center justify-between mb-2">
           <div className="font-bold" style={{ color: 'var(--ink)' }}>Frais de scolarité — {level}</div>
@@ -7860,7 +7881,7 @@ function StudentFeesModal({ level, fees, months, student, onSave, onClose }) {
   const anneeDue = months.reduce((sum, M) => sum + rubriques.filter((r) => r.nature !== 'entree' && (rubriquesMois[r.id] || []).includes(M)).reduce((s2, r2) => s2 + Math.round((Number(r2.montant) * coef) / mensualites), 0), 0);
   const inscriptionDue = rubriques.filter((r) => r.nature === 'entree' && (rubriquesMois[r.id] || []).length > 0).reduce((s, r) => s + Math.round(Number(r.montant) * coef), 0);
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4" style={{ background: 'rgba(10,20,15,.45)' }}>
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
       <form onSubmit={submit} className="sygenop-card p-6 max-w-3xl w-full sygenop-fade flex flex-col" style={{ maxHeight: '90vh' }}>
         <div className="flex items-center justify-between mb-2">
           <div className="font-bold" style={{ color: 'var(--ink)' }}>Frais spécifiques — {student ? `${student.prenom || ''} ${student.nom || ''}`.trim() : ''}</div>
@@ -7941,7 +7962,7 @@ function PaymentModal({ student, payment, rubriques = [], onSave, onClose, defau
   }
   if (!isEdit && !typePaiement) {
     return (
-      <div className="fixed inset-0 z-50 flex items-center justify-center p-4" style={{ background: 'rgba(10,20,15,.45)' }}>
+      <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
         <div className="sygenop-card p-6 max-w-lg w-full sygenop-fade">
           <div className="flex items-center justify-between mb-4">
             <div className="font-bold" style={{ color: 'var(--ink)' }}>Type de paiement — {student.prenom} {student.nom}</div>
@@ -7987,7 +8008,7 @@ function PaymentModal({ student, payment, rubriques = [], onSave, onClose, defau
     );
   }
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4" style={{ background: 'rgba(10,20,15,.45)' }}>
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
       <form onSubmit={submit} className="sygenop-card p-6 max-w-5xl w-full sygenop-fade flex flex-col" style={{ maxHeight: '90vh' }}>
         <div className="flex items-center justify-between mb-4">
           <div className="flex items-center gap-3">
@@ -8182,7 +8203,7 @@ function StudentHistoryModal({ state, student, cls, due, monthlyDue = 0, onClose
     return [...set].sort();
   })();
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4" style={{ background: 'rgba(10,20,15,.45)' }}>
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
       <div className="sygenop-card p-6 max-w-lg w-full sygenop-fade max-h-[85vh] overflow-auto">
         <div className="flex items-center justify-between mb-3">
           <div>
@@ -8375,7 +8396,7 @@ function ExpenseModal({ expense, personnel = [], onSave, onClose, defaultDate = 
   }
   const fieldStyle = { borderColor: 'var(--line)', background: 'var(--panel)', color: 'var(--ink)' };
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4" style={{ background: 'rgba(10,20,15,.45)' }}>
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
       <form onSubmit={submit} className="sygenop-card p-6 max-w-md w-full sygenop-fade max-h-[90vh] overflow-auto">
         <div className="flex items-center justify-between mb-4">
           <div className="font-bold" style={{ color: 'var(--ink)' }}>
@@ -8813,7 +8834,7 @@ function MaterielModal({ item, onSave, onClose }) {
     onSave({ ...form, nom: form.nom.trim(), categorie: form.categorie.trim(), quantite: Math.max(0, Number(form.quantite) || 0), note: form.note.trim() });
   }
   const fieldStyle = { borderColor: 'var(--line)', background: 'var(--panel)', color: 'var(--ink)' };
-  return <div className="fixed inset-0 z-50 flex items-center justify-center p-4" style={{ background: 'rgba(10,20,15,.45)' }}>
+  return <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
     <form onSubmit={submit} className="sygenop-card p-6 max-w-md w-full space-y-4 sygenop-fade">
       <div className="flex items-center justify-between"><h3 className="font-bold">{item ? 'Modifier le matériel' : 'Ajouter du matériel'}</h3><button type="button" onClick={onClose}><X size={18} /></button></div>
       <label className="block text-sm font-semibold">Désignation<input required value={form.nom} onChange={(e) => setForm((f) => ({ ...f, nom: e.target.value }))} className="mt-1 w-full px-3 py-2 rounded-lg border" style={fieldStyle} placeholder="Ex. Tables-bancs" /></label>
@@ -8829,7 +8850,7 @@ function AffectationMaterielModal({ items, classes, affectation, onSave, onClose
   const [form, setForm] = useState(() => affectation ? { materielId: affectation.materielId, classId: affectation.classId, quantite: affectation.quantite } : { materielId: items[0]?.id || '', classId: Object.keys(classes)[0] || '', quantite: 1 });
   const selected = items.find((item) => item.id === form.materielId);
   function submit(e) { e.preventDefault(); if (!form.materielId || !form.classId || Number(form.quantite) <= 0) return; onSave({ ...form, quantite: Number(form.quantite) }); }
-  return <div className="fixed inset-0 z-50 flex items-center justify-center p-4" style={{ background: 'rgba(10,20,15,.45)' }}><form onSubmit={submit} className="sygenop-card p-6 max-w-md w-full space-y-4"><div className="flex justify-between"><b>{affectation ? 'Modifier l’affectation' : 'Affecter du matériel'}</b><button type="button" onClick={onClose}><X size={18} /></button></div><label className="block text-sm font-semibold">Article<select value={form.materielId} onChange={(e) => setForm((f) => ({ ...f, materielId: e.target.value }))} className="mt-1 w-full px-3 py-2 border rounded-lg">{items.map((item) => <option key={item.id} value={item.id}>{item.nom} — stock : {item.quantite}</option>)}</select></label><div className="rounded-lg px-3 py-2 text-sm" style={{ background: 'var(--bg)', color: 'var(--muted)' }}><b>Rubrique :</b> {selected?.categorie || 'Non renseignée'} · Stock disponible : {selected?.quantite ?? 0}</div><label className="block text-sm font-semibold">Classe<select value={form.classId} onChange={(e) => setForm((f) => ({ ...f, classId: e.target.value }))} className="mt-1 w-full px-3 py-2 border rounded-lg">{Object.entries(classes).map(([id, cls]) => <option key={id} value={id}>{cls.name} — {cls.level}</option>)}</select></label><label className="block text-sm font-semibold">Quantité à affecter<input type="number" min="1" value={form.quantite} onChange={(e) => setForm((f) => ({ ...f, quantite: e.target.value }))} className="mt-1 w-full px-3 py-2 border rounded-lg" /></label><div className="flex justify-end gap-2"><button type="button" onClick={onClose}>Annuler</button><button className="px-3 py-2 rounded-lg text-white" style={{ background: 'var(--green-d)' }}>{affectation ? 'Enregistrer' : 'Affecter et générer le reçu'}</button></div></form></div>;
+  return <div className="fixed inset-0 z-50 flex items-center justify-center p-4"><form onSubmit={submit} className="sygenop-card p-6 max-w-md w-full space-y-4"><div className="flex justify-between"><b>{affectation ? 'Modifier l’affectation' : 'Affecter du matériel'}</b><button type="button" onClick={onClose}><X size={18} /></button></div><label className="block text-sm font-semibold">Article<select value={form.materielId} onChange={(e) => setForm((f) => ({ ...f, materielId: e.target.value }))} className="mt-1 w-full px-3 py-2 border rounded-lg">{items.map((item) => <option key={item.id} value={item.id}>{item.nom} — stock : {item.quantite}</option>)}</select></label><div className="rounded-lg px-3 py-2 text-sm" style={{ background: 'var(--bg)', color: 'var(--muted)' }}><b>Rubrique :</b> {selected?.categorie || 'Non renseignée'} · Stock disponible : {selected?.quantite ?? 0}</div><label className="block text-sm font-semibold">Classe<select value={form.classId} onChange={(e) => setForm((f) => ({ ...f, classId: e.target.value }))} className="mt-1 w-full px-3 py-2 border rounded-lg">{Object.entries(classes).map(([id, cls]) => <option key={id} value={id}>{cls.name} — {cls.level}</option>)}</select></label><label className="block text-sm font-semibold">Quantité à affecter<input type="number" min="1" value={form.quantite} onChange={(e) => setForm((f) => ({ ...f, quantite: e.target.value }))} className="mt-1 w-full px-3 py-2 border rounded-lg" /></label><div className="flex justify-end gap-2"><button type="button" onClick={onClose}>Annuler</button><button className="px-3 py-2 rounded-lg text-white" style={{ background: 'var(--green-d)' }}>{affectation ? 'Enregistrer' : 'Affecter et générer le reçu'}</button></div></form></div>;
 }
 
 function MaterielTab({ items, classes = {}, affectations = [], onAdd, onAssign, onEdit, onDelete, readOnly }) {
@@ -9639,10 +9660,10 @@ function PaiementsView({ state, loading, updateState, notify, activeSchoolId, ro
       )}
       {toDeleteAffectation && <ConfirmModal title="Supprimer cette affectation ?" message={`Les ${toDeleteAffectation.quantite} unité(s) seront remises dans le stock disponible.`} danger onConfirm={deleteAffectationMateriel} onCancel={() => setToDeleteAffectation(null)} />}
       {printingAffectation && (
-        <div className="fixed inset-0 z-50 overflow-auto p-4" style={{ background: 'rgba(10,20,15,.45)' }}><div className="max-w-lg mx-auto mt-4"><div className="flex justify-end gap-2 mb-2"><button onClick={() => window.print()} className="px-3 py-2 rounded-lg text-white" style={{ background: 'var(--green-d)' }}><Printer size={14} /> Imprimer</button><button onClick={() => setPrintingAffectation(null)} className="px-3 py-2 rounded-lg" style={{ background: 'var(--panel)' }}>Fermer</button></div><MaterielAffectationReceipt state={state} affectation={printingAffectation} item={(state.materiel || []).find((item) => item.id === printingAffectation.materielId)} cls={(state.classes || {})[printingAffectation.classId]} /></div></div>
+        <div className="fixed inset-0 z-50 overflow-auto p-4"><div className="max-w-lg mx-auto mt-4"><div className="flex justify-end gap-2 mb-2"><button onClick={() => window.print()} className="px-3 py-2 rounded-lg text-white" style={{ background: 'var(--green-d)' }}><Printer size={14} /> Imprimer</button><button onClick={() => setPrintingAffectation(null)} className="px-3 py-2 rounded-lg" style={{ background: 'var(--panel)' }}>Fermer</button></div><MaterielAffectationReceipt state={state} affectation={printingAffectation} item={(state.materiel || []).find((item) => item.id === printingAffectation.materielId)} cls={(state.classes || {})[printingAffectation.classId]} /></div></div>
       )}
       {printingExpense && (
-        <div className="fixed inset-0 z-50 overflow-auto p-4" style={{ background: 'rgba(10,20,15,.45)' }}><div className="max-w-lg mx-auto mt-4"><div className="flex justify-end gap-2 mb-2"><button onClick={() => window.print()} className="px-3 py-2 rounded-lg text-white flex items-center gap-1" style={{ background: 'var(--red)' }}><Printer size={14} /> Imprimer</button><button onClick={() => setPrintingExpense(null)} className="px-3 py-2 rounded-lg" style={{ background: 'var(--panel)' }}>Fermer</button></div><ExpenseReceipt state={state} expense={printingExpense} /></div></div>
+        <div className="fixed inset-0 z-50 overflow-auto p-4"><div className="max-w-lg mx-auto mt-4"><div className="flex justify-end gap-2 mb-2"><button onClick={() => window.print()} className="px-3 py-2 rounded-lg text-white flex items-center gap-1" style={{ background: 'var(--red)' }}><Printer size={14} /> Imprimer</button><button onClick={() => setPrintingExpense(null)} className="px-3 py-2 rounded-lg" style={{ background: 'var(--panel)' }}>Fermer</button></div><ExpenseReceipt state={state} expense={printingExpense} /></div></div>
       )}
     </div>
   );
@@ -11312,7 +11333,7 @@ function RestrictionsModal({ school, onSave, onClose }) {
   const fieldStyle = { borderColor: 'var(--line)', background: 'var(--panel)', color: 'var(--ink)' };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4" style={{ background: 'rgba(10,20,15,.45)' }}>
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
       <form onSubmit={submit} className="sygenop-card p-6 max-w-md w-full sygenop-fade">
         <div className="flex items-center justify-between mb-4">
           <div className="font-bold" style={{ color: 'var(--ink)' }}>Restrictions d'école — {school.name}</div>
@@ -11434,7 +11455,7 @@ const [form, setForm] = useState(() => ({
   const fieldStyle = { borderColor: 'var(--line)', background: 'var(--panel)', color: 'var(--ink)' };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4" style={{ background: 'rgba(10,20,15,.45)' }}>
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
       <form onSubmit={submit} className="sygenop-card p-6 max-w-md w-full sygenop-fade max-h-[90vh] overflow-auto">
         <div className="flex items-center justify-between mb-4">
           <div className="font-bold" style={{ color: 'var(--ink)' }}>{isEdit ? 'Modifier l\u2019école' : 'Nouvelle école'}</div>
@@ -11971,7 +11992,7 @@ function IEFAccountModal({ admin, onSave, onClose, allowRoleAdmin }) {
   const fieldStyle = { borderColor: 'var(--line)', background: 'var(--panel)', color: 'var(--ink)' };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4" style={{ background: 'rgba(10,20,15,.45)' }}>
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
       <form onSubmit={submit} className="sygenop-card p-6 max-w-md w-full sygenop-fade">
         <div className="flex items-center justify-between mb-4">
           <div className="font-bold" style={{ color: 'var(--ink)' }}>{isEdit ? 'Modifier le compte' : 'Nouveau compte IEF'}</div>
@@ -12359,7 +12380,7 @@ function IEFModal({ ief, onSave, onClose }) {
   }
   const fieldStyle = { borderColor: 'var(--line)', background: 'var(--panel)', color: 'var(--ink)' };
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4" style={{ background: 'rgba(10,20,15,.45)' }}>
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
       <form onSubmit={submit} className="sygenop-card p-6 max-w-md w-full sygenop-fade max-h-[90vh] overflow-auto">
         <div className="flex items-center justify-between mb-4">
           <div className="font-bold" style={{ color: 'var(--ink)' }}>{isEdit ? 'Modifier l\u2019IEF' : 'Nouvelle IEF'}</div>
