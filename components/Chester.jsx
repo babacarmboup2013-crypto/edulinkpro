@@ -12,13 +12,13 @@ export default function ChesterWidget({ dark, session, landing }) {
   const tip = !session
     ? landing
       ? 'Bienvenue sur EduLink Pro, la plateforme intelligente de gestion scolaire. Parcourez les modules, la version 1 et nos coordonnées, puis connectez-vous pour accéder à votre espace école.'
-      : 'Bienvenue sur EduLink Pro. Sélectionnez votre école et saisissez votre code d’accès, ou utilisez un des onglets Enseignant / IEF / Super Admin.'
+      : 'Bienvenue sur EduLink Pro. Sélectionnez votre école et saisissez votre code d’accès, ou utilisez un des onglets Enseignant / Groupe scolaire / Super Admin.'
     : session.role === 'teacher'
       ? 'Vous êtes connecté(e) en tant qu’enseignant(e). Vous pouvez saisir les notes de votre classe dans « Évaluation → Saisie des notes ».'
       : session.role === 'ief'
-        ? 'Vous êtes en lecture seule (IEF). Vous pouvez consulter toutes les écoles sans rien modifier.'
+        ? 'Vous consultez votre groupe scolaire en lecture seule : tous les cycles de l’école (petite enfance, élémentaire, moyen, secondaire), sans rien modifier.'
         : session.role === 'admin'
-          ? 'Super Administrateur : gérez les écoles, les comptes IEF et les codes d’accès depuis « Gestion des écoles ».'
+          ? 'Super Administrateur : gérez les écoles, les groupes scolaires et les codes d’accès depuis « Gestion des écoles ».'
           : 'Connecté en tant qu’école (direction). Retrouvez le tableau de bord, le personnel, la saisie des notes, les paiements et les données.';
 
   return (

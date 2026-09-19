@@ -53,12 +53,12 @@
     <text x="74" y="46" font-family="'Inter',sans-serif" font-size="12" fill="#8fd8bd">Code école</text>
   </g>
 
-  <!-- IEF -->
+  <!-- Groupe scolaire -->
   <g filter="url(#cardShadow)" transform="translate(120 500)">
     <rect width="176" height="60" rx="14" fill="#0d5a42"/>
     <circle cx="44" cy="30" r="18" fill="#ecc76a"/>
-    <text x="30" y="37" font-family="'Inter',sans-serif" font-size="15" font-weight="800" fill="#7a5a1f">IEF</text>
-    <text x="74" y="26" font-family="'Inter',sans-serif" font-size="17" font-weight="700" fill="#eafff6">Inspection</text>
+    <text x="31" y="37" font-family="'Inter',sans-serif" font-size="15" font-weight="800" fill="#7a5a1f">GS</text>
+    <text x="74" y="27" font-family="'Inter',sans-serif" font-size="12.5" font-weight="700" fill="#eafff6">Groupe scolaire</text>
     <text x="74" y="46" font-family="'Inter',sans-serif" font-size="12" fill="#8fd8bd">Lecture seule</text>
   </g>
 
@@ -88,5 +88,5 @@
 
   <!-- Top sub-band -->
   <text x="480" y="60" text-anchor="middle" font-family="'Inter',sans-serif" font-size="26" font-weight="800" fill="#1fd1a0" letter-spacing="4">SÉCURITÉ MULTI-NIVEAUX</text>
-  <text x="480" y="560" text-anchor="middle" font-family="'Inter',sans-serif" font-size="18" fill="#cfe9dc">Codes chiffrés  ·  Rôles école / IEF / Super Admin</text>
+  <text x="480" y="560" text-anchor="middle" font-family="'Inter',sans-serif" font-size="18" fill="#cfe9dc">Codes chiffrés  ·  Rôles école / groupe scolaire / Super Admin</text>
 </svg>

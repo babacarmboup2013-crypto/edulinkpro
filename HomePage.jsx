@@ -371,7 +371,7 @@ export default function HomePage({ onEnter }) {
   const vStats = [
     { n: '8+', t: 'Modules métier', d: 'Du tableau de bord aux paiements' },
     { n: '100%', t: 'Hors-ligne', d: 'Saisie locale puis synchro auto' },
-    { n: '3', t: 'Niveaux d’accès', d: 'École, IEF et Super Admin' },
+    { n: '3', t: 'Niveaux d’accès', d: 'École, Groupe scolaire et Super Admin' },
     { n: '∞', t: 'Exports & sauvegarde', d: 'Fichiers, impressions et cloud' },
   ];
 
@@ -441,7 +441,7 @@ export default function HomePage({ onEnter }) {
               </h1>
               <p className="lead">
                 EduLink Pro centralise élèves, personnel, évaluations, paiements et vie scolaire pour
-                les écoles, les IEF et les inspections — avec un accès sécurisé par codes.
+                les écoles, les groupes scolaires et les inspections — avec un accès sécurisé par codes.
               </p>
               <div className="edl-hero-cta">
                 <button type="button" className="edl-btn edl-btn--lg" onClick={onEnter}>
@@ -570,7 +570,7 @@ export default function HomePage({ onEnter }) {
                 <div className="edl-feat-body">
                   <div className="ic"><Icon name="shield" size={22} /></div>
                   <h3>Sécurité multi-niveaux</h3>
-                  <p>Rôles école / IEF / Super Admin avec codes d’accès chiffrés, anti-brute-force et historique complet.</p>
+                  <p>Rôles école / groupe scolaire / Super Admin avec codes d’accès chiffrés, anti-brute-force et historique complet.</p>
                   <div className="edl-pillrow">
                     <span className="edl-pill">Rôles</span>
                     <span className="edl-pill">Codes</span>
@@ -596,7 +596,7 @@ export default function HomePage({ onEnter }) {
                   <p>Une première version complète pensée pour tout de suite : sécurisée, rapide, et utilisable sans connexion sur n’importe quel appareil.</p>
                   <ul className="edl-list">
                     <li><span className="tick"><Icon name="check" size={15} color="#f5dfae" /></span><span><b>Saisie hors-ligne</b> — le travail continue sans réseau, sans rien perdre.</span></li>
-                    <li><span className="tick"><Icon name="check" size={15} color="#f5dfae" /></span><span><b>Accès multi-rôles</b> — école, IEF et Super Admin, périmètres distincts.</span></li>
+                    <li><span className="tick"><Icon name="check" size={15} color="#f5dfae" /></span><span><b>Accès multi-rôles</b> — école, groupe scolaire et Super Admin, périmètres distincts.</span></li>
                     <li><span className="tick"><Icon name="check" size={15} color="#f5dfae" /></span><span><b>Anti-brute-force &amp; codes chiffrés</b> — vos accès restent sous contrôle.</span></li>
                     <li><span className="tick"><Icon name="check" size={15} color="#f5dfae" /></span><span><b>Autonome et léger</b> — installable comme une application sur tout appareil.</span></li>
                   </ul>
@@ -736,7 +736,7 @@ export default function HomePage({ onEnter }) {
           </div>
           <div className="edl-wrap edl-cta-in" data-reveal>
             <h2>Prêt à piloter vos écoles sereinement ?</h2>
-            <p>Connectez-vous avec votre code d’accès école, IEF ou Super Admin et découvrez une gestion scolaire enfin simple.</p>
+            <p>Connectez-vous avec votre code d’accès école, groupe scolaire ou Super Admin et découvrez une gestion scolaire enfin simple.</p>
             <button type="button" className="edl-btn edl-btn--lg edl-btn--gold" onClick={onEnter}>
               <Icon name="lock" size={17} /> Se connecter
             </button>
