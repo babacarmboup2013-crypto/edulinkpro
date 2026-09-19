@@ -5,23 +5,23 @@ import ChesterWidget from './components/Chester.jsx';
    EduLink Pro — Page d'accueil
    ----------------------------------------------------------------
    Design system inspiré de la charte du logo :
-   badge vert profond (#0a4f3a), anneau blanc, dot or (#b8862f).
+   badge bleu nuit (#020617), anneau blanc, dot cyan (#22d3ee).
    Typographie : Inter. Grille 8px. Bento grid.
    ================================================================ */
 
 const BRAND = {
-  green900: '#0a4f3a',
-  green800: '#0c5f45',
-  green700: '#0b6a4c',
-  green600: '#0d8a5a',
-  green500: '#16a374',
-  green50:  '#f2f8f5',
-  gold:     '#d9a62e',
-  goldSoft: '#fdf3d7',
-  ink:      '#0f2417',
-  body:     '#40534a',
-  muted:    '#6b7670',
-  line:     '#e5ebe7',
+  green900: '#020617',
+  green800: '#0f172a',
+  green700: '#1e293b',
+  green600: '#1e40af',
+  green500: '#22d3ee',
+  green50:  '#f0f4f8',
+  gold:     '#d4a017',
+  goldSoft: '#fef9e7',
+  ink:      '#0f172a',
+  body:     '#475569',
+  muted:    '#64748b',
+  line:     '#e2e8f0',
   white:    '#ffffff',
 };
 
@@ -42,13 +42,13 @@ const css = `
 
 /* ---------- Nav ---------- */
 .edl-nav{position:sticky;top:0;z-index:50;background:rgba(255,255,255,.86);backdrop-filter:blur(14px);border-bottom:1px solid var(--line);transition:box-shadow .3s}
-.edl-nav.scrolled{box-shadow:0 10px 30px -18px rgba(10,79,58,.28)}
+.edl-nav.scrolled{box-shadow:0 10px 30px -18px rgba(2,6,23,.28)}
 .edl-nav-in{max-width:1180px;margin:0 auto;padding:0 28px;height:88px;display:flex;align-items:center;justify-content:space-between;gap:24px}
 .edl-brand{display:flex;align-items:center;gap:12px;text-decoration:none}
 .edl-brand-name{display:flex;flex-direction:column;line-height:1.15}
 .edl-brand-name b{font-size:1.2rem;font-weight:800;letter-spacing:-.02em;color:var(--ink)}
 .edl-brand-title{display:flex;align-items:center;gap:7px}
-.edl-brand-title em{font-style:normal;font-size:.66rem;font-weight:800;color:#fff;background:linear-gradient(135deg,#f4d97e,#d9a62e);padding:2px 7px;border-radius:6px;letter-spacing:.03em;box-shadow:0 2px 10px rgba(217,166,46,.5)}
+.edl-brand-title em{font-style:normal;font-size:.66rem;font-weight:800;color:#fff;background:linear-gradient(135deg,#f4d97e,#d4a017);padding:2px 7px;border-radius:6px;letter-spacing:.03em;box-shadow:0 2px 10px rgba(212,160,23,.5)}
 .edl-brand-name small{font-size:.72rem;font-weight:600;color:var(--muted);margin-top:3px}
 .edl-navlinks{display:flex;align-items:center;gap:6px}
 .edl-navlinks a{position:relative;padding:9px 14px;font-size:.9rem;font-weight:600;color:var(--muted);text-decoration:none;border-radius:9px;transition:color .2s,background .2s}
@@ -58,7 +58,7 @@ const css = `
 .edl-navdrop-trigger:hover{color:var(--g700);background:var(--g50)}
 .edl-navdrop-trigger svg{transition:transform .25s}
 .edl-navdrop.open .edl-navdrop-trigger svg{transform:rotate(180deg)}
-.edl-navdrop-menu{position:absolute;top:calc(100% + 10px);left:0;min-width:230px;background:#fff;border:2px solid var(--line);border-radius:14px;box-shadow:0 30px 60px -30px rgba(10,79,58,.35);padding:8px;opacity:0;visibility:hidden;transform:translateY(10px);transition:.25s cubic-bezier(.16,1,.3,1);z-index:60}
+.edl-navdrop-menu{position:absolute;top:calc(100% + 10px);left:0;min-width:230px;background:#fff;border:2px solid var(--line);border-radius:14px;box-shadow:0 30px 60px -30px rgba(2,6,23,.35);padding:8px;opacity:0;visibility:hidden;transform:translateY(10px);transition:.25s cubic-bezier(.16,1,.3,1);z-index:60}
 .edl-navdrop.open .edl-navdrop-menu,.edl-navdrop:hover .edl-navdrop-menu{opacity:1;visibility:visible;transform:none}
 .edl-navdrop-menu a{display:block;padding:10px 14px;border-radius:9px;font-size:.9rem;font-weight:600;color:var(--muted);text-decoration:none;transition:.15s}
 .edl-navdrop-menu a:hover{color:var(--g700);background:var(--g50)}
@@ -68,8 +68,8 @@ const css = `
 .edl-hamb{display:none}
 
 /* ---------- Button ---------- */
-.edl-btn{display:inline-flex;align-items:center;justify-content:center;gap:9px;border:2px solid var(--gold);font-weight:700;font-size:.92rem;border-radius:11px;padding:13px 22px;color:#fff;background:var(--g900);box-shadow:0 8px 20px -10px rgba(10,79,58,.55);transition:transform .18s ease,box-shadow .25s ease,background .2s ease;text-decoration:none;white-space:nowrap}
-.edl-btn:hover{transform:translateY(-2px);box-shadow:0 16px 30px -12px rgba(10,79,58,.5);background:var(--g800)}
+.edl-btn{display:inline-flex;align-items:center;justify-content:center;gap:9px;border:2px solid var(--gold);font-weight:700;font-size:.92rem;border-radius:11px;padding:13px 22px;color:#fff;background:var(--g900);box-shadow:0 8px 20px -10px rgba(2,6,23,.55);transition:transform .18s ease,box-shadow .25s ease,background .2s ease;text-decoration:none;white-space:nowrap}
+.edl-btn:hover{transform:translateY(-2px);box-shadow:0 16px 30px -12px rgba(2,6,23,.5);background:var(--g800)}
 .edl-btn:active{transform:translateY(0)}
 .edl-btn--ghost{background:#fff;color:var(--g800);box-shadow:none;border:2px solid var(--gold)}
 .edl-btn--ghost:hover{background:var(--g50);border-color:var(--gold);box-shadow:none}
@@ -78,7 +78,7 @@ const css = `
 /* ---------- Hero ---------- */
 .edl-hero{position:relative;background:
   radial-gradient(900px 380px at 88% -10%,rgba(16,163,116,.10),transparent 60%),
-  radial-gradient(700px 320px at 0% 100%,rgba(184,134,47,.08),transparent 55%);
+  radial-gradient(700px 320px at 0% 100%,rgba(212,160,23,.08),transparent 55%);
   border-bottom:1px solid var(--line);overflow:hidden}
 .edl-hero-watermark{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;pointer-events:none;z-index:0}
 .edl-hero-watermark img{width:720px;height:auto;max-width:90vw;opacity:.08}
@@ -91,7 +91,7 @@ const css = `
 .edl-feat .edl-cardwm ~ *,.edl-sec .edl-cardwm ~ *{position:relative;z-index:1}
 .edl-hero-grid{display:grid;grid-template-columns:1.02fr .98fr;gap:64px;align-items:center;padding:92px 28px 100px}
 .edl-eyebrow{display:inline-flex;align-items:center;gap:10px;font-size:.76rem;font-weight:700;letter-spacing:.16em;text-transform:uppercase;color:var(--g700);background:var(--g50);border:2px solid var(--gold);padding:8px 14px;border-radius:999px}
-.edl-eyebrow::before{content:"";width:7px;height:7px;border-radius:50%;background:var(--gold);box-shadow:0 0 0 3px rgba(184,134,47,.18)}
+.edl-eyebrow::before{content:"";width:7px;height:7px;border-radius:50%;background:var(--gold);box-shadow:0 0 0 3px rgba(212,160,23,.18)}
 .edl-hero h1{font-size:clamp(2.4rem,4.6vw,3.6rem);font-weight:800;letter-spacing:-.035em;line-height:1.06;margin:22px 0 22px;color:var(--ink)}
 .edl-hero h1 .g{color:var(--g600)}
 .edl-hero h1 .gold{color:var(--gold)}
@@ -107,7 +107,7 @@ const css = `
 .edl-visual{position:relative;padding:10px}
 .edl-visual-ring{position:absolute;inset:-26px;pointer-events:none}
 .edl-visual-ring svg{width:100%;height:100%}
-.edl-browser{position:relative;background:#fff;border:1px solid var(--line);border-radius:18px;box-shadow:0 40px 90px -40px rgba(10,79,58,.4);overflow:hidden}
+.edl-browser{position:relative;background:#fff;border:1px solid var(--line);border-radius:18px;box-shadow:0 40px 90px -40px rgba(2,6,23,.4);overflow:hidden}
 .edl-browser-bar{display:flex;align-items:center;gap:8px;height:44px;padding:0 16px;border-bottom:1px solid var(--line);background:linear-gradient(180deg,#fbfdfc,#f4f8f6)}
 .edl-browser-bar i{width:11px;height:11px;border-radius:50%;display:block}
 .edl-browser-bar i:nth-child(1){background:#ed6a5e}
@@ -115,7 +115,7 @@ const css = `
 .edl-browser-bar i:nth-child(3){background:#61c789}
 .edl-browser-bar .url{margin-left:12px;flex:1;max-width:260px;height:24px;border-radius:7px;background:#eaf1ec;font-size:.74rem;color:var(--muted);display:flex;align-items:center;padding:0 12px;letter-spacing:.02em}
 .edl-browser img{width:100%;aspect-ratio:16/11;object-fit:cover;object-position:top;display:block}
-.edl-float-chip{position:absolute;bottom:-22px;left:-8px;background:#fff;border:1px solid var(--line);border-radius:14px;box-shadow:0 20px 44px -18px rgba(10,79,58,.35);padding:14px 18px;display:flex;align-items:center;gap:12px;animation:edlFloat 6s ease-in-out infinite}
+.edl-float-chip{position:absolute;bottom:-22px;left:-8px;background:#fff;border:1px solid var(--line);border-radius:14px;box-shadow:0 20px 44px -18px rgba(2,6,23,.35);padding:14px 18px;display:flex;align-items:center;gap:12px;animation:edlFloat 6s ease-in-out infinite}
 .edl-float-chip .ic{width:40px;height:40px;border-radius:11px;background:var(--g50);color:var(--g700);border:2px solid var(--gold);display:flex;align-items:center;justify-content:center}
 .edl-float-chip .t{font-weight:700;font-size:.86rem;color:var(--ink);line-height:1.2}
 .edl-float-chip .s{font-size:.74rem;color:var(--muted)}
@@ -124,7 +124,7 @@ const css = `
 .edl-section{padding:96px 0}
 .edl-sec-head{max-width:720px;margin:0 0 56px}
 .edl-sec-head.center{margin:0 auto 56px;text-align:center}
-.edl-sec-head .tag{display:inline-flex;align-items:center;gap:10px;font-size:.76rem;font-weight:700;letter-spacing:.16em;text-transform:uppercase;color:var(--gold);background:var(--goldsoft);border:1px solid rgba(184,134,47,.2);padding:8px 14px;border-radius:999px;margin-bottom:18px}
+.edl-sec-head .tag{display:inline-flex;align-items:center;gap:10px;font-size:.76rem;font-weight:700;letter-spacing:.16em;text-transform:uppercase;color:var(--gold);background:var(--goldsoft);border:1px solid rgba(212,160,23,.2);padding:8px 14px;border-radius:999px;margin-bottom:18px}
 .edl-sec-head .tag::before{content:"";width:7px;height:7px;border-radius:50%;background:var(--gold)}
 .edl-sec-head h2{font-size:clamp(1.9rem,3.4vw,2.6rem);font-weight:800;letter-spacing:-.03em;color:var(--ink);line-height:1.12;margin-bottom:16px}
 .edl-sec-head p{font-size:1.05rem;color:var(--body)}
@@ -132,7 +132,7 @@ const css = `
 /* ---------- Bento features ---------- */
 .edl-bento{display:flex;flex-direction:column;gap:22px}
 .edl-feat{position:relative;background:#fff;border:1px solid var(--line);border-radius:22px;overflow:hidden;transition:transform .3s cubic-bezier(.16,1,.3,1),box-shadow .3s,border-color .3s}
-.edl-feat:hover{transform:translateY(-4px);box-shadow:0 28px 60px -30px rgba(10,79,58,.35);border-color:rgba(13,138,90,.3)}
+.edl-feat:hover{transform:translateY(-4px);box-shadow:0 28px 60px -30px rgba(2,6,23,.35);border-color:rgba(30,64,175,.3)}
 .edl-feat--wide{display:grid;grid-template-columns:1.05fr 1fr}
 .edl-feat--dark{background:var(--g900);border-color:transparent}
 .edl-feat-media{position:relative;background:var(--g900);overflow:hidden}
@@ -153,7 +153,7 @@ const css = `
 .edl-feat-body p{font-size:.95rem;color:var(--body);line-height:1.65}
 .edl-feat--dark .edl-feat-body p{color:#cfe6da}
 .edl-pillrow{display:flex;flex-wrap:wrap;gap:8px;margin-top:20px}
-.edl-pill{font-size:.74rem;font-weight:700;color:var(--g800);background:var(--g50);padding:6px 12px;border-radius:999px;border:1px solid rgba(13,138,90,.14)}
+.edl-pill{font-size:.74rem;font-weight:700;color:var(--g800);background:var(--g50);padding:6px 12px;border-radius:999px;border:1px solid rgba(30,64,175,.14)}
 .edl-feat--dark .edl-pill{background:rgba(255,255,255,.1);color:#ffe9b8;border-color:rgba(255,255,255,.14)}
 .edl-bento-grid{display:grid;grid-template-columns:1fr 1fr;gap:22px}
 
@@ -161,14 +161,14 @@ const css = `
 .edl-band{background:linear-gradient(135deg,var(--g900) 20%,var(--g800));border-radius:26px;padding:64px;color:#fff;position:relative;overflow:hidden}
 .edl-band::after{content:"";position:absolute;right:-90px;top:-90px;width:340px;height:340px;border-radius:50%;border:70px solid rgba(255,255,255,.05);pointer-events:none}
 .edl-band-grid{display:grid;grid-template-columns:1.05fr .95fr;gap:60px;align-items:center;position:relative;z-index:1}
-.edl-band .ey{display:inline-flex;align-items:center;gap:10px;font-size:.76rem;font-weight:700;letter-spacing:.16em;text-transform:uppercase;color:#f5dfae;background:rgba(184,134,47,.18);border:1px solid rgba(247,220,160,.3);padding:8px 14px;border-radius:999px;margin-bottom:20px}
+.edl-band .ey{display:inline-flex;align-items:center;gap:10px;font-size:.76rem;font-weight:700;letter-spacing:.16em;text-transform:uppercase;color:#f5dfae;background:rgba(212,160,23,.18);border:1px solid rgba(247,220,160,.3);padding:8px 14px;border-radius:999px;margin-bottom:20px}
 .edl-band .ey::before{content:"";width:7px;height:7px;border-radius:50%;background:#f5dfae}
 .edl-band h2{font-size:clamp(1.8rem,3vw,2.4rem);font-weight:800;letter-spacing:-.03em;line-height:1.12;margin-bottom:18px}
 .edl-band p{color:#d3e7dc;font-size:1.03rem;margin-bottom:32px;max-width:520px}
 .edl-list{list-style:none;display:flex;flex-direction:column;gap:16px}
 .edl-list li{display:flex;gap:14px;align-items:flex-start;font-size:.98rem;color:#eaf3ee}
 .edl-list li b{color:#fff}
-.edl-list .tick{width:26px;height:26px;flex-shrink:0;border-radius:50%;background:rgba(184,134,47,.22);color:#f5dfae;display:flex;align-items:center;justify-content:center;margin-top:1px}
+.edl-list .tick{width:26px;height:26px;flex-shrink:0;border-radius:50%;background:rgba(212,160,23,.22);color:#f5dfae;display:flex;align-items:center;justify-content:center;margin-top:1px}
 .edl-band-stats{display:grid;grid-template-columns:1fr 1fr;gap:16px}
 .edl-band-stat{background:rgba(255,255,255,.07);border:1px solid rgba(255,255,255,.12);border-radius:18px;padding:22px}
 .edl-band-stat .n{font-size:1.9rem;font-weight:800;letter-spacing:-.02em;color:#f5dfae}
@@ -178,7 +178,7 @@ const css = `
 /* ---------- Security ---------- */
 .edl-sec-cards{display:grid;grid-template-columns:repeat(3,1fr);gap:22px}
 .edl-sec{background:#fff;border:2px solid #d4e0da;border-radius:20px;padding:30px;transition:transform .3s,box-shadow .3s,border-color .3s}
-.edl-sec:hover{transform:translateY(-4px);box-shadow:0 24px 50px -26px rgba(10,79,58,.3);border-color:rgba(184,134,47,.3)}
+.edl-sec:hover{transform:translateY(-4px);box-shadow:0 24px 50px -26px rgba(2,6,23,.3);border-color:rgba(212,160,23,.3)}
 .edl-sec .ic{width:48px;height:48px;border-radius:13px;background:var(--goldsoft);color:var(--gold);display:flex;align-items:center;justify-content:center;margin-bottom:18px}
 .edl-sec h3{font-size:1.08rem;font-weight:800;margin-bottom:10px}
 .edl-sec p{font-size:.92rem;color:var(--body);line-height:1.6}
@@ -186,7 +186,7 @@ const css = `
 /* ---------- CTA ---------- */
 .edl-cta{background:var(--g900);position:relative;overflow:hidden;padding:92px 0}
 .edl-cta::before{content:"";position:absolute;inset:0;background:
-  radial-gradient(700px 300px at 15% 120%,rgba(184,134,47,.25),transparent 60%),
+  radial-gradient(700px 300px at 15% 120%,rgba(212,160,23,.25),transparent 60%),
   radial-gradient(800px 360px at 88% -30%,rgba(22,163,116,.25),transparent 55%)}
 .edl-cta-in{position:relative;z-index:1;text-align:center;max-width:640px;margin:0 auto}
 .edl-cta h2{font-size:clamp(1.9rem,3.4vw,2.6rem);font-weight:800;letter-spacing:-.03em;line-height:1.12;color:#fff;margin-bottom:16px}
@@ -205,7 +205,7 @@ const css = `
 .edl-feat--dark .edl-feat-body .ic{color:#ffe4a1}
 .edl-feat--dark .edl-pill{color:#ffe4a1;border-color:rgba(255,228,161,.3)}
 .edl-footer .copy b{color:#f2d478;text-shadow:0 0 14px rgba(242,212,120,.4)}
-.edl-cta .edl-btn--gold{background:linear-gradient(135deg,#f4d97e,#d9a62e);border:2px solid #8a6b1d;box-shadow:0 14px 34px -12px rgba(0,0,0,.5),0 0 28px rgba(217,166,46,.45)}
+.edl-cta .edl-btn--gold{background:linear-gradient(135deg,#f4d97e,#d4a017);border:2px solid #8a6b1d;box-shadow:0 14px 34px -12px rgba(0,0,0,.5),0 0 28px rgba(212,160,23,.45)}
 .edl-cta .edl-btn--gold:hover{background:linear-gradient(135deg,#fae28c,#e7b439);transform:translateY(-2px);box-shadow:0 18px 40px -14px rgba(0,0,0,.55),0 0 36px rgba(250,226,140,.5)}
 
 /* ---------- Contact ---------- */
@@ -213,22 +213,22 @@ const css = `
 .edl-contact-grid{display:grid;grid-template-columns:.85fr 1.15fr;gap:40px;align-items:stretch}
 .edl-contact-info{display:flex;flex-direction:column;gap:20px}
 .edl-contact-card{background:#fff;border:3px solid #c2d1ca;border-radius:18px;padding:26px;display:flex;gap:18px;align-items:flex-start;transition:transform .3s,box-shadow .3s;text-align:left}
-.edl-contact-card:hover{transform:translateY(-3px);box-shadow:0 18px 40px -22px rgba(10,79,58,.28)}
+.edl-contact-card:hover{transform:translateY(-3px);box-shadow:0 18px 40px -22px rgba(2,6,23,.28)}
 .edl-contact-card .ic{width:50px;height:50px;flex-shrink:0;border-radius:13px;background:var(--g50);color:var(--g700);display:flex;align-items:center;justify-content:center}
 .edl-contact-card h4{font-size:.98rem;font-weight:800;margin-bottom:4px}
 .edl-contact-card p{font-size:.9rem;color:var(--body);line-height:1.6}
 .edl-contact-card a{color:var(--g700);font-weight:700;text-decoration:none}
 .edl-contact-card a:hover{text-decoration:underline}
-.edl-form{background:#fff;border:3px solid #c2d1ca;border-radius:22px;padding:40px;box-shadow:0 30px 70px -40px rgba(10,79,58,.35)}
+.edl-form{background:#fff;border:3px solid #c2d1ca;border-radius:22px;padding:40px;box-shadow:0 30px 70px -40px rgba(2,6,23,.35)}
 .edl-form h3{font-size:1.3rem;font-weight:800;letter-spacing:-.02em;margin-bottom:8px}
 .edl-form .sub{color:var(--muted);font-size:.9rem;margin-bottom:26px}
 .edl-field{display:flex;flex-direction:column;gap:8px;margin-bottom:18px}
 .edl-field label{font-size:.82rem;font-weight:700;color:var(--ink)}
 .edl-field input,.edl-field textarea,.edl-field select{border:2.5px solid #b8c9c0;border-radius:11px;padding:12px 14px;font-size:.95rem;font-family:inherit;color:var(--ink);background:#fff;transition:border-color .2s,box-shadow .2s;outline:none}
-.edl-field input:focus,.edl-field textarea:focus,.edl-field select:focus{border-color:var(--g600);box-shadow:0 0 0 3px rgba(13,138,90,.12)}
+.edl-field input:focus,.edl-field textarea:focus,.edl-field select:focus{border-color:var(--g600);box-shadow:0 0 0 3px rgba(30,64,175,.12)}
 .edl-field textarea{resize:vertical;min-height:110px}
 .edl-form-row{display:grid;grid-template-columns:1fr 1fr;gap:16px}
-.edl-form-ok{background:var(--g50);border:1px solid rgba(13,138,90,.25);color:var(--g800);padding:13px 16px;border-radius:11px;font-weight:700;font-size:.9rem;margin-bottom:16px;display:flex;align-items:center;gap:9px}
+.edl-form-ok{background:var(--g50);border:1px solid rgba(30,64,175,.25);color:var(--g800);padding:13px 16px;border-radius:11px;font-weight:700;font-size:.9rem;margin-bottom:16px;display:flex;align-items:center;gap:9px}
 
 /* ---------- Footer ---------- */
 .edl-footer{background:#06291e;color:#9fc3b1;padding:44px 0}
@@ -254,7 +254,7 @@ const css = `
   .edl-band{padding:44px 30px}
   .edl-sec-cards{grid-template-columns:1fr 1fr}
   .edl-contact-grid{grid-template-columns:1fr}
-  .edl-navlinks{display:flex;flex-direction:column;position:absolute;top:88px;left:0;right:0;background:#fff;padding:16px 24px 22px;border-bottom:1px solid var(--line);box-shadow:0 24px 40px -24px rgba(10,79,58,.3);gap:4px;transform:none}
+  .edl-navlinks{display:flex;flex-direction:column;position:absolute;top:88px;left:0;right:0;background:#fff;padding:16px 24px 22px;border-bottom:1px solid var(--line);box-shadow:0 24px 40px -24px rgba(2,6,23,.3);gap:4px;transform:none}
   .edl-navlinks:not(.open){display:none}
   .edl-navlinks a{width:100%}
   .edl-navdrop{width:100%}
@@ -389,7 +389,7 @@ export default function HomePage({ onEnter }) {
         <nav className={`edl-nav${scrolled ? ' scrolled' : ''}`}>
           <div className="edl-nav-in">
             <a href="#hero" className="edl-brand" onClick={(e) => { e.preventDefault(); window.scrollTo({ top: 0, behavior: 'smooth' }); }}>
-              <img src={`${import.meta.env.BASE_URL}edulink-favicon.svg`} alt="EduLink Pro" style={{ width: 58, height: 58, borderRadius: 14, filter: 'drop-shadow(0 6px 18px rgba(10,79,58,.35))' }} />
+              <img src={`${import.meta.env.BASE_URL}edulink-favicon.svg`} alt="EduLink Pro" style={{ width: 58, height: 58, borderRadius: 14, filter: 'drop-shadow(0 6px 18px rgba(2,6,23,.35))' }} />
               <span className="edl-brand-name">
                 <span className="edl-brand-title">
                   <b>EduLink Pro</b>
@@ -461,9 +461,9 @@ export default function HomePage({ onEnter }) {
             <div className="edl-visual" data-reveal data-delay="120">
               <div className="edl-visual-ring" aria-hidden="true">
                 <svg viewBox="0 0 400 400" fill="none">
-                  <circle cx="200" cy="200" r="198" stroke="#0a4f3a" strokeOpacity=".12" strokeWidth="1.5" strokeDasharray="6 8" />
-                  <circle cx="90" cy="80" r="9" fill="#b8862f" />
-                  <circle cx="315" cy="320" r="6" fill="#16a374" />
+                  <circle cx="200" cy="200" r="198" stroke="#020617" strokeOpacity=".12" strokeWidth="1.5" strokeDasharray="6 8" />
+                  <circle cx="90" cy="80" r="9" fill="#d4a017" />
+                  <circle cx="315" cy="320" r="6" fill="#22d3ee" />
                 </svg>
               </div>
               <div className="edl-browser">
@@ -474,7 +474,7 @@ export default function HomePage({ onEnter }) {
                 <img src={`${import.meta.env.BASE_URL}illustrations/tableau-de-bord.svg`} alt="Aperçu du tableau de bord EduLink Pro" />
               </div>
               <div className="edl-float-chip">
-                <div className="ic"><Icon name="chart" size={20} color="#0a4f3a" /></div>
+                <div className="ic"><Icon name="chart" size={20} color="#020617" /></div>
                 <div>
                   <div className="t">Présences 96%</div>
                   <div className="s">suivi en temps réel</div>
@@ -507,7 +507,7 @@ export default function HomePage({ onEnter }) {
                   <span className="grow"><Icon name="arrow" size={16} /></span>
                 </div>
                 <div className="edl-feat-body">
-                  <div className="ic"><Icon name="dashboard" size={22} color="#0a4f3a" /></div>
+                  <div className="ic"><Icon name="dashboard" size={22} color="#020617" /></div>
                   <h3>Tableau de bord intelligent</h3>
                   <p>Effectifs, présences, notes et paiements agrégés sur une vue globale, en temps réel, pour chaque école.</p>
                   <div className="edl-pillrow">
@@ -530,7 +530,7 @@ export default function HomePage({ onEnter }) {
                       <span className="grow"><Icon name="arrow" size={16} /></span>
                     </div>
                     <div className="edl-feat-body">
-                      <div className="ic"><Icon name={f.icon} size={22} color="#0a4f3a" /></div>
+                      <div className="ic"><Icon name={f.icon} size={22} color="#020617" /></div>
                       <h3>{f.title}</h3>
                       <p>{f.desc}</p>
                       <div className="edl-pillrow">{f.pills.map((p) => <span className="edl-pill" key={p}>{p}</span>)}</div>
@@ -550,7 +550,7 @@ export default function HomePage({ onEnter }) {
                       <span className="grow"><Icon name="arrow" size={16} /></span>
                     </div>
                     <div className="edl-feat-body">
-                      <div className="ic"><Icon name={f.icon} size={22} color="#0a4f3a" /></div>
+                      <div className="ic"><Icon name={f.icon} size={22} color="#020617" /></div>
                       <h3>{f.title}</h3>
                       <p>{f.desc}</p>
                       <div className="edl-pillrow">{f.pills.map((p) => <span className="edl-pill" key={p}>{p}</span>)}</div>
@@ -633,7 +633,7 @@ export default function HomePage({ onEnter }) {
                     <img src={`${import.meta.env.BASE_URL}edulink-favicon.svg`} alt="" />
                   </div>
                   <div className="edl-sec-in">
-                    <div className="ic"><Icon name={s.icon} size={24} color="#b8862f" /></div>
+                    <div className="ic"><Icon name={s.icon} size={24} color="#d4a017" /></div>
                     <h3>{s.title}</h3>
                     <p>{s.desc}</p>
                   </div>
@@ -664,8 +664,8 @@ export default function HomePage({ onEnter }) {
                   </div>
                 </div>
                 <div className="edl-contact-card">
-                  <div className="ic" style={{ background: '#e7f6ee', color: '#128c4a' }}>
-                    <svg width="22" height="22" viewBox="0 0 24 24" fill="#16a374" aria-hidden="true">
+                  <div className="ic" style={{ background: '#e0f2fe', color: '#1e40af' }}>
+                    <svg width="22" height="22" viewBox="0 0 24 24" fill="#22d3ee" aria-hidden="true">
                       <path d="M12.04 2C6.58 2 2.13 6.45 2.13 11.91c0 1.75.46 3.45 1.32 4.95L2 22l5.25-1.38a9.9 9.9 0 0 0 4.78 1.22h.01c5.46 0 9.91-4.45 9.91-9.91C21.95 6.45 17.5 2 12.04 2m5.83 14.12c-.25.7-1.45 1.33-2 1.38-.53.05-1.03.24-3.46-.72-2.92-1.15-4.77-4.13-4.92-4.32-.14-.2-1.17-1.56-1.17-2.97 0-1.41.74-2.1 1-2.39.26-.28.57-.35.76-.35.19 0 .38 0 .54.01.18.01.41-.07.64.49.24.57.8 1.97.87 2.11.07.14.12.31.02.5-.1.19-.14.31-.29.48-.14.17-.3.38-.43.5-.14.14-.29.3-.12.58.17.28.74 1.22 1.59 1.97 1.09.97 2 1.27 2.29 1.42.29.14.45.12.62-.07.17-.2.72-.84.91-1.13.19-.29.38-.24.64-.14.26.09 1.66.78 1.95.93.28.14.47.21.54.33.07.11.07.66-.18 1.29z" />
                     </svg>
                   </div>

@@ -4,8 +4,8 @@
   "description": "EduLink Pro — solution moderne de gestion scolaire, évaluations et administration",
   "start_url": "/",
   "display": "standalone",
-  "background_color": "#f1f4f1",
-  "theme_color": "#0a4f3a",
+  "background_color": "#f0f4f8",
+  "theme_color": "#020617",
   "lang": "fr",
   "icons": [
     {

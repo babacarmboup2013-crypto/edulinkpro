@@ -1791,19 +1791,19 @@ function computeAttendanceStats(state, classIds, startISO, endISO) {
 }
 
 /* ============================================================
-   THÈME — palette Sénégal/SYGENOP (vert/or), clair + sombre
+   THÈME — palette Bleu Nuit / Cyan / Or, clair + sombre
    ============================================================ */
 const THEME_VARS_LIGHT = {
-  '--ink': '#12241a', '--green': '#0d8a5a', '--green-d': '#0a4f3a', '--green-l': '#e8f4ee',
-  '--gold': '#b8862f', '--gold-l': '#f8f0dc', '--red': '#a8402f', '--red-l': '#fbe9e6',
-  '--bg': '#f1f4f1', '--panel': '#ffffff', '--line': '#e3e9e5', '--muted': '#6b7670',
-  '--modal-overlay': 'rgba(16,28,22,.5)', '--modal-card': 'rgba(255,255,255,.84)', '--modal-line': 'rgba(227,233,229,.85)',
+  '--ink': '#0f172a', '--green': '#1e40af', '--green-d': '#020617', '--green-l': '#e0f2fe',
+  '--gold': '#d4a017', '--gold-l': '#fef9e7', '--red': '#dc2626', '--red-l': '#fef2f2',
+  '--bg': '#f0f4f8', '--panel': '#ffffff', '--line': '#e2e8f0', '--muted': '#64748b',
+  '--modal-overlay': 'rgba(2,6,23,.5)', '--modal-card': 'rgba(255,255,255,.84)', '--modal-line': 'rgba(226,232,240,.85)',
 };
 const THEME_VARS_DARK = {
-  '--ink': '#e7efe9', '--green': '#22b47a', '--green-d': '#3fd398', '--green-l': '#173327',
-  '--gold': '#e0b358', '--gold-l': '#3a2f16', '--red': '#e07a63', '--red-l': '#3a2119',
-  '--bg': '#0e1712', '--panel': '#16211b', '--line': '#2a3830', '--muted': '#8ba396',
-  '--modal-overlay': 'rgba(3,7,5,.62)', '--modal-card': 'rgba(24,34,28,.76)', '--modal-line': 'rgba(58,78,66,.6)',
+  '--ink': '#e2e8f0', '--green': '#3b82f6', '--green-d': '#60a5fa', '--green-l': '#1e293b',
+  '--gold': '#fbbf24', '--gold-l': '#422006', '--red': '#f87171', '--red-l': '#450a0a',
+  '--bg': '#020617', '--panel': '#0f172a', '--line': '#1e293b', '--muted': '#94a3b8',
+  '--modal-overlay': 'rgba(2,6,23,.62)', '--modal-card': 'rgba(15,23,42,.76)', '--modal-line': 'rgba(30,41,59,.6)',
 };
 
 function GlobalStyles({ dark }) {
@@ -1813,8 +1813,8 @@ function GlobalStyles({ dark }) {
     <style>{`
 @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap');
       .sygenop-root{ ${cssVars} font-family:'Inter',-apple-system,BlinkMacSystemFont,sans-serif; background:var(--bg); color:var(--ink); min-height:100vh; -webkit-font-smoothing:antialiased; text-rendering:optimizeLegibility; }
-      .sygenop-card{ background:var(--panel); border:1px solid var(--line); border-radius:16px; box-shadow:0 1px 2px rgba(10,30,20,.04),0 12px 30px -8px rgba(10,30,20,.10); transition:transform .25s cubic-bezier(.22,1,.36,1), box-shadow .25s, border-color .25s; will-change:transform; }
-      .sygenop-card:hover{ transform:translateY(-3px); box-shadow:0 4px 10px rgba(10,30,20,.06),0 22px 45px -14px rgba(13,138,90,.32); border-color:rgba(13,138,90,.18); }
+      .sygenop-card{ background:var(--panel); border:1px solid var(--line); border-radius:16px; box-shadow:0 1px 2px rgba(2,6,23,.04),0 12px 30px -8px rgba(2,6,23,.10); transition:transform .25s cubic-bezier(.22,1,.36,1), box-shadow .25s, border-color .25s; will-change:transform; }
+      .sygenop-card:hover{ transform:translateY(-3px); box-shadow:0 4px 10px rgba(2,6,23,.06),0 22px 45px -14px rgba(30,64,175,.32); border-color:rgba(30,64,175,.18); }
 
       /* ---------- Modales : verre dépoli, opacité régulée + scroll sûr ---------- */
       .sygenop-root .fixed.inset-0.z-50{
@@ -1840,36 +1840,36 @@ function GlobalStyles({ dark }) {
       .sygenop-root .fixed.inset-0.z-50 > .sygenop-card textarea{ background: var(--panel); }
 
       /* ---------- Accessibilité clavier ---------- */
-      .sygenop-root button:focus-visible, .sygenop-root input:focus-visible, .sygenop-root select:focus-visible, .sygenop-root textarea:focus-visible, .sygenop-root a:focus-visible{ outline:2px solid var(--gold); outline-offset:2px; border-radius:6px; box-shadow:0 0 0 4px rgba(184,134,47,.18); }
-      .sygenop-root input:focus, .sygenop-root select:focus, .sygenop-root textarea:focus{ border-color:var(--green); box-shadow:0 0 0 3px rgba(13,138,90,.12); }
+      .sygenop-root button:focus-visible, .sygenop-root input:focus-visible, .sygenop-root select:focus-visible, .sygenop-root textarea:focus-visible, .sygenop-root a:focus-visible{ outline:2px solid var(--gold); outline-offset:2px; border-radius:6px; box-shadow:0 0 0 4px rgba(212,160,23,.18); }
+      .sygenop-root input:focus, .sygenop-root select:focus, .sygenop-root textarea:focus{ border-color:var(--green); box-shadow:0 0 0 3px rgba(30,64,175,.12); }
 
       /* ---------- Scrollbar (clair + sombre) ---------- */
       .sygenop-root ::-webkit-scrollbar{ width:10px; height:10px; }
       .sygenop-root ::-webkit-scrollbar-track{ background:var(--bg); }
       .sygenop-root ::-webkit-scrollbar-thumb{ background:var(--line); border-radius:999px; border:2px solid var(--bg); }
       .sygenop-root ::-webkit-scrollbar-thumb:hover{ background:var(--green); }
-      .sygenop-root ::selection{ background:rgba(13,138,90,.18); }
+      .sygenop-root ::selection{ background:rgba(30,64,175,.18); }
 
       /* ---------- Boutons & inputs cohérents ---------- */
       .sygenop-btn{ display:inline-flex; align-items:center; justify-content:center; gap:.5rem; border:none; cursor:pointer; font-weight:600; font-size:.85rem; border-radius:.65rem; padding:.6rem 1rem; color:#fff; background:var(--green-d); transition:transform .15s ease, box-shadow .2s ease, filter .2s ease; white-space:nowrap; }
-      .sygenop-btn:hover{ transform:translateY(-1px); box-shadow:0 8px 18px -6px rgba(13,138,90,.5); filter:brightness(1.05); }
+      .sygenop-btn:hover{ transform:translateY(-1px); box-shadow:0 8px 18px -6px rgba(30,64,175,.5); filter:brightness(1.05); }
       .sygenop-btn:active{ transform:translateY(0); }
       .sygenop-btn:disabled{ opacity:.5; cursor:not-allowed; transform:none; box-shadow:none; filter:none; }
       .sygenop-btn--ghost{ background:var(--bg); color:var(--ink); border:1px solid var(--line); }
-      .sygenop-btn--ghost:hover{ box-shadow:0 6px 14px -6px rgba(10,30,20,.25); filter:none; }
+      .sygenop-btn--ghost:hover{ box-shadow:0 6px 14px -6px rgba(2,6,23,.25); filter:none; }
       .sygenop-btn--danger{ background:var(--red); }
-      .sygenop-btn--danger:hover{ box-shadow:0 8px 18px -6px rgba(168,64,47,.5); }
+      .sygenop-btn--danger:hover{ box-shadow:0 8px 18px -6px rgba(220,38,38,.5); }
       .sygenop-btn--sm{ padding:.4rem .7rem; font-size:.78rem; border-radius:.5rem; }
       .sygenop-btn--gold{ background:var(--gold); }
-      .sygenop-btn--gold:hover{ box-shadow:0 8px 18px -6px rgba(184,134,47,.5); }
+      .sygenop-btn--gold:hover{ box-shadow:0 8px 18px -6px rgba(212,160,23,.5); }
       .sygenop-input{ width:100%; padding:.65rem .9rem; border-radius:.65rem; border:1px solid var(--line); background:var(--panel); color:var(--ink); font-size:.9rem; transition:border-color .2s, box-shadow .2s; }
 
       /* ---------- Tableaux : lisibilité + lignes alternées + survol ---------- */
       .sygenop-root table{ width:100%; border-collapse:separate; border-spacing:0; }
       .sygenop-root thead th{ background:var(--green-l); color:var(--green-d); }
       .sygenop-root tbody tr{ transition:background .15s ease; }
-      .sygenop-root tbody tr:nth-child(even):not(.total):not(.grand){ background:rgba(13,138,90,.025); }
-      .sygenop-root tbody tr:hover{ background:rgba(184,134,47,.06); }
+      .sygenop-root tbody tr:nth-child(even):not(.total):not(.grand){ background:rgba(30,64,175,.025); }
+      .sygenop-root tbody tr:hover{ background:rgba(212,160,23,.06); }
       .sygenop-root tbody tr:last-child td{ border-bottom:none; }
       .sygenop-table{ overflow-x:auto; border:1px solid var(--line); border-radius:12px; }
       .sygenop-table table{ min-width:640px; }
@@ -1888,17 +1888,17 @@ function GlobalStyles({ dark }) {
       .synth-table th, .synth-table td{ border:1px solid var(--line); padding:5px 7px; text-align:center; }
       .synth-table thead th{ background:var(--green-l); color:var(--green-d); font-weight:700; }
       .synth-table td.cl, .synth-table td.gf{ text-align:left; font-weight:600; }
-      .synth-table tr.total td{ background:rgba(184,134,47,.08); font-weight:700; }
-      .synth-table tr.grand td{ background:var(--gold-l); font-weight:800; color:#7a5a1f; }
+      .synth-table tr.total td{ background:rgba(212,160,23,.08); font-weight:700; }
+      .synth-table tr.grand td{ background:var(--gold-l); font-weight:800; color:#92710c; }
       .synth-rate-good{ color:var(--green-d); font-weight:700; }
       .synth-rate-bad{ color:var(--red); font-weight:700; }
       .synth-rate-n{ font-size:10px; opacity:.75; display:block; }
 
-      .bull-sheet{ background:#fff; color:#12241a; width:210mm; min-height:297mm; margin:0 auto; padding:14mm 12mm; box-sizing:border-box; font-size:11.5px; }
+      .bull-sheet{ background:#fff; color:#0f172a; width:210mm; min-height:297mm; margin:0 auto; padding:14mm 12mm; box-sizing:border-box; font-size:11.5px; }
       .bull-sheet table{ width:100%; border-collapse:collapse; }
-      .bull-sheet th, .bull-sheet td{ border:1px solid #d8ded9; padding:4px 6px; }
-      .bull-sheet .domrow td{ background:#e8f4ee; font-weight:700; color:#0a4f3a; text-align:left; }
-      .bull-sheet tr.tot td{ background:#f8f0dc; font-weight:800; }
+      .bull-sheet th, .bull-sheet td{ border:1px solid #cbd5e1; padding:4px 6px; }
+      .bull-sheet .domrow td{ background:#e0f2fe; font-weight:700; color:#020617; text-align:left; }
+      .bull-sheet tr.tot td{ background:#fef9e7; font-weight:800; }
 
       /* ---------- Carte d’identité élève ---------- */
       .student-id-card-sheet{ display:flex; flex-direction:column; align-items:center; gap:16px; }
@@ -1906,11 +1906,11 @@ function GlobalStyles({ dark }) {
       .student-id-card-back{ display:flex; flex-direction:column; align-items:center; justify-content:center; }
 
       /* ---------- Reçu de paiement ---------- */
-      .recu-sheet{ background:#fff; color:#12241a; width:148mm; min-height:auto; margin:0 auto 14px; padding:10mm; box-sizing:border-box; font-size:12px; border:1px dashed #b8862f; }
+      .recu-sheet{ background:#fff; color:#0f172a; width:148mm; min-height:auto; margin:0 auto 14px; padding:10mm; box-sizing:border-box; font-size:12px; border:1px dashed #d4a017; }
       .recu-sheet table{ width:100%; border-collapse:collapse; }
-      .recu-sheet th, .recu-sheet td{ border:1px solid #d8ded9; padding:5px 7px; }
-      .recu-sheet .recu-total td{ background:#f8f0dc; font-weight:800; }
-      .recu-sheet .recu-stub{ border-top:1px dashed #b8862f; margin-top:10px; padding-top:8px; font-size:10px; color:#6b7670; }
+      .recu-sheet th, .recu-sheet td{ border:1px solid #cbd5e1; padding:5px 7px; }
+      .recu-sheet .recu-total td{ background:#fef9e7; font-weight:800; }
+      .recu-sheet .recu-stub{ border-top:1px dashed #d4a017; margin-top:10px; padding-top:8px; font-size:10px; color:#64748b; }
 
       @media print{
         .no-print{ display:none !important; }
@@ -2374,9 +2374,9 @@ const entered = String(code).trim();
           style={{
             top: 18, left: 18, zIndex: 70, cursor: 'pointer',
             width: 42, height: 42, display: 'flex', alignItems: 'center', justifyContent: 'center',
-            borderRadius: '50%', border: '2px solid var(--green-d, #0a4f3a)',
+            borderRadius: '50%', border: '2px solid var(--green-d, #020617)',
             background: 'rgba(255,255,255,.92)', backdropFilter: 'blur(6px)',
-            boxShadow: '0 6px 16px -6px rgba(10,79,58,.35)', color: 'var(--green-d, #0a4f3a)',
+            boxShadow: '0 6px 16px -6px rgba(10,79,58,.35)', color: 'var(--green-d, #020617)',
           }}
         >
           <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M3 10.5 12 3l9 7.5" /><path d="M5 9.5V21h5v-6h4v6h5V9.5" /></svg>
@@ -2415,7 +2415,7 @@ const entered = String(code).trim();
             <h1 className="text-2xl font-extrabold" style={{ color: 'var(--ink)' }}>
               EduLink Pro
             </h1>
-            <span className="text-[10px] font-bold px-1.5 py-0.5 rounded" style={{ background: 'var(--gold, #b8862f)', color: '#fff' }}>V1</span>
+            <span className="text-[10px] font-bold px-1.5 py-0.5 rounded" style={{ background: 'var(--gold, #d4a017)', color: '#fff' }}>V1</span>
           </div>
           <p className="text-xs mt-1 text-center" style={{ color: 'var(--muted)' }}>
             La plateforme intelligente de gestion scolaire
@@ -2629,7 +2629,7 @@ function SubmitBtn({ children, busy }) {
       type="submit"
       disabled={busy}
       className="w-full py-3 rounded-lg font-semibold text-sm text-white flex items-center justify-center gap-2 disabled:opacity-60"
-      style={{ background: 'linear-gradient(135deg,#16a374,#0a4f3a)' }}
+      style={{ background: 'linear-gradient(135deg,#22d3ee,#020617)' }}
     >
       {busy && <Loader2 size={15} className="animate-spin" />}
       {children}
@@ -2745,7 +2745,7 @@ function Sidebar({ session, active, setActive, mobileOpen, setMobileOpen, hasAct
       {mobileOpen && <div className="fixed inset-0 bg-black/40 z-30 md:hidden" onClick={() => setMobileOpen(false)} />}
       <aside
         className={`no-print fixed md:sticky top-0 z-40 h-screen w-60 flex-shrink-0 flex flex-col text-white transition-transform duration-300 ${mobileOpen ? 'translate-x-0' : '-translate-x-full md:translate-x-0'}`}
-        style={{ background: 'linear-gradient(160deg,#0a4f3a 0%,#083b2b 60%,#062f22 100%)' }}
+        style={{ background: 'linear-gradient(160deg,#020617 0%,#0f172a 60%,#1e293b 100%)' }}
       >
         <div className="px-4 pt-5 pb-4 border-b border-white/10">
           <button
@@ -2760,10 +2760,10 @@ function Sidebar({ session, active, setActive, mobileOpen, setMobileOpen, hasAct
             />
             <div className="flex items-center gap-1.5">
               <h1 className="text-lg font-bold">EduLink Pro</h1>
-              <span className="text-[9px] font-bold px-1.5 py-0.5 rounded" style={{ background: 'var(--gold, #b8862f)', color: '#fff' }}>V1</span>
+              <span className="text-[9px] font-bold px-1.5 py-0.5 rounded" style={{ background: 'var(--gold, #d4a017)', color: '#fff' }}>V1</span>
             </div>
           </button>
-          <p className="text-[11px] mt-1 text-[#a3c9b3] font-medium leading-tight">
+          <p className="text-[11px] mt-1 text-[#94a3b8] font-medium leading-tight">
             La plateforme intelligente de gestion scolaire
           </p>
         </div>
@@ -2778,7 +2778,7 @@ function Sidebar({ session, active, setActive, mobileOpen, setMobileOpen, hasAct
                     disabled={disabled}
                     onClick={() => setEvalOpen((o) => !o)}
                     className={`w-full text-left px-3 py-2.5 rounded-lg text-[13.5px] font-medium flex items-center gap-2.5 mb-0.5 transition-colors ${disabled ? 'opacity-35 cursor-not-allowed' : 'hover:bg-white/10 hover:text-white'}`}
-                    style={isActiveGroup ? { background: 'rgba(255,255,255,.1)', boxShadow: 'inset 3px 0 0 var(--gold, #b8862f)', color: '#fff', fontWeight: 700 } : { color: '#cbe0d3' }}
+                    style={isActiveGroup ? { background: 'rgba(255,255,255,.1)', boxShadow: 'inset 3px 0 0 var(--gold, #d4a017)', color: '#fff', fontWeight: 700 } : { color: '#cbe0d3' }}
                   >
                     <item.icon size={16} className="w-[18px]" />
                     {item.label}
@@ -2791,7 +2791,7 @@ function Sidebar({ session, active, setActive, mobileOpen, setMobileOpen, hasAct
                           key={c.id}
                           onClick={() => { setActive(c.id); setMobileOpen(false); }}
                           className="w-full text-left px-3 py-2 rounded-lg text-[13px] font-medium mb-0.5 transition-colors"
-                          style={active === c.id ? { background: 'rgba(255,255,255,.1)', boxShadow: 'inset 3px 0 0 var(--gold, #b8862f)', color: '#fff', fontWeight: 700 } : { color: '#cbe0d3' }}
+                          style={active === c.id ? { background: 'rgba(255,255,255,.1)', boxShadow: 'inset 3px 0 0 var(--gold, #d4a017)', color: '#fff', fontWeight: 700 } : { color: '#cbe0d3' }}
                         >
                           {c.label}
                         </button>
@@ -2807,7 +2807,7 @@ function Sidebar({ session, active, setActive, mobileOpen, setMobileOpen, hasAct
                 disabled={disabled}
                 onClick={() => { setActive(item.id); setMobileOpen(false); }}
                 className={`w-full text-left px-3 py-2.5 rounded-lg text-[13.5px] font-medium flex items-center gap-2.5 mb-0.5 transition-colors ${disabled ? 'opacity-35 cursor-not-allowed' : 'hover:bg-white/10 hover:text-white hover:translate-x-0.5'}`}
-                style={active === item.id ? { background: 'rgba(255,255,255,.1)', boxShadow: 'inset 3px 0 0 var(--gold, #b8862f)', color: '#fff', fontWeight: 700 } : { color: '#cbe0d3' }}
+                style={active === item.id ? { background: 'rgba(255,255,255,.1)', boxShadow: 'inset 3px 0 0 var(--gold, #d4a017)', color: '#fff', fontWeight: 700 } : { color: '#cbe0d3' }}
               >
                 <item.icon size={16} className="w-[18px]" />
                 {item.label}
@@ -2843,7 +2843,7 @@ function Topbar({ title, sub, session, schoolName, dark, setDark, onLogout, setM
   return (
     <div
       className="no-print sticky top-0 z-20 px-4 md:px-7 py-2.5 shadow-lg"
-      style={{ background: 'linear-gradient(120deg,#065f46 0%,#059669 55%,#10b981 100%)' }}
+      style={{ background: 'linear-gradient(120deg,#0f172a 0%,#1e40af 55%,#3b82f6 100%)' }}
     >
       <div className="flex items-center justify-between gap-4">
       <button className="md:hidden text-white" onClick={() => setMobileOpen(true)}><Menu size={22} /></button>
@@ -2883,7 +2883,7 @@ function Topbar({ title, sub, session, schoolName, dark, setDark, onLogout, setM
               className="text-[11px] font-bold px-2 py-0.5 rounded-md border-0 outline-none cursor-pointer whitespace-nowrap"
               style={{ background: 'rgba(255,255,255,.15)', color: '#fff' }}
             >
-              {periodeOptions.map((p) => <option key={p.key} value={p.key} style={{ color: '#065f46' }}>{p.label}</option>)}
+              {periodeOptions.map((p) => <option key={p.key} value={p.key} style={{ color: '#1e40af' }}>{p.label}</option>)}
             </select>
           ) : periodeKey ? (
             <span className="inline-flex items-center gap-1 text-[11px] font-bold px-2 py-0.5 rounded-md bg-white/15 text-white whitespace-nowrap">
@@ -3171,13 +3171,13 @@ function DashboardView({ state, loading, teacherName, teacherStaffId, role, upda
     { name: 'Garçons', value: stats.garcons },
     { name: 'Filles', value: stats.filles },
   ];
-  const GENDER_COLORS = ['#0d8a5a', '#b8862f'];
+  const GENDER_COLORS = ['#1e40af', '#d4a017'];
   const personnelGenderData = [
     { name: 'Hommes', value: stats.personnelMale || 0 },
     { name: 'Femmes', value: stats.personnelFemale || 0 },
     ...(stats.personnelUnknown ? [{ name: 'Non renseigné', value: stats.personnelUnknown }] : []),
   ];
-  const PERSONNEL_GENDER_COLORS = ['#0d8a5a', '#b8862f', '#94a3b8'];
+  const PERSONNEL_GENDER_COLORS = ['#1e40af', '#d4a017', '#94a3b8'];
   const visibleClassIds = Object.entries(state.classes || {}).filter(([, cls]) => !isTeacherScoped || cls.teacher === teacherName).map(([id]) => id);
   const visibleAssignments = (state.affectationsMateriel || []).filter((a) => visibleClassIds.includes(a.classId));
 
@@ -3267,7 +3267,7 @@ function DashboardView({ state, loading, teacherName, teacherStaffId, role, upda
               <XAxis dataKey="niveau" tick={{ fontSize: 12, fill: 'var(--muted)' }} />
               <YAxis tick={{ fontSize: 12, fill: 'var(--muted)' }} />
               <Tooltip contentStyle={{ borderRadius: 10, border: '1px solid var(--line)', fontSize: 12 }} />
-              <Bar dataKey="effectif" fill="#0d8a5a" radius={[6, 6, 0, 0]} />
+              <Bar dataKey="effectif" fill="#1e40af" radius={[6, 6, 0, 0]} />
             </BarChart>
           </ResponsiveContainer>
         </div>
@@ -3601,7 +3601,7 @@ return (
             </div>
           </div>
           {STAFF_LOGIN_ROLES.has(form.role) && (
-            <div className="rounded-xl p-3.5" style={{ background: 'var(--green-l)', border: '1px solid rgba(13,138,90,.25)' }}>
+            <div className="rounded-xl p-3.5" style={{ background: 'var(--green-l)', border: '1px solid rgba(30,64,175,.25)' }}>
               <div className="flex items-center gap-2 pt-1 pb-2">
                 <span className="w-1 h-3.5 rounded-full" style={{ background: 'var(--green-d)' }} />
                 <span className="text-[11px] font-bold uppercase tracking-wide" style={{ color: 'var(--green-d)' }}>Accès personnel</span>
@@ -4687,7 +4687,7 @@ function absenceDocumentHtml(state, request) {
   const qrValue = `SYGENOP|ABS|${request.id}`;
   const qrImg = `https://api.qrserver.com/v1/create-qr-code/?size=200x200&ecc=M&margin=4&format=png&data=${encodeURIComponent(qrValue)}`;
   const logoImg = schoolLogoData(state);
-  const logoHtml = logoImg ? `<img class="logo" src="${escapeHtml(logoImg)}" alt="Logo" />` : `<svg class="logo-fallback" width="44" height="44" viewBox="0 0 24 24" fill="none" stroke="#b8862f" strokeWidth="1.5"><circle cx="12" cy="12" r="9"/><path d="M8 7h8M8 12h8M8 17h5"/></svg>`;
+  const logoHtml = logoImg ? `<img class="logo" src="${escapeHtml(logoImg)}" alt="Logo" />` : `<svg class="logo-fallback" width="44" height="44" viewBox="0 0 24 24" fill="none" stroke="#d4a017" strokeWidth="1.5"><circle cx="12" cy="12" r="9"/><path d="M8 7h8M8 12h8M8 17h5"/></svg>`;
 
   const bodyHtml = `<!doctype html>
 <html lang="fr">
@@ -4704,18 +4704,18 @@ function absenceDocumentHtml(state, request) {
   .toolbar .dl { background: #1d4ed8; }
   .toolbar span { margin-left: auto; font-size: 12px; color: #475569; }
   @media print { .toolbar { display: none; } }
-  .frame { border: 4px solid #0a4f3a; padding: 6px; }
-  .inner { border: 2px solid #0a4f3a; padding: 22px 26px; }
-  .head { display: flex; align-items: center; justify-content: space-between; border-bottom: 2px solid #0a4f3a; padding-bottom: 14px; }
+  .frame { border: 4px solid #020617; padding: 6px; }
+  .inner { border: 2px solid #020617; padding: 22px 26px; }
+  .head { display: flex; align-items: center; justify-content: space-between; border-bottom: 2px solid #020617; padding-bottom: 14px; }
   .head .flag { width: 54px; height: auto; flex-shrink: 0; display: block; object-fit: contain; }
   .head .center { text-align: center; flex: 1; padding: 0 12px; }
-  .head .school { font-weight: 800; font-size: 19px; text-transform: uppercase; letter-spacing: .5px; color: #0a4f3a; }
+  .head .school { font-weight: 800; font-size: 19px; text-transform: uppercase; letter-spacing: .5px; color: #020617; }
   .head .republic { font-size: 11px; color: #4b6a5c; margin-top: 3px; }
   .head .addr { font-size: 10.5px; color: #4b6a5c; margin-top: 2px; }
   .head .logo { max-height: 52px; max-width: 80px; object-fit: contain; flex-shrink: 0; }
   .head .logo-fallback { flex-shrink: 0; }
   .titlebox { text-align: center; margin: 18px 0 6px; }
-  .titlebox .t { display: inline-block; padding: 8px 22px; border: 2px solid #0a4f3a; color: #0a4f3a; font-weight: 800; font-size: 21px; letter-spacing: 1px; }
+  .titlebox .t { display: inline-block; padding: 8px 22px; border: 2px solid #020617; color: #020617; font-weight: 800; font-size: 21px; letter-spacing: 1px; }
   .bref { text-align: center; font-size: 12px; color: #444; margin-bottom: 26px; }
   .body { font-size: 15px; line-height: 1.9; text-align: justify; }
   table.grid { width: 100%; border-collapse: collapse; margin: 22px 0; font-size: 14px; }
@@ -5060,19 +5060,19 @@ function StaffServiceAttestation({ state, person }) {
   const num = `N° ${nb}/${annee}`;
   return (
     <div className="mx-auto bg-white" style={{ color: '#11231b', width: '210mm', minHeight: '148mm' }}>
-      <div className="relative h-full border-4 p-1.5" style={{ borderColor: 'var(--green-d, #0a4f3a)' }}>
-        <div className="h-full border-2 px-7 py-6 flex flex-col" style={{ borderColor: 'var(--green-d, #0a4f3a)' }}>
-          <div className="flex items-center justify-between border-b-2 pb-3" style={{ borderColor: 'var(--green-d, #0a4f3a)' }}>
+      <div className="relative h-full border-4 p-1.5" style={{ borderColor: 'var(--green-d, #020617)' }}>
+        <div className="h-full border-2 px-7 py-6 flex flex-col" style={{ borderColor: 'var(--green-d, #020617)' }}>
+          <div className="flex items-center justify-between border-b-2 pb-3" style={{ borderColor: 'var(--green-d, #020617)' }}>
             <SenegalFlag className="w-12 h-auto" />
             <div className="text-center">
               <div className="text-[10px]" style={{ color: '#4b6a5c' }}>République du Sénégal · Un Peuple, Un But, Une Foi</div>
               <div className="text-[10px]" style={{ color: '#4b6a5c' }}>Adresse : {localite} — {num}</div>
-              <div className="text-base font-extrabold leading-tight" style={{ color: 'var(--green-d, #0a4f3a)' }}>{school}</div>
+              <div className="text-base font-extrabold leading-tight" style={{ color: 'var(--green-d, #020617)' }}>{school}</div>
             </div>
-            {schoolLogoData(state) ? <SchoolLogoMark state={state} width={44} /> : <svg width="38" height="38" viewBox="0 0 24 24" fill="none" stroke="#b8862f" strokeWidth="1.5"><circle cx="12" cy="12" r="9" /><path d="M8 7h8M8 12h8M8 17h5" /></svg>}
+            {schoolLogoData(state) ? <SchoolLogoMark state={state} width={44} /> : <svg width="38" height="38" viewBox="0 0 24 24" fill="none" stroke="#d4a017" strokeWidth="1.5"><circle cx="12" cy="12" r="9" /><path d="M8 7h8M8 12h8M8 17h5" /></svg>}
           </div>
           <div className="mt-3 text-center">
-            <div className="inline-block px-5 py-1 font-extrabold text-base tracking-wide" style={{ border: '2px solid var(--green-d, #0a4f3a)', color: 'var(--green-d, #0a4f3a)' }}>ATTESTATION DE SERVICE</div>
+            <div className="inline-block px-5 py-1 font-extrabold text-base tracking-wide" style={{ border: '2px solid var(--green-d, #020617)', color: 'var(--green-d, #020617)' }}>ATTESTATION DE SERVICE</div>
           </div>
           <p className="mt-3 text-[13px] leading-relaxed">Je soussigné(e), <b>{directeur || 'le Directeur(trice)'}</b>, Directeur(trice) de l’établissement <b>{school}</b>, situé(e) {localite}, atteste que <b>M./Mme {nomComplet}</b>, exerçant la fonction de <b>{fonction}</b> et {person.statut ? `${person.statut.toLowerCase()} dans nos effectifs` : 'appartenant à nos effectifs'}, est bien membre du personnel dudit établissement.</p>
           <div className="mt-3 text-center">
@@ -5733,7 +5733,7 @@ function saveClass(form) {
     const commonStudentHeader = (
     <>
       {teacherName && <StudentTransferRequestsPanel state={state} updateState={updateState} notify={notify} mode="teacher" teacherName={teacherName} teacherStaffId={teacherStaffId} />}
-      {readOnly && <div className="sygenop-card px-4 py-2.5 text-xs font-semibold flex items-center gap-2" style={{ background: 'var(--gold-l)', color: '#7a5a1f' }}><Eye size={14} /> Mode consultation (IEF) — lecture seule, aucune modification possible.</div>}
+      {readOnly && <div className="sygenop-card px-4 py-2.5 text-xs font-semibold flex items-center gap-2" style={{ background: 'var(--gold-l)', color: '#92710c' }}><Eye size={14} /> Mode consultation (IEF) — lecture seule, aucune modification possible.</div>}
       {!!(state && state.mohebs) && <div className="sygenop-card px-4 py-2.5 text-xs font-semibold flex items-center gap-2" style={{ background: 'var(--green-l)', color: 'var(--green-d)' }}><BookOpen size={14} /> École MOHEBS — le barème inclut le domaine « Langue Nationale » pour chaque niveau.</div>}
       <StudentSectionNav section={studentSection} onChange={setStudentSection} />
     </>
@@ -6036,7 +6036,7 @@ function StudentFicheModal({ student, clsName, onCard, onCert, onEdit, onClose }
           {row('Contact tuteur', student.tuteurTel)}
         </div>
         <div className="grid gap-3 mt-6" style={{ gridTemplateColumns: onEdit ? '1fr 1fr' : '1fr 1fr 1fr' }}>
-          <button type="button" onClick={onCard} className="px-3 py-2.5 rounded-lg text-sm font-semibold text-white flex items-center justify-center gap-1.5" style={{ background: 'var(--gold, #b8862f)' }}><CreditCard size={16} /> Carte d’identité</button>
+          <button type="button" onClick={onCard} className="px-3 py-2.5 rounded-lg text-sm font-semibold text-white flex items-center justify-center gap-1.5" style={{ background: 'var(--gold, #d4a017)' }}><CreditCard size={16} /> Carte d’identité</button>
           <button type="button" onClick={onCert} className="px-3 py-2.5 rounded-lg text-sm font-semibold text-white flex items-center justify-center gap-1.5" style={{ background: 'var(--green-d)' }}><FileText size={16} /> Certificat de scolarité</button>
           <button type="button" onClick={onClose} className="px-3 py-2.5 rounded-lg text-sm font-semibold" style={{ background: 'var(--bg)', color: 'var(--muted)' }}>Fermer</button>
           {onEdit && <button type="button" onClick={onEdit} className="px-3 py-2.5 rounded-lg text-sm font-semibold flex items-center justify-center gap-1.5" style={{ background: 'var(--panel)', color: 'var(--ink)' }}><Pencil size={16} /> Modifier</button>}
@@ -6292,11 +6292,11 @@ function StaffIdentityCard({ state, person }) {
   const code = staffCardCode(person);
   const school = state.header?.ecole || 'Établissement scolaire';
   const qrValue = `SYGENOP|STAFF|${code}|${person.id}`;
-  return <div className="student-id-card-sheet"><div className="student-id-card-front sygenop-card p-5" style={{ border: '2px solid var(--gold, #b8862f)' }}>
+  return <div className="student-id-card-sheet"><div className="student-id-card-front sygenop-card p-5" style={{ border: '2px solid var(--gold, #d4a017)' }}>
     <div className="flex items-start justify-between gap-4"><div className="flex items-center gap-2 flex-shrink-0"><SenegalFlag className="w-16 h-auto flex-shrink-0" /></div><div><div className="text-lg font-bold" style={{ color: 'var(--green-d)' }}>{school}</div><div className="text-xs" style={{ color: 'var(--muted)' }}>CARTE PROFESSIONNELLE · RECTO · Année {state.header?.annee || 'en cours'}</div></div><SchoolLogoMark state={state} width={72} /></div>
     <div className="grid grid-cols-[1fr_150px] gap-4 mt-3 pt-3" style={{ borderTop: '1px solid var(--line)' }}><div className="space-y-1 text-sm"><div><b>Agent :</b> {person.prenom || '—'} {person.nom || ''}</div><div><b>Matricule :</b> {code}</div><div><b>Fonction :</b> {person.role || '—'}</div>{person.specialites?.length > 0 && <div><b>Spécialités :</b> {person.specialites.join(', ')}</div>}<div><b>Téléphone :</b> {person.telephone || '—'}</div><div><b>Statut :</b> {person.statut || 'Actif'}</div></div><div className="border rounded-lg flex items-center justify-center overflow-hidden" style={{ borderColor: 'var(--line)', height: 150, background: 'var(--bg)' }}>{person.photoData ? <img src={person.photoData} alt={`Photo de ${person.prenom || 'l’agent'}`} className="w-full h-full object-cover" /> : <span className="text-xs text-center px-2" style={{ color: 'var(--muted)' }}>Photo de l’agent</span>}</div></div>
     <div className="flex items-end justify-between gap-4 mt-2 pt-2" style={{ borderTop: '1px solid var(--line)' }}><div className="text-[10px] flex-1" style={{ color: 'var(--muted)' }}>Scannez ce QR code : badge d'accès au portail.</div><QRBadge value={qrValue} size={64} label="" /></div>
-  </div><div className="student-id-card-back sygenop-card p-6 text-center" style={{ border: '2px solid var(--gold, #b8862f)' }}><div className="font-bold text-lg" style={{ color: 'var(--green-d)' }}>{school}</div><div className="text-xs mb-5" style={{ color: 'var(--muted)' }}>CARTE PROFESSIONNELLE · VERSO</div><QRBadge value={qrValue} size={230} label="Identifiant permanent de l’agent" /><div className="mt-5 text-xs" style={{ color: 'var(--muted)' }}>Ce QR ne change jamais. Il sert de badge d’accès et d’identification du personnel dans le système.</div></div></div>;
+  </div><div className="student-id-card-back sygenop-card p-6 text-center" style={{ border: '2px solid var(--gold, #d4a017)' }}><div className="font-bold text-lg" style={{ color: 'var(--green-d)' }}>{school}</div><div className="text-xs mb-5" style={{ color: 'var(--muted)' }}>CARTE PROFESSIONNELLE · VERSO</div><QRBadge value={qrValue} size={230} label="Identifiant permanent de l’agent" /><div className="mt-5 text-xs" style={{ color: 'var(--muted)' }}>Ce QR ne change jamais. Il sert de badge d’accès et d’identification du personnel dans le système.</div></div></div>;
 }
 
 function StudentSchoolCertificate({ state, cls, student }) {
@@ -6315,20 +6315,20 @@ function StudentSchoolCertificate({ state, cls, student }) {
   const num = `N° ${String((state.certCounter || 0) + (student.cardCode ? 1 : 0)).padStart(4, '0')}/${annee}`;
   return (
     <div className="mx-auto bg-white" style={{ color: '#11231b', width: '210mm', minHeight: '148mm' }}>
-      <div className="relative h-full border-4 p-1.5" style={{ borderColor: 'var(--green-d, #0a4f3a)' }}>
-        <div className="h-full border-2 px-7 py-6 flex flex-col" style={{ borderColor: 'var(--green-d, #0a4f3a)' }}>
+      <div className="relative h-full border-4 p-1.5" style={{ borderColor: 'var(--green-d, #020617)' }}>
+        <div className="h-full border-2 px-7 py-6 flex flex-col" style={{ borderColor: 'var(--green-d, #020617)' }}>
           {/* En-tête */}
-          <div className="flex items-center justify-between border-b-2 pb-3" style={{ borderColor: 'var(--green-d, #0a4f3a)' }}>
+          <div className="flex items-center justify-between border-b-2 pb-3" style={{ borderColor: 'var(--green-d, #020617)' }}>
             <SenegalFlag className="w-12 h-auto" />
             <div className="text-center">
               <div className="text-[10px]" style={{ color: '#4b6a5c' }}>République du Sénégal · Un Peuple, Un But, Une Foi</div>
               <div className="text-[10px]" style={{ color: '#4b6a5c' }}>Adresse : {localite} — {num}</div>
-              <div className="text-base font-extrabold leading-tight" style={{ color: 'var(--green-d, #0a4f3a)' }}>{school}</div>
+              <div className="text-base font-extrabold leading-tight" style={{ color: 'var(--green-d, #020617)' }}>{school}</div>
             </div>
-            {schoolLogoData(state) ? <SchoolLogoMark state={state} width={44} /> : <svg width="38" height="38" viewBox="0 0 24 24" fill="none" stroke="#b8862f" strokeWidth="1.5"><circle cx="12" cy="12" r="9" /><path d="M8 7h8M8 12h8M8 17h5" /></svg>}
+            {schoolLogoData(state) ? <SchoolLogoMark state={state} width={44} /> : <svg width="38" height="38" viewBox="0 0 24 24" fill="none" stroke="#d4a017" strokeWidth="1.5"><circle cx="12" cy="12" r="9" /><path d="M8 7h8M8 12h8M8 17h5" /></svg>}
           </div>
           <div className="mt-3 text-center">
-            <div className="inline-block px-5 py-1 font-extrabold text-base tracking-wide" style={{ border: '2px solid var(--green-d, #0a4f3a)', color: 'var(--green-d, #0a4f3a)' }}>CERTIFICAT DE SCOLARITÉ</div>
+            <div className="inline-block px-5 py-1 font-extrabold text-base tracking-wide" style={{ border: '2px solid var(--green-d, #020617)', color: 'var(--green-d, #020617)' }}>CERTIFICAT DE SCOLARITÉ</div>
           </div>
           <p className="mt-3 text-[13px] leading-relaxed">Je soussigné(e), <b>{directeur || 'le Directeur(trice)'}</b>, Directeur(trice) de l’établissement <b>{school}</b>, situé(e) {localite}, atteste que l’élève&nbsp;:</p>
           <div className="mt-3 text-center">
@@ -6446,7 +6446,7 @@ function StudentCardVerification({ state: incomingState, updateState, notify }) 
   })() : [];
   const access = monthlyRows.some((row) => row.status === 'Impayé') ? 'REFUSÉ — régularisation nécessaire' : monthlyRows.some((row) => row.status === 'Partiel') ? 'À RÉGULARISER' : 'AUTORISÉ — à jour';
   const gateStatus = found ? studentDayStatus(state, todayISO(), found.student.id, found.classId) : null;
-  return <div className="space-y-4"><div className="sygenop-card p-5"><div className="font-bold flex items-center gap-2"><ScanLine size={18} /> Contrôle portail / Vérifier une carte</div><p className="text-xs mt-1" style={{ color: 'var(--muted)' }}>Scannez avec la caméra du smartphone ou une douchette QR.</p><div className="flex gap-2 mt-3"><button onClick={startCamera} className="px-3 py-2 rounded-lg text-white text-sm" style={{ background: 'var(--green-d)' }}>Scanner avec la caméra</button><button onClick={stopCamera} className="px-3 py-2 rounded-lg text-sm" style={{ background: 'var(--bg)' }}>Arrêter</button></div><video ref={videoRef} muted playsInline className="mt-3 w-full max-w-sm rounded-lg" /><input autoFocus value={rawCode} onChange={(e) => setRawCode(e.target.value)} placeholder="Code QR scanné" className="mt-3 w-full px-3 py-2.5 rounded-lg border text-sm" style={{ borderColor: 'var(--line)', background: 'var(--panel)' }} />{cameraError && <div className="text-xs mt-2" style={{ color: 'var(--red)' }}>{cameraError}</div>}</div>{rawCode && !found && !staffFound && <div className="sygenop-card p-5 text-sm" style={{ color: 'var(--red)' }}>Aucun élève ne correspond à ce code.</div>}{staffFound && <div className="sygenop-card p-5"><div className="font-bold text-center p-3 rounded-lg" style={{ background: staffRecord ? 'var(--green-l)' : 'var(--gold-l)', color: staffRecord ? 'var(--green-d)' : '#7a5a1f' }}>{staffRecord ? `BADGE RECONNU — ${STAFF_POINTAGE_LABELS[staffRecord.statut]?.[0] || staffRecord.statut}` : 'BADGE RECONNU — non pointé aujourd\u2019hui'}</div><div className="mt-3 font-bold">{personFullName(staffFound)} — {staffFound.role || ''}</div><div className="text-xs mt-1" style={{ color: 'var(--muted)' }}>Matricule {staffCardCode(staffFound)} · Statut administratif : {staffFound.statut || 'Actif'}</div>{staffRecord && <div className="mt-2 text-sm">Pointage du jour : <Pill tone={STAFF_POINTAGE_LABELS[staffRecord.statut]?.[1] || 'gold'}>{STAFF_POINTAGE_LABELS[staffRecord.statut]?.[0] || staffRecord.statut}</Pill> · {Number(staffRecord.heures) || 0} h</div>}</div>}{found && <div className="sygenop-card p-5"><div className="font-bold text-center p-3 rounded-lg" style={{ background: access.startsWith('AUTORISÉ') ? 'var(--green-l)' : access.startsWith('À') ? 'var(--gold-l)' : '#fdecea', color: access.startsWith('AUTORISÉ') ? 'var(--green-d)' : 'var(--red)' }}>{access}</div><div className="mt-3 font-bold">{found.student.prenom} {found.student.nom} — {found.cls.name}</div><div className="mt-1.5 text-sm">Pointage du jour : <Pill tone={STUDENT_PRESENCE_LABELS[gateStatus?.statut]?.[1] || 'gold'}>{STUDENT_PRESENCE_LABELS[gateStatus?.statut]?.[0] || '—'}</Pill></div><div className="overflow-x-auto mt-3"><table className="w-full text-sm"><tbody>{monthlyRows.map((row) => <tr key={row.label} style={{ borderTop: '1px solid var(--line)' }}><td className="p-2">{row.label}</td><td className="p-2 text-right">{fmtFCFA(row.paid)}</td><td className="p-2 text-right"><Pill tone={row.status === 'À jour' ? 'green' : row.status === 'Partiel' ? 'gold' : 'red'}>{row.status}</Pill></td></tr>)}</tbody></table></div></div>}</div>;
+  return <div className="space-y-4"><div className="sygenop-card p-5"><div className="font-bold flex items-center gap-2"><ScanLine size={18} /> Contrôle portail / Vérifier une carte</div><p className="text-xs mt-1" style={{ color: 'var(--muted)' }}>Scannez avec la caméra du smartphone ou une douchette QR.</p><div className="flex gap-2 mt-3"><button onClick={startCamera} className="px-3 py-2 rounded-lg text-white text-sm" style={{ background: 'var(--green-d)' }}>Scanner avec la caméra</button><button onClick={stopCamera} className="px-3 py-2 rounded-lg text-sm" style={{ background: 'var(--bg)' }}>Arrêter</button></div><video ref={videoRef} muted playsInline className="mt-3 w-full max-w-sm rounded-lg" /><input autoFocus value={rawCode} onChange={(e) => setRawCode(e.target.value)} placeholder="Code QR scanné" className="mt-3 w-full px-3 py-2.5 rounded-lg border text-sm" style={{ borderColor: 'var(--line)', background: 'var(--panel)' }} />{cameraError && <div className="text-xs mt-2" style={{ color: 'var(--red)' }}>{cameraError}</div>}</div>{rawCode && !found && !staffFound && <div className="sygenop-card p-5 text-sm" style={{ color: 'var(--red)' }}>Aucun élève ne correspond à ce code.</div>}{staffFound && <div className="sygenop-card p-5"><div className="font-bold text-center p-3 rounded-lg" style={{ background: staffRecord ? 'var(--green-l)' : 'var(--gold-l)', color: staffRecord ? 'var(--green-d)' : '#92710c' }}>{staffRecord ? `BADGE RECONNU — ${STAFF_POINTAGE_LABELS[staffRecord.statut]?.[0] || staffRecord.statut}` : 'BADGE RECONNU — non pointé aujourd\u2019hui'}</div><div className="mt-3 font-bold">{personFullName(staffFound)} — {staffFound.role || ''}</div><div className="text-xs mt-1" style={{ color: 'var(--muted)' }}>Matricule {staffCardCode(staffFound)} · Statut administratif : {staffFound.statut || 'Actif'}</div>{staffRecord && <div className="mt-2 text-sm">Pointage du jour : <Pill tone={STAFF_POINTAGE_LABELS[staffRecord.statut]?.[1] || 'gold'}>{STAFF_POINTAGE_LABELS[staffRecord.statut]?.[0] || staffRecord.statut}</Pill> · {Number(staffRecord.heures) || 0} h</div>}</div>}{found && <div className="sygenop-card p-5"><div className="font-bold text-center p-3 rounded-lg" style={{ background: access.startsWith('AUTORISÉ') ? 'var(--green-l)' : access.startsWith('À') ? 'var(--gold-l)' : '#fdecea', color: access.startsWith('AUTORISÉ') ? 'var(--green-d)' : 'var(--red)' }}>{access}</div><div className="mt-3 font-bold">{found.student.prenom} {found.student.nom} — {found.cls.name}</div><div className="mt-1.5 text-sm">Pointage du jour : <Pill tone={STUDENT_PRESENCE_LABELS[gateStatus?.statut]?.[1] || 'gold'}>{STUDENT_PRESENCE_LABELS[gateStatus?.statut]?.[0] || '—'}</Pill></div><div className="overflow-x-auto mt-3"><table className="w-full text-sm"><tbody>{monthlyRows.map((row) => <tr key={row.label} style={{ borderTop: '1px solid var(--line)' }}><td className="p-2">{row.label}</td><td className="p-2 text-right">{fmtFCFA(row.paid)}</td><td className="p-2 text-right"><Pill tone={row.status === 'À jour' ? 'green' : row.status === 'Partiel' ? 'gold' : 'red'}>{row.status}</Pill></td></tr>)}</tbody></table></div></div>}</div>;
 }
 
 /* ---------------------------------------------------------------
@@ -6587,7 +6587,7 @@ function AppelView({ state: incomingState, updateState, notify, teacherName, tea
             </div>
           )}
         </div>
-        {closedReason && <div className="text-xs font-semibold px-3 py-2 rounded-lg" style={{ background: 'var(--gold-l)', color: '#7a5a1f' }}>Appel fermé — {closedReason}.</div>}
+        {closedReason && <div className="text-xs font-semibold px-3 py-2 rounded-lg" style={{ background: 'var(--gold-l)', color: '#92710c' }}>Appel fermé — {closedReason}.</div>}
         {!seances.length && <div className="text-xs" style={{ color: 'var(--muted)' }}>Aucun emploi du temps renseigné pour cette classe ce jour-là — pointage journalier unique.</div>}
       </div>
 
@@ -6627,7 +6627,7 @@ function AppelView({ state: incomingState, updateState, notify, teacherName, tea
                   {canEdit && (
                     <td className="p-2 text-right whitespace-nowrap">
                       <button onClick={() => markStudent(student.id, 'P')} className="px-2 py-1 rounded text-xs font-semibold mr-1" style={{ background: 'var(--green-l)', color: 'var(--green-d)' }}>Présent</button>
-                      <button onClick={() => markStudent(student.id, 'R')} className="px-2 py-1 rounded text-xs font-semibold mr-1" style={{ background: 'var(--gold-l)', color: '#7a5a1f' }}>Retard</button>
+                      <button onClick={() => markStudent(student.id, 'R')} className="px-2 py-1 rounded text-xs font-semibold mr-1" style={{ background: 'var(--gold-l)', color: '#92710c' }}>Retard</button>
                       <button onClick={() => markStudent(student.id, 'A')} className="px-2 py-1 rounded text-xs font-semibold" style={{ background: 'var(--red-l)', color: 'var(--red)' }}>Absent</button>
                       {record?.statut === 'A' && (
                         <button
@@ -6883,11 +6883,11 @@ function addStudent(student) {
   }
 
   const DOMAIN_COLORS = [
-    { bg: '#e8f4ee', fg: '#0a4f3a', bar: '#0d8a5a' },
-    { bg: '#f8f0dc', fg: '#7a5a1f', bar: '#b8862f' },
-    { bg: '#e7effc', fg: '#1e40af', bar: '#3b82f6' },
+    { bg: '#e0f2fe', fg: '#020617', bar: '#1e40af' },
+    { bg: '#fef9e7', fg: '#92710c', bar: '#d4a017' },
+    { bg: '#ede9fe', fg: '#5b21b6', bar: '#8b5cf6' },
     { bg: '#fdeef2', fg: '#9d174d', bar: '#ec4899' },
-    { bg: '#ecfdf5', fg: '#065f46', bar: '#10b981' },
+    { bg: '#e0f2fe', fg: '#0e7490', bar: '#22d3ee' },
     { bg: '#fff3e8', fg: '#9a3412', bar: '#f97316' },
   ];
   const doms = cfg.domains || [];
@@ -7574,7 +7574,7 @@ function BulletinSheet({ state, cls, level, cfg, student, studentIndex, period }
 
   return (
     <div className="bull-sheet sygenop-card" style={{ marginBottom: 24 }}>
-      <div className="flex items-start gap-3 pb-2" style={{ borderBottom: '2px solid #0a4f3a' }}>
+      <div className="flex items-start gap-3 pb-2" style={{ borderBottom: '2px solid #020617' }}>
         <SenegalFlag className="w-20 h-auto flex-shrink-0" />
         <div className="flex-1 text-center" style={{ fontSize: 11, lineHeight: 1.35 }}>
           <div>République du Sénégal</div>
@@ -7602,7 +7602,7 @@ function BulletinSheet({ state, cls, level, cfg, student, studentIndex, period }
           <QRBadge value={`SYGENOP|CARTE|${student.cardCode || `ELV-${String(student.id || '').slice(-8).toUpperCase()}`}|${student.id}`} size={70} label="" />
         </div>
       </div>
-      <div className="text-center font-bold py-1.5" style={{ background: '#0a4f3a', color: '#fff', borderRadius: 4, fontSize: 12 }}>
+      <div className="text-center font-bold py-1.5" style={{ background: '#020617', color: '#fff', borderRadius: 4, fontSize: 12 }}>
         BULLETIN — {periodLabel(state, period)}
       </div>
       <table style={{ marginTop: 10 }}>
@@ -7695,27 +7695,27 @@ function BulletinSheet({ state, cls, level, cfg, student, studentIndex, period }
           </tbody>
         </table>
         <div className="flex flex-col gap-2">
-          <div className="flex items-center justify-between px-3 py-2" style={{ background: '#e8f4ee', borderRadius: 6 }}>
+          <div className="flex items-center justify-between px-3 py-2" style={{ background: '#e0f2fe', borderRadius: 6 }}>
             <span style={{ fontSize: 11 }}>Rang</span><b>{rang}/{students.length}</b>
           </div>
-          <div className="flex items-center justify-between px-3 py-2" style={{ background: cs.pass ? '#e8f4ee' : '#fbe9e6', borderRadius: 6 }}>
-            <span style={{ fontSize: 11 }}>Moyenne {cfg.weightedAssessments ? '/20' : '/10'}</span><b style={{ color: cs.pass ? '#0a4f3a' : '#a8402f' }}>{fmtNote(cs.moy)}</b>
+          <div className="flex items-center justify-between px-3 py-2" style={{ background: cs.pass ? '#e0f2fe' : '#fef2f2', borderRadius: 6 }}>
+            <span style={{ fontSize: 11 }}>Moyenne {cfg.weightedAssessments ? '/20' : '/10'}</span><b style={{ color: cs.pass ? '#020617' : '#dc2626' }}>{fmtNote(cs.moy)}</b>
           </div>
-          <div className="flex items-center justify-between px-3 py-2" style={{ background: '#f8f0dc', borderRadius: 6 }}>
+          <div className="flex items-center justify-between px-3 py-2" style={{ background: '#fef9e7', borderRadius: 6 }}>
             <span style={{ fontSize: 11 }}>Mention</span><b>{m}</b>
           </div>
         </div>
       </div>
       <div style={{ marginTop: 10, fontSize: 11 }}>
         <b>Observations du conseil des maîtres</b>
-        <div style={{ border: '1px solid #d8ded9', borderRadius: 6, minHeight: 40, marginTop: 4 }}></div>
+        <div style={{ border: '1px solid #cbd5e1', borderRadius: 6, minHeight: 40, marginTop: 4 }}></div>
       </div>
       <div className="grid grid-cols-3 gap-3" style={{ marginTop: 14, fontSize: 11, textAlign: 'center' }}>
-        <div><div className="font-semibold">Le/La Maître(sse)</div><div style={{ marginTop: 24, borderTop: '1px solid #d8ded9', paddingTop: 4 }}>{cls.teacher || ''}</div></div>
-        <div><div className="font-semibold">{cycleTerminology(h.cycle).head}</div><div style={{ marginTop: 24, borderTop: '1px solid #d8ded9', paddingTop: 4 }}>{h.directeur || ''}</div></div>
-        <div><div className="font-semibold">Cachet de l'école</div><div style={{ marginTop: 24, borderTop: '1px solid #d8ded9', paddingTop: 4 }}>&nbsp;</div></div>
+        <div><div className="font-semibold">Le/La Maître(sse)</div><div style={{ marginTop: 24, borderTop: '1px solid #cbd5e1', paddingTop: 4 }}>{cls.teacher || ''}</div></div>
+        <div><div className="font-semibold">{cycleTerminology(h.cycle).head}</div><div style={{ marginTop: 24, borderTop: '1px solid #cbd5e1', paddingTop: 4 }}>{h.directeur || ''}</div></div>
+        <div><div className="font-semibold">Cachet de l'école</div><div style={{ marginTop: 24, borderTop: '1px solid #cbd5e1', paddingTop: 4 }}>&nbsp;</div></div>
       </div>
-      <div className="flex items-center justify-between" style={{ marginTop: 14, fontSize: 9.5, color: '#6b7670' }}>
+      <div className="flex items-center justify-between" style={{ marginTop: 14, fontSize: 9.5, color: '#64748b' }}>
         <span>N.B. : Ce bulletin n'est délivré qu'une seule fois. Toute demande de duplicata pourra faire l'objet d'une contrepartie financière.</span>
         <span>Bulletin édité le {editStamp}</span>
       </div>
@@ -7914,7 +7914,7 @@ function FeesModal({ level, fees, onSave, onClose }) {
           <div className="flex items-end gap-4">
             <label className="text-xs font-semibold block">Nombre de mensualités<input type="number" min="1" max="12" value={mensualites} onChange={(e) => setMensualites(e.target.value)} className="mt-1 w-24 px-3 py-2 rounded-lg border text-sm" style={{ borderColor: 'var(--line)' }} /></label>
             <div className="text-xs leading-relaxed" style={{ color: 'var(--muted)' }}>
-              Total annuel : <b style={{ color: 'var(--ink)' }}>{fmtFCFA(total)}</b> · Dont à l'entrée : <b style={{ color: 'var(--gold, #b8862f)' }}>{fmtFCFA(totalEntree)}</b><br />
+              Total annuel : <b style={{ color: 'var(--ink)' }}>{fmtFCFA(total)}</b> · Dont à l'entrée : <b style={{ color: 'var(--gold, #d4a017)' }}>{fmtFCFA(totalEntree)}</b><br />
               Mensualité ({nbMois} mois, hors entrée) : <b style={{ color: 'var(--green-d)' }}>{fmtFCFA(Math.round(totalAnnuel / nbMois))}</b>
             </div>
           </div>
@@ -7984,7 +7984,7 @@ function StudentFeesModal({ level, fees, months, student, onSave, onClose }) {
           <div className="flex flex-wrap items-end gap-4">
             <label className="text-xs font-semibold block">Réduction « cas social » (%)<input type="number" min="0" max="100" value={casSocial} onChange={(e) => setCasSocial(e.target.value)} className="mt-1 w-28 px-3 py-2 rounded-lg border text-sm" style={{ borderColor: 'var(--line)' }} placeholder="0" /></label>
             <div className="text-xs leading-relaxed" style={{ color: 'var(--muted)' }}>
-              Inscription : <b style={{ color: 'var(--gold, #b8862f)' }}>{fmtFCFA(inscriptionDue)}</b> · Mensualités (année) : <b style={{ color: 'var(--ink)' }}>{fmtFCFA(anneeDue)}</b><br />
+              Inscription : <b style={{ color: 'var(--gold, #d4a017)' }}>{fmtFCFA(inscriptionDue)}</b> · Mensualités (année) : <b style={{ color: 'var(--ink)' }}>{fmtFCFA(anneeDue)}</b><br />
               Total à payer par l'élève : <b style={{ color: 'var(--green-d)' }}>{fmtFCFA(inscriptionDue + anneeDue)}</b>{casSocial > 0 ? ` (réduction de ${casSocial}%)` : ''}
             </div>
           </div>
@@ -8200,7 +8200,7 @@ function ReceiptSheet({ state, cls, student, payment }) {
 
   return (
     <div className="recu-sheet sygenop-card">
-      <div className="flex items-center gap-3 pb-2" style={{ borderBottom: '2px solid #0a4f3a' }}>
+      <div className="flex items-center gap-3 pb-2" style={{ borderBottom: '2px solid #020617' }}>
         <SchoolLogoMark state={state} width={50} />
         <div className="flex-1 text-center" style={{ fontSize: 10.5, lineHeight: 1.3 }}>
           <div>République du Sénégal</div>
@@ -8208,10 +8208,10 @@ function ReceiptSheet({ state, cls, student, payment }) {
           <div style={{ fontSize: 9.5 }}>Groupe scolaire {h.ief || ''} · Année scolaire {h.annee || ''}</div>
         </div>
       </div>
-      <div className="text-center font-bold py-1.5" style={{ background: '#0a4f3a', color: '#fff', borderRadius: 4, fontSize: 12, marginTop: 8 }}>
+      <div className="text-center font-bold py-1.5" style={{ background: '#020617', color: '#fff', borderRadius: 4, fontSize: 12, marginTop: 8 }}>
         REÇU DE PAIEMENT N° {payment.recu}
-        {payment.type_paiement === 'inscription' && <div style={{ fontSize: 9, fontWeight: 600, marginTop: 2, background: '#b8862f', display: 'inline-block', padding: '1px 8px', borderRadius: 3 }}>INSCRIPTION / RÉINSCRIPTION</div>}
-        {payment.type_paiement === 'mensualite' && <div style={{ fontSize: 9, fontWeight: 600, marginTop: 2, background: '#0a4f3a', border: '1px solid #fff', display: 'inline-block', padding: '1px 8px', borderRadius: 3 }}>MENSUALITÉ / SCOLARITÉ</div>}
+        {payment.type_paiement === 'inscription' && <div style={{ fontSize: 9, fontWeight: 600, marginTop: 2, background: '#d4a017', display: 'inline-block', padding: '1px 8px', borderRadius: 3 }}>INSCRIPTION / RÉINSCRIPTION</div>}
+        {payment.type_paiement === 'mensualite' && <div style={{ fontSize: 9, fontWeight: 600, marginTop: 2, background: '#020617', border: '1px solid #fff', display: 'inline-block', padding: '1px 8px', borderRadius: 3 }}>MENSUALITÉ / SCOLARITÉ</div>}
       </div>
       <div className="flex justify-end mt-2"><QRBadge value={`SYGENOP|CARTE|${student.cardCode || `ELV-${String(student.id || '').slice(-8).toUpperCase()}`}|${student.id}`} /></div>
       <div className="grid grid-cols-2 gap-2" style={{ fontSize: 11, margin: '10px 0' }}>
@@ -8225,9 +8225,9 @@ function ReceiptSheet({ state, cls, student, payment }) {
         <tbody>
           {(payment.lignes?.length ? payment.lignes : [{ label: periodeLabel, montant: payment.montant }]).map((line, index) => <tr key={index}><td>{line.label}{moisPaiement ? ` — ${moisPaiement}` : ''}{payment.note && index === 0 ? ` — ${payment.note}` : ''}</td><td className="text-center">{fmtFCFA(line.montant)}</td></tr>)}
           <tr className="recu-total"><td>Montant reçu</td><td className="text-center">{fmtFCFA(payment.montant)}</td></tr>
-          {payment.type_paiement === 'inscription' && <tr><td>Reliquat inscription</td><td className="text-center" style={{ color: reliquat.inscription > 0 ? '#a8402f' : '#0a4f3a', fontWeight: 700 }}>{fmtFCFA(reliquat.inscription)}</td></tr>}
+          {payment.type_paiement === 'inscription' && <tr><td>Reliquat inscription</td><td className="text-center" style={{ color: reliquat.inscription > 0 ? '#dc2626' : '#020617', fontWeight: 700 }}>{fmtFCFA(reliquat.inscription)}</td></tr>}
           {payment.type_paiement === 'mensualite' && <>
-            <tr><td>Reliquat scolarité</td><td className="text-center" style={{ color: reliquat.mensualite > 0 ? '#a8402f' : '#0a4f3a', fontWeight: 700 }}>{fmtFCFA(reliquat.mensualite)}</td></tr>
+            <tr><td>Reliquat scolarité</td><td className="text-center" style={{ color: reliquat.mensualite > 0 ? '#dc2626' : '#020617', fontWeight: 700 }}>{fmtFCFA(reliquat.mensualite)}</td></tr>
             <tr><td>Reliquat mensuel</td><td className="text-center">{fmtFCFA(reliquatMensuel)}</td></tr>
           </>}
         </tbody>
@@ -8239,22 +8239,22 @@ function ReceiptSheet({ state, cls, student, payment }) {
         <div><b>{isTypeInscription ? 'Total dû (inscription) :' : 'Total dû (scolarité) :'}</b> {fmtFCFA(typeDue)}</div>
         <div><b>Total versé à ce jour :</b> {fmtFCFA(paidTotalType)}</div>
         <div style={{ gridColumn: '1 / -1' }}>
-          <b>Solde restant :</b> <span style={{ color: soldeType > 0 ? '#a8402f' : '#0a4f3a', fontWeight: 700 }}>{fmtFCFA(soldeType)}</span>
+          <b>Solde restant :</b> <span style={{ color: soldeType > 0 ? '#dc2626' : '#020617', fontWeight: 700 }}>{fmtFCFA(soldeType)}</span>
         </div>
-        <div style={{ gridColumn: '1 / -1', borderTop: '1px solid #d8ded9', paddingTop: 6, marginTop: 4 }}>
+        <div style={{ gridColumn: '1 / -1', borderTop: '1px solid #cbd5e1', paddingTop: 6, marginTop: 4 }}>
           {isTypeInscription ? (
-            <b style={{ color: '#b8862f' }}>Reliquat inscription :</b>
+            <b style={{ color: '#d4a017' }}>Reliquat inscription :</b>
           ) : (
-            <b style={{ color: '#0a4f3a' }}>Reliquat scolarité :</b>
+            <b style={{ color: '#020617' }}>Reliquat scolarité :</b>
           )}{' '}
-          <span style={{ color: (isTypeInscription ? reliquat.inscription : reliquat.mensualite) > 0 ? '#a8402f' : '#0a4f3a', fontWeight: 700 }}>
+          <span style={{ color: (isTypeInscription ? reliquat.inscription : reliquat.mensualite) > 0 ? '#dc2626' : '#020617', fontWeight: 700 }}>
             {fmtFCFA(isTypeInscription ? reliquat.inscription : reliquat.mensualite)}
           </span>
         </div>
       </div>
       <div className="grid grid-cols-2 gap-3" style={{ marginTop: 16, fontSize: 10.5, textAlign: 'center' }}>
-        <div><div className="font-semibold">Signature du payeur</div><div style={{ marginTop: 20, borderTop: '1px solid #d8ded9', paddingTop: 4 }}>&nbsp;</div></div>
-        <div><div className="font-semibold">{cycleTerminology(h.cycle).head}</div><div style={{ marginTop: 20, borderTop: '1px solid #d8ded9', paddingTop: 4 }}>{h.directeur || ''}</div></div>
+        <div><div className="font-semibold">Signature du payeur</div><div style={{ marginTop: 20, borderTop: '1px solid #cbd5e1', paddingTop: 4 }}>&nbsp;</div></div>
+        <div><div className="font-semibold">{cycleTerminology(h.cycle).head}</div><div style={{ marginTop: 20, borderTop: '1px solid #cbd5e1', paddingTop: 4 }}>{h.directeur || ''}</div></div>
       </div>
       <div className="recu-stub flex items-center justify-between">
         <span>Reçu édité le {editStamp}</span>
@@ -8564,7 +8564,7 @@ function DepensesTab({ depenses, onAdd, onEdit, onDelete, onPrint, readOnly, onE
   return (
     <div className="space-y-4">
       {readOnly && (
-        <div className="sygenop-card px-4 py-2.5 text-xs font-semibold flex items-center gap-2" style={{ background: 'var(--gold-l)', color: '#7a5a1f' }}>
+        <div className="sygenop-card px-4 py-2.5 text-xs font-semibold flex items-center gap-2" style={{ background: 'var(--gold-l)', color: '#92710c' }}>
           <Eye size={14} /> Mode consultation (IEF) — lecture seule, aucune modification possible.
         </div>
       )}
@@ -8815,8 +8815,8 @@ function RecapTab({ state, notify, session, updateState }) {
                   <b style={{ color: 'var(--ink)' }}>{monthInRows.length}</b>
                 </div>
                 <div className="flex items-center justify-between px-3 py-2 rounded-lg" style={{ background: 'var(--gold-l)' }}>
-                  <span style={{ color: '#7a5a1f' }}>Mensualités attendues (mois)</span>
-                  <b style={{ color: '#7a5a1f' }}>{fmtFCFA(expectedMonth)}</b>
+                  <span style={{ color: '#92710c' }}>Mensualités attendues (mois)</span>
+                  <b style={{ color: '#92710c' }}>{fmtFCFA(expectedMonth)}</b>
                 </div>
                 <div className="flex items-center justify-between px-3 py-2 rounded-lg" style={{ background: '#f7e8e5' }}>
                   <span style={{ color: 'var(--red)' }}>Reliquat du mois</span>
@@ -8843,7 +8843,7 @@ function RecapTab({ state, notify, session, updateState }) {
                       <b style={{ color: 'var(--red)' }}>{fmtFCFA(mont)} <span className="text-xs font-normal" style={{ color: 'var(--muted)' }}>({Math.round(pct)}%)</span></b>
                     </div>
                     <div className="h-1.5 rounded-full overflow-hidden" style={{ background: 'var(--bg)' }}>
-                      <div className="h-full rounded-full" style={{ width: `${pct}%`, background: 'linear-gradient(90deg,#a8402f,#e07a63)' }} />
+                      <div className="h-full rounded-full" style={{ width: `${pct}%`, background: 'linear-gradient(90deg,#dc2626,#e07a63)' }} />
                     </div>
                   </div>
                 );
@@ -8958,7 +8958,7 @@ function MaterielJournal({ items, affectations, classes, onEdit, onDelete, readO
 function MaterielAffectationReceipt({ state, affectation, item, cls }) {
   const code = affectation.code || affectation.id;
   const qr = `https://api.qrserver.com/v1/create-qr-code/?size=110x110&data=${encodeURIComponent(`EduLink Pro|${code}`)}`;
-  return <div className="recu-sheet sygenop-card p-6"><div className="flex justify-between items-start"><div className="flex items-center gap-2"><SchoolLogoMark state={state} width={48} /><div><h2 className="font-bold">{state?.header?.ecole || 'EduLink Pro'}</h2><p className="text-xs">La plateforme intelligente de gestion scolaire</p></div></div><img src={qr} alt="QR code du reçu" width="80" height="80" /></div><h3 className="text-center font-bold py-2 mt-3" style={{ background: '#0a4f3a', color: '#fff' }}>REÇU D’AFFECTATION DE MATÉRIEL</h3><div className="space-y-2 mt-4 text-sm"><div><b>Code :</b> {code}</div><div><b>Date :</b> {fmtDateFr(affectation.date)}</div><div><b>Classe :</b> {cls?.name} — {cls?.level}</div><div><b>Matériel :</b> {item?.nom}</div><div><b>Catégorie :</b> {item?.categorie || '—'}</div><div><b>Quantité affectée :</b> {affectation.quantite}</div></div><p className="text-xs mt-6" style={{ color: 'var(--muted)' }}>Document vérifiable avec le QR code.</p></div>;
+  return <div className="recu-sheet sygenop-card p-6"><div className="flex justify-between items-start"><div className="flex items-center gap-2"><SchoolLogoMark state={state} width={48} /><div><h2 className="font-bold">{state?.header?.ecole || 'EduLink Pro'}</h2><p className="text-xs">La plateforme intelligente de gestion scolaire</p></div></div><img src={qr} alt="QR code du reçu" width="80" height="80" /></div><h3 className="text-center font-bold py-2 mt-3" style={{ background: '#020617', color: '#fff' }}>REÇU D’AFFECTATION DE MATÉRIEL</h3><div className="space-y-2 mt-4 text-sm"><div><b>Code :</b> {code}</div><div><b>Date :</b> {fmtDateFr(affectation.date)}</div><div><b>Classe :</b> {cls?.name} — {cls?.level}</div><div><b>Matériel :</b> {item?.nom}</div><div><b>Catégorie :</b> {item?.categorie || '—'}</div><div><b>Quantité affectée :</b> {affectation.quantite}</div></div><p className="text-xs mt-6" style={{ color: 'var(--muted)' }}>Document vérifiable avec le QR code.</p></div>;
 }
 
 function PaiementsView({ state, loading, updateState, notify, activeSchoolId, role, readOnly, session }) {
@@ -9871,7 +9871,7 @@ const cleanDomains = domains
   return (
     <div className="space-y-4">
       {readOnly && (
-        <div className="sygenop-card px-4 py-2.5 text-xs font-semibold flex items-center gap-2" style={{ background: 'var(--gold-l)', color: '#7a5a1f' }}>
+        <div className="sygenop-card px-4 py-2.5 text-xs font-semibold flex items-center gap-2" style={{ background: 'var(--gold-l)', color: '#92710c' }}>
           <Eye size={14} /> Mode consultation (IEF) — lecture seule, aucune modification possible.
         </div>
       )}
@@ -10110,7 +10110,7 @@ function HorairesJoursOuvresCard({ state, updateState, notify, readOnly, session
         </div>
       </div>
       {!canEdit && (
-        <div className="px-3 py-2 rounded-lg text-xs font-semibold flex items-center gap-2" style={{ background: 'var(--gold-l)', color: '#7a5a1f' }}>
+        <div className="px-3 py-2 rounded-lg text-xs font-semibold flex items-center gap-2" style={{ background: 'var(--gold-l)', color: '#92710c' }}>
           <Eye size={13} /> Réservé {/^[aeiouyéè]/i.test(headLabel) ? "à l'" : 'au '} {headLabel.toLowerCase()} (consultation seule).
         </div>
       )}
@@ -10273,7 +10273,7 @@ function PresenceElevesCard({ state, updateState, notify, readOnly, session }) {
   return (
     <div className="space-y-4">
       {readOnly && (
-        <div className="sygenop-card px-4 py-2.5 text-xs font-semibold flex items-center gap-2" style={{ background: 'var(--gold-l)', color: '#7a5a1f' }}>
+        <div className="sygenop-card px-4 py-2.5 text-xs font-semibold flex items-center gap-2" style={{ background: 'var(--gold-l)', color: '#92710c' }}>
           <Eye size={14} /> Mode consultation (IEF) — lecture seule, aucune modification possible.
         </div>
       )}
@@ -10914,7 +10914,7 @@ function DataView({ state, loading, updateState, notify, readOnly, session, acti
   return (
     <div className="space-y-4 sygenop-fade">
       {readOnly && (
-        <div className="sygenop-card px-4 py-2.5 text-xs font-semibold flex items-center gap-2" style={{ background: 'var(--gold-l)', color: '#7a5a1f' }}>
+        <div className="sygenop-card px-4 py-2.5 text-xs font-semibold flex items-center gap-2" style={{ background: 'var(--gold-l)', color: '#92710c' }}>
           <Eye size={14} /> Mode consultation (IEF) — export et journal d'audit disponibles, import désactivé.
         </div>
       )}
@@ -11121,13 +11121,13 @@ function IEFSchoolsView({ onOpenSchool, session }) {
     { name: 'Garçons', value: totals.garcons },
     { name: 'Filles', value: totals.filles },
   ];
-  const GENDER_COLORS = ['#0d8a5a', '#b8862f'];
+  const GENDER_COLORS = ['#1e40af', '#d4a017'];
   const personnelGenderData = [
     { name: 'Hommes', value: totals.personnelMale || 0 },
     { name: 'Femmes', value: totals.personnelFemale || 0 },
     ...(totals.personnelUnknown ? [{ name: 'Non renseigné', value: totals.personnelUnknown }] : []),
   ];
-  const PERSONNEL_GENDER_COLORS = ['#0d8a5a', '#b8862f', '#94a3b8'];
+  const PERSONNEL_GENDER_COLORS = ['#1e40af', '#d4a017', '#94a3b8'];
 const barData = cycleSchoolStats
     .filter((s) => s.effectif > 0)
     .sort((a, b) => b.effectif - a.effectif)
@@ -11278,7 +11278,7 @@ const barData = cycleSchoolStats
                     <XAxis dataKey="ecole" tick={{ fontSize: 10, fill: 'var(--muted)' }} interval={0} angle={-25} textAnchor="end" />
                     <YAxis domain={[0, 10]} tick={{ fontSize: 11, fill: 'var(--muted)' }} />
                     <Tooltip formatter={(v) => [`${v}/10`, 'Moyenne']} contentStyle={{ borderRadius: 10, border: '1px solid var(--line)', fontSize: 12 }} />
-                    <Line type="monotone" dataKey="moyenne" stroke="#b8862f" strokeWidth={3} dot={{ r: 4 }} activeDot={{ r: 6 }} />
+                    <Line type="monotone" dataKey="moyenne" stroke="#d4a017" strokeWidth={3} dot={{ r: 4 }} activeDot={{ r: 6 }} />
                   </LineChart>
                 </ResponsiveContainer>
               )}
@@ -11306,7 +11306,7 @@ const barData = cycleSchoolStats
                 <XAxis dataKey="ecole" tick={{ fontSize: 11, fill: 'var(--muted)' }} interval={0} angle={-25} textAnchor="end" height={60} />
                 <YAxis tick={{ fontSize: 12, fill: 'var(--muted)' }} />
                 <Tooltip contentStyle={{ borderRadius: 10, border: '1px solid var(--line)', fontSize: 12 }} />
-                <Bar dataKey="effectif" fill="#0d8a5a" radius={[6, 6, 0, 0]} />
+                <Bar dataKey="effectif" fill="#1e40af" radius={[6, 6, 0, 0]} />
               </BarChart>
             </ResponsiveContainer>
             </div>
@@ -11418,7 +11418,7 @@ function RestrictionsModal({ school, onSave, onClose }) {
           </div>
         )}
         {isPrivate && (
-          <div className="text-xs mb-4 p-3 rounded-lg" style={{ background: 'var(--gold-l)', color: '#7a5a1f' }}>
+          <div className="text-xs mb-4 p-3 rounded-lg" style={{ background: 'var(--gold-l)', color: '#92710c' }}>
             École privée : restrictions par défaut de 2 classes/niveau et 40 élèves/classe.
           </div>
         )}
@@ -12299,7 +12299,7 @@ function IEFAccountsTab({ notify, session, iefIdOverride }) {
 
   return (
     <div className="space-y-4">
-      <div className="sygenop-card px-4 py-2.5 text-xs font-semibold flex items-center gap-2" style={{ background: 'var(--gold-l)', color: '#7a5a1f' }}>
+      <div className="sygenop-card px-4 py-2.5 text-xs font-semibold flex items-center gap-2" style={{ background: 'var(--gold-l)', color: '#92710c' }}>
         <Eye size={14} /> Les comptes créés ci-dessous sont rattachés {iefId ? <>à <b>votre groupe scolaire uniquement</b></> : <>au périmètre <b>global</b></>} : « lecture seule » pour consulter, « Administrateur Groupe » pour créer/modifier des écoles.
       </div>
 
@@ -12351,7 +12351,7 @@ function IEFAccountsTab({ notify, session, iefIdOverride }) {
 
       {missingTable && !loading && (
         <div className="sygenop-card p-5 space-y-3">
-          <div className="text-sm font-semibold flex items-center gap-2" style={{ color: 'var(--gold-d, #7a5a1f)' }}>
+          <div className="text-sm font-semibold flex items-center gap-2" style={{ color: 'var(--gold-d, #92710c)' }}>
             <AlertTriangle size={16} /> Fonctionnalité non activée
           </div>
           <p className="text-xs" style={{ color: 'var(--muted)' }}>
@@ -12635,7 +12635,7 @@ function IEFsAdminTab({ notify, iefId }) {
 
   return (
     <div className="space-y-4">
-<div className="sygenop-card px-4 py-2.5 text-xs font-semibold flex items-center gap-2" style={{ background: 'var(--gold-l)', color: '#7a5a1f' }}>
+<div className="sygenop-card px-4 py-2.5 text-xs font-semibold flex items-center gap-2" style={{ background: 'var(--gold-l)', color: '#92710c' }}>
         <Building2 size={14} />
         {isGlobal
           ? <>Chaque groupe scolaire fonctionne de façon indépendante : ses cycles et ses comptes ne sont visibles que par son propre administrateur, jamais par les autres groupes.</>
@@ -13396,7 +13396,7 @@ function OfflineBanner({ status, onRetry }) {
       className="px-4 py-2 text-xs font-semibold flex items-center gap-2 flex-wrap"
       style={{
         background: offline ? '#fdecea' : 'var(--gold-l)',
-        color: offline ? '#8a2f24' : '#7a5a1f',
+        color: offline ? '#8a2f24' : '#92710c',
         borderBottom: '1px solid var(--line)',
       }}
     >
