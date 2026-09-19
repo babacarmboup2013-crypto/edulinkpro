@@ -7,7 +7,7 @@ import SygenopApp from './EduLink Pro V1.jsx';
 // et utilisable hors-ligne après une première visite.
 if ('serviceWorker' in navigator) {
   window.addEventListener('load', () => {
-    navigator.serviceWorker.register('/sw.js').catch(() => {});
+    navigator.serviceWorker.register(`${import.meta.env.BASE_URL}sw.js`).catch(() => {});
   });
 }
 
