@@ -12193,7 +12193,7 @@ insert into public.ief_config (key, value) values ('ief_code', 'IEF-DAKAR') on c
 --    Les écoles existantes sans ief_id appartiennent à cette IEF.
 --    On l'insère une seule fois (si aucune IEF nommée "GRAND DAKAR" n'existe).
 insert into public.iefs (nom, code_lecture, code_admin, actif)
-select 'IEF GRAND DAKAR', 'IEF-DAKAR', 'ADMIN-2025', true
+select 'IEF GRAND DAKAR', 'IEF-DAKAR', 'ADMIN-DAKAR', true
 where not exists (
   select 1 from public.iefs where upper(nom) like upper('%GRAND DAKAR%')
 );
@@ -12532,7 +12532,7 @@ function IEFsAdminTab({ notify, iefId }) {
           id: GRAND_DAKAR_FAKE_ID,
           nom: 'IEF GRAND DAKAR',
           code_lecture: 'IEF-DAKAR',
-          code_admin: 'ADMIN-2025',
+          code_admin: 'ADMIN-DAKAR',
           actif: true,
           __sentinel: true,
         }]);
@@ -12550,7 +12550,7 @@ function IEFsAdminTab({ notify, iefId }) {
             id: GRAND_DAKAR_FAKE_ID,
             nom: 'IEF GRAND DAKAR',
             code_lecture: 'IEF-DAKAR',
-            code_admin: 'ADMIN-2025',
+            code_admin: 'ADMIN-DAKAR',
             actif: true,
             __sentinel: true,
           });

@@ -32,7 +32,7 @@
 --    (la migration multi_ief l'insérait déjà ; ceci reste idempotent)
 -- ------------------------------------------------------------
 insert into public.iefs (nom, code_lecture, code_admin, actif)
-select 'IEF GRAND DAKAR', 'IEF-DAKAR', 'ADMIN-2025', true
+select 'IEF GRAND DAKAR', 'IEF-DAKAR', 'ADMIN-DAKAR', true
 where not exists (
   select 1 from public.iefs where upper(nom) like upper('%GRAND DAKAR%')
 );
