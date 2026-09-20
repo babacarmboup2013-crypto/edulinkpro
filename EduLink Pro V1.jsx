@@ -6399,7 +6399,7 @@ function StudentCardVerification({ state: incomingState, updateState, notify }) 
     });
     notify && notify(`${personFullName(staffFound)} pointé(e) présent(e) — ${heures} h servies.`);
     return undefined;
-  }, [staffFound, updateState, notify, state]);
+  }, [staffFound, updateState, notify]);
   const found = Object.entries(state.classes || {}).flatMap(([classId, cls]) => (cls.students || []).map((student) => ({ classId, cls, student }))).find(({ student }) => student.cardCode === code || student.id === code || `ELV-${String(student.id || '').slice(-8).toUpperCase()}` === code);
   // Pointage automatique de l'élève scanné au portail : marque « Présent »
   // au premier scan du jour. Si l'emploi du temps de sa classe est
@@ -6427,7 +6427,7 @@ function StudentCardVerification({ state: incomingState, updateState, notify }) 
     updateState((prev) => withStudentPresenceRecord(prev, date, student.id, slotId, { statut: 'P', heure, source: 'portail' }));
     notify && notify(`${student.prenom} ${student.nom} pointé(e) présent(e)${seance ? ` — ${seance.subject} (${seance.start})` : ` à ${heure}`}.`);
     return undefined;
-  }, [found, staffFound, updateState, notify, state]);
+  }, [found, staffFound, updateState, notify]);
   const monthlyRows = found ? (() => {
     const { cls, student } = found;
     const count = feeForLevel(state, cls.level).mensualites;
@@ -13065,28 +13065,28 @@ setSession(saved);
   // toujours écrit dans IndexedDB immédiatement), puis synchronise avec
   // Supabase dès que possible — immédiatement si en ligne, automatiquement
   // dès le retour du réseau sinon. Aucune saisie n'est jamais perdue.
+  const pendingSaveRef = useRef(null);
   const updateState = useCallback((mutator) => {
     if (!activeSchoolId) return;
     setSchoolState((prev) => {
       if (!prev) return prev;
       const draft = mutator(prev);
-      // Snapshot des codes d'accès à l'instant de la saisie : persisté avec
-      // l'élément de la file pour permettre la synchro même si la session
-      // change ou expire avant le retour du réseau.
-      queueSave(activeSchoolId, draft, {
-        saveSchoolData, loadSchoolData, notify, access: buildAccessSnapshot(),
-        // Après une sauvegarde immédiate réussie, resynchronise __version
-        // dans l'état local : sinon la MODIFICATION SUIVANTE renverrait
-        // encore l'ancien numéro et se ferait rejeter à tort par le
-        // verrouillage optimiste, comme si elle entrait en conflit avec sa
-        // propre sauvegarde qui vient pourtant de réussir. On ne touche
-        // qu'à __version (fonctionnelle, sur l'état le plus récent) pour ne
-        // jamais écraser une saisie faite entretemps.
-        onSaved: (version) => setSchoolState((cur) => (cur ? { ...cur, __version: version } : cur)),
-      });
+      pendingSaveRef.current = { schoolId: activeSchoolId, draft };
       return draft;
     });
-  }, [activeSchoolId, notify]);
+  }, [activeSchoolId]);
+
+  // Effect qui déclenche la sauvegarde hors de l'updater pour éviter
+  // les cascades de re-renders (queueSave appelait setSyncStatus → re-render).
+  useEffect(() => {
+    if (!pendingSaveRef.current) return;
+    const { schoolId, draft } = pendingSaveRef.current;
+    pendingSaveRef.current = null;
+    queueSave(schoolId, draft, {
+      saveSchoolData, loadSchoolData, notify, access: buildAccessSnapshot(),
+      onSaved: (version) => setSchoolState((cur) => (cur ? { ...cur, __version: version } : cur)),
+    });
+  });
 
 function handleLogin(sessionData) {
     // Ajoute une date d'expiration absolue (durée de session limitée) pour
