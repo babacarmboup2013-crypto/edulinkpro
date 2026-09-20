@@ -25,8 +25,8 @@
   <g filter="url(#cardShadow)">
     <ellipse cx="480" cy="180" rx="150" ry="34" fill="#3b82f6"/>
     <path d="M330 180 V380 a150 34 0 0 0 300 0 V180 a150 34 0 0 0 -300 0 Z" fill="#0f172a" stroke="#22d3ee" stroke-width="3"/>
-    <path d="M330 220 a150 34 0 0 0 300 0" fill="none" stroke="#25476a" stroke-width="3"/>
-    <ellipse cx="480" cy="220" rx="150" ry="34" fill="#25476a" opacity="0.4"/>
+    <path d="M330 220 a150 34 0 0 0 300 0" fill="none" stroke="#4A90D9" stroke-width="3"/>
+    <ellipse cx="480" cy="220" rx="150" ry="34" fill="#4A90D9" opacity="0.4"/>
     <!-- rows -->
     <g transform="translate(430 260)">
       <rect width="100" height="12" rx="6" fill="#3b82f6"/>

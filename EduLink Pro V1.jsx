@@ -1794,7 +1794,7 @@ function computeAttendanceStats(state, classIds, startISO, endISO) {
    THÈME — palette Bleu Nuit / Cyan / Or, clair + sombre
    ============================================================ */
 const THEME_VARS_LIGHT = {
-  '--ink': '#0f172a', '--green': '#25476a', '--green-d': '#020617', '--green-l': '#e0f2fe',
+  '--ink': '#0f172a', '--green': '#4A90D9', '--green-d': '#020617', '--green-l': '#e0f2fe',
   '--gold': '#d4a017', '--gold-l': '#fef9e7', '--red': '#dc2626', '--red-l': '#fef2f2',
   '--bg': '#f0f4f8', '--panel': '#ffffff', '--line': '#e2e8f0', '--muted': '#64748b',
   '--modal-overlay': 'rgba(2,6,23,.5)', '--modal-card': 'rgba(255,255,255,.84)', '--modal-line': 'rgba(226,232,240,.85)',
@@ -2843,7 +2843,7 @@ function Topbar({ title, sub, session, schoolName, dark, setDark, onLogout, setM
   return (
     <div
       className="no-print sticky top-0 z-20 px-4 md:px-7 py-2.5 shadow-lg"
-      style={{ background: 'linear-gradient(120deg,#0f172a 0%,#25476a 55%,#3b82f6 100%)' }}
+      style={{ background: 'linear-gradient(120deg,#0f172a 0%,#4A90D9 55%,#3b82f6 100%)' }}
     >
       <div className="flex items-center justify-between gap-4">
       <button className="md:hidden text-white" onClick={() => setMobileOpen(true)}><Menu size={22} /></button>
@@ -2883,7 +2883,7 @@ function Topbar({ title, sub, session, schoolName, dark, setDark, onLogout, setM
               className="text-[11px] font-bold px-2 py-0.5 rounded-md border-0 outline-none cursor-pointer whitespace-nowrap"
               style={{ background: 'rgba(255,255,255,.15)', color: '#fff' }}
             >
-              {periodeOptions.map((p) => <option key={p.key} value={p.key} style={{ color: '#25476a' }}>{p.label}</option>)}
+              {periodeOptions.map((p) => <option key={p.key} value={p.key} style={{ color: '#4A90D9' }}>{p.label}</option>)}
             </select>
           ) : periodeKey ? (
             <span className="inline-flex items-center gap-1 text-[11px] font-bold px-2 py-0.5 rounded-md bg-white/15 text-white whitespace-nowrap">
@@ -3171,13 +3171,13 @@ function DashboardView({ state, loading, teacherName, teacherStaffId, role, upda
     { name: 'Garçons', value: stats.garcons },
     { name: 'Filles', value: stats.filles },
   ];
-  const GENDER_COLORS = ['#25476a', '#d4a017'];
+  const GENDER_COLORS = ['#4A90D9', '#d4a017'];
   const personnelGenderData = [
     { name: 'Hommes', value: stats.personnelMale || 0 },
     { name: 'Femmes', value: stats.personnelFemale || 0 },
     ...(stats.personnelUnknown ? [{ name: 'Non renseigné', value: stats.personnelUnknown }] : []),
   ];
-  const PERSONNEL_GENDER_COLORS = ['#25476a', '#d4a017', '#94a3b8'];
+  const PERSONNEL_GENDER_COLORS = ['#4A90D9', '#d4a017', '#94a3b8'];
   const visibleClassIds = Object.entries(state.classes || {}).filter(([, cls]) => !isTeacherScoped || cls.teacher === teacherName).map(([id]) => id);
   const visibleAssignments = (state.affectationsMateriel || []).filter((a) => visibleClassIds.includes(a.classId));
 
@@ -3267,7 +3267,7 @@ function DashboardView({ state, loading, teacherName, teacherStaffId, role, upda
               <XAxis dataKey="niveau" tick={{ fontSize: 12, fill: 'var(--muted)' }} />
               <YAxis tick={{ fontSize: 12, fill: 'var(--muted)' }} />
               <Tooltip contentStyle={{ borderRadius: 10, border: '1px solid var(--line)', fontSize: 12 }} />
-              <Bar dataKey="effectif" fill="#25476a" radius={[6, 6, 0, 0]} />
+              <Bar dataKey="effectif" fill="#4A90D9" radius={[6, 6, 0, 0]} />
             </BarChart>
           </ResponsiveContainer>
         </div>
@@ -6883,7 +6883,7 @@ function addStudent(student) {
   }
 
   const DOMAIN_COLORS = [
-    { bg: '#e0f2fe', fg: '#020617', bar: '#25476a' },
+    { bg: '#e0f2fe', fg: '#020617', bar: '#4A90D9' },
     { bg: '#fef9e7', fg: '#92710c', bar: '#d4a017' },
     { bg: '#ede9fe', fg: '#5b21b6', bar: '#8b5cf6' },
     { bg: '#fdeef2', fg: '#9d174d', bar: '#ec4899' },
@@ -11121,13 +11121,13 @@ function IEFSchoolsView({ onOpenSchool, session }) {
     { name: 'Garçons', value: totals.garcons },
     { name: 'Filles', value: totals.filles },
   ];
-  const GENDER_COLORS = ['#25476a', '#d4a017'];
+  const GENDER_COLORS = ['#4A90D9', '#d4a017'];
   const personnelGenderData = [
     { name: 'Hommes', value: totals.personnelMale || 0 },
     { name: 'Femmes', value: totals.personnelFemale || 0 },
     ...(totals.personnelUnknown ? [{ name: 'Non renseigné', value: totals.personnelUnknown }] : []),
   ];
-  const PERSONNEL_GENDER_COLORS = ['#25476a', '#d4a017', '#94a3b8'];
+  const PERSONNEL_GENDER_COLORS = ['#4A90D9', '#d4a017', '#94a3b8'];
 const barData = cycleSchoolStats
     .filter((s) => s.effectif > 0)
     .sort((a, b) => b.effectif - a.effectif)
@@ -11306,7 +11306,7 @@ const barData = cycleSchoolStats
                 <XAxis dataKey="ecole" tick={{ fontSize: 11, fill: 'var(--muted)' }} interval={0} angle={-25} textAnchor="end" height={60} />
                 <YAxis tick={{ fontSize: 12, fill: 'var(--muted)' }} />
                 <Tooltip contentStyle={{ borderRadius: 10, border: '1px solid var(--line)', fontSize: 12 }} />
-                <Bar dataKey="effectif" fill="#25476a" radius={[6, 6, 0, 0]} />
+                <Bar dataKey="effectif" fill="#4A90D9" radius={[6, 6, 0, 0]} />
               </BarChart>
             </ResponsiveContainer>
             </div>

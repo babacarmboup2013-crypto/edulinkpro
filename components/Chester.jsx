@@ -52,7 +52,7 @@ export default function ChesterWidget({ dark, session, landing }) {
               textDecoration: 'none',
               fontSize: 11,
               fontWeight: 700,
-              color: '#25476a',
+              color: '#4A90D9',
               marginBottom: 7,
               paddingBottom: 7,
               borderBottom: dark ? '1px solid #1e293b' : '1px solid #e2e8f0',
