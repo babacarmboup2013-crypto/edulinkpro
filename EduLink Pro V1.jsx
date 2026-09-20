@@ -1159,11 +1159,11 @@ async function loadSchoolData(id) {
   let schoolCode = (ownsSchool ? (session.schoolCode || getActiveSchoolCode()) : '') || null;
   const staffCode = staffRole && ownsSchool ? (session.staffCode || '') : '';
   const adminCode = session?.role === 'admin' ? (session.adminCode || session.iefAdminCode || '') : '';
-  // Code de l'ancien cache UNIQUEMENT si aucune autre voie d'accès n'existe,
-  // pour ne jamais masquer une credential valide avec un code potentiellement
-  // périmé.
-  if (!schoolCode && !staffCode && !adminCode && session?.role !== 'ief') {
-    schoolCode = cachedSchoolCode(id) || null;
+  // Si aucun code n'est trouvé via la session (session expirée / rechargement
+  // de page), on tente le code persisté dans localStorage : c'est le seul
+  // moyen de garder l'accès aux données après fermeture du navigateur.
+  if (!schoolCode && !staffCode && !adminCode) {
+    schoolCode = getActiveSchoolCode() || null;
   }
   try {
     let payload = null;
@@ -11049,6 +11049,31 @@ function IEFSchoolsView({ onOpenSchool, session }) {
     })();
     return () => { cancelled = true; };
   }, [effectiveIefId, isGrandDakar]);
+  // Polling : recharger les données toutes les 60 secondes pour que
+  // le groupe scolaire / Super Admin voie les changements en temps réel.
+  useEffect(() => {
+    let active = true;
+    const poll = async () => {
+      try {
+        let params = 'order=name.asc';
+        if (effectiveIefId) {
+          params = isGrandDakar
+            ? 'order=name.asc&ief_id=is.null'
+            : `order=name.asc&ief_id=eq.${effectiveIefId}`;
+        }
+        const rows = (await sb('GET', 'schools', params)) || [];
+        const ids = rows.map((r) => r && r.id).filter(Boolean);
+        const datas = ids.length
+          ? ((await sb('GET', 'school_data', `select=school_id,payload&school_id=in.(${ids.join(',')})`)) || [])
+          : [];
+        const byId = {};
+        datas.forEach((d) => { byId[d.school_id] = d.payload; });
+        if (active) { setSchools(rows); setPayloadsById(byId); }
+      } catch (_) {}
+    };
+    const id = setInterval(poll, 60000);
+    return () => { active = false; clearInterval(id); };
+  }, [effectiveIefId, isGrandDakar]);
 
   const perSchoolStats = useMemo(() => {
     return schools.map((s) => {
@@ -11732,6 +11757,12 @@ async function refresh() {
   }
 
   useEffect(() => { refresh(); }, [iefId]);
+  // Polling : recharger la liste des écoles toutes les 30 secondes
+  // pour que le Super Admin voie les changements faits par les écoles.
+  useEffect(() => {
+    const id = setInterval(refresh, 30000);
+    return () => clearInterval(id);
+  }, [iefId]);
 
   async function handleSave(form) {
     const iefField = { ief_id: isGrandDakar ? null : (isGlobalAdmin ? (form.ief_id || null) : iefId) };
@@ -12838,9 +12869,13 @@ export default function SygenopApp({ onBack, connectHome }) {
       // Session expirée : on la purge et on force une nouvelle connexion.
       if (isSessionExpired(saved)) {
         clearSessionJSON(LS_SESSION);
+        // Conserve le code école dans LS_SCHOOL_CODE : il servira de repli
+        // pour loadSchoolData au prochain rechargement tant que l'utilisateur
+        // n'a pas explicitement changé de compte. Le code école n'est pas un
+        // jeton d'session — il estBindable à une seule école et ne permet pas
+        // d'accéder à d'autres écoles.
         clearJSON(LS_SCHOOL_ID);
         clearJSON(LS_SCHOOL_NAME);
-        setActiveSchoolCode(null);
         return;
       }
 setSession(saved);
@@ -12861,6 +12896,20 @@ setSession(saved);
         setActive(restored);
       } else {
         setActive(restored);
+      }
+      // Restaure le code école depuis localStorage même sans session valide :
+      // indispensable pour que loadSchoolData puisse interroger le serveur
+      // après un rechargement de page ou une fermeture/ouverture de navigateur
+      // (sessionStorage vidé mais localStorage persiste).
+      if (!saved || !saved.role) {
+        const persistedId = loadJSON(LS_SCHOOL_ID, null);
+        if (persistedId && !getActiveSchoolCode()) {
+          // Le code peut être dans LS_SCHOOL_CODE (directeur) ou LS_SCHOOLS (admin).
+          const fallbackCode =
+            (loadJSON(LS_SCHOOL_CODE, '') || '').trim() ||
+            cachedSchoolCode(persistedId);
+          if (fallbackCode) setActiveSchoolCode(fallbackCode);
+        }
       }
     } else {
       setActive(homePageFor(''));
