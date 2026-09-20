@@ -28,29 +28,29 @@
     <rect x="0" y="28" width="440" height="30" fill="#3b82f6"/>
     <text x="220" y="38" text-anchor="middle" font-family="'Inter',sans-serif" font-size="19" font-weight="800" fill="#e2e8f0">BULLETIN DE NOTES — 1er TRIMESTRE</text>
     <text x="40" y="96" font-family="'Inter',sans-serif" font-size="13" fill="#94a3b8">Awa Diop · CE2 · Section A</text>
-    <line x1="40" y1="112" x2="660" y2="112" stroke="#1e40af" stroke-width="2"/>
+    <line x1="40" y1="112" x2="660" y2="112" stroke="#25476a" stroke-width="2"/>
 
     <!-- score rows -->
     <g font-family="'Inter',sans-serif">
       <text x="40" y="150" font-size="16" font-weight="700" fill="#ffffff">Mathématiques</text>
       <text x="420" y="150" text-anchor="end" font-size="17" font-weight="800" fill="#ecc76a">16 / 20</text>
       <rect x="40" y="160" width="62" height="8" rx="4" fill="url(#green)"/>
-      <rect x="102" y="160" width="358" height="8" rx="4" fill="#1e40af"/>
+      <rect x="102" y="160" width="358" height="8" rx="4" fill="#25476a"/>
 
       <text x="40" y="200" font-size="16" font-weight="700" fill="#ffffff">Français</text>
       <text x="420" y="200" text-anchor="end" font-size="17" font-weight="800" fill="#ecc76a">14 / 20</text>
       <rect x="40" y="210" width="54" height="8" rx="4" fill="url(#green)"/>
-      <rect x="94" y="210" width="366" height="8" rx="4" fill="#1e40af"/>
+      <rect x="94" y="210" width="366" height="8" rx="4" fill="#25476a"/>
 
       <text x="40" y="250" font-size="16" font-weight="700" fill="#ffffff">Sciences</text>
       <text x="420" y="250" text-anchor="end" font-size="17" font-weight="800" fill="#ecc76a">18 / 20</text>
       <rect x="40" y="260" width="70" height="8" rx="4" fill="url(#green)"/>
-      <rect x="110" y="260" width="350" height="8" rx="4" fill="#1e40af"/>
+      <rect x="110" y="260" width="350" height="8" rx="4" fill="#25476a"/>
 
       <text x="40" y="300" font-size="16" font-weight="700" fill="#ffffff">Histoire-Géo</text>
       <text x="420" y="300" text-anchor="end" font-size="17" font-weight="800" fill="#ecc76a">15 / 20</text>
       <rect x="40" y="310" width="58" height="8" rx="4" fill="url(#green)"/>
-      <rect x="98" y="310" width="362" height="8" rx="4" fill="#1e40af"/>
+      <rect x="98" y="310" width="362" height="8" rx="4" fill="#25476a"/>
     </g>
     <rect x="40" y="336" width="360" height="42" rx="12" fill="#ffffff" opacity="0.08"/>
     <text x="58" y="363" font-family="'Inter',sans-serif" font-size="15" font-weight="800" fill="#e2e8f0">Moyenne générale</text>
