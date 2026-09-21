@@ -1576,10 +1576,10 @@ function AttendanceSettingsModal({ school, onSave, onClose }) {
   }
   return <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
     <form onSubmit={submit} className="sygenop-card p-6 max-w-md w-full space-y-4">
-      <div className="flex items-center justify-between"><div className="font-bold" style={{ color: 'var(--ink)' }}>Règles de pointage — {school.name}</div><button type="button" onClick={onClose}><X size={18} /></button></div>
-      <p className="text-xs" style={{ color: 'var(--muted)' }}>Réservé aux écoles publiques petite enfance, préscolaires et élémentaires.</p>
+      <div className="flex items-center justify-between"><div className="font-bold text-ink">Règles de pointage — {school.name}</div><button type="button" onClick={onClose}><X size={18} /></button></div>
+      <p className="text-xs text-muted">Réservé aux écoles publiques petite enfance, préscolaires et élémentaires.</p>
       <div><div className="text-sm font-semibold mb-2">Heures à servir par jour</div><div className="grid grid-cols-2 gap-2">{JOURS_SEMAINE_POINTAGE.map(({ key, label }) => <label key={key} className="text-xs font-semibold">{label}<input type="number" min="0" max="24" step="0.5" value={heuresParJour[key]} onChange={(e) => setHeuresParJour((prev) => ({ ...prev, [key]: e.target.value }))} className="mt-1 w-full px-3 py-2 rounded-lg border" /></label>)}</div></div>
-      <label className="block text-sm font-semibold">Jours non ouvrés et fériés<textarea value={jours} onChange={(e) => setJours(e.target.value)} placeholder={'2026-12-25\n2027-01-01'} className="mt-1 w-full px-3 py-2 rounded-lg border min-h-28" /><span className="text-xs font-normal" style={{ color: 'var(--muted)' }}>Une date par ligne, au format AAAA-MM-JJ. Les week-ends sont automatiquement bloqués.</span></label>
+      <label className="block text-sm font-semibold">Jours non ouvrés et fériés<textarea value={jours} onChange={(e) => setJours(e.target.value)} placeholder={'2026-12-25\n2027-01-01'} className="mt-1 w-full px-3 py-2 rounded-lg border min-h-28" /><span className="text-xs font-normal text-muted">Une date par ligne, au format AAAA-MM-JJ. Les week-ends sont automatiquement bloqués.</span></label>
       <div className="flex justify-end gap-2"><button type="button" onClick={onClose} className="px-3 py-2">Annuler</button><button className="px-3 py-2 rounded-lg text-white font-semibold" style={{ background: 'var(--green-d)' }}>Enregistrer</button></div>
     </form>
   </div>;
@@ -1599,14 +1599,14 @@ function JoursFeriesGlobauxModal({ isRacine, nbEcoles, applying, onApply, onClos
   }
   return <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
     <form onSubmit={submit} className="sygenop-card p-6 max-w-md w-full space-y-4">
-      <div className="flex items-center justify-between"><div className="font-bold" style={{ color: 'var(--ink)' }}>Jours non ouvrés et fériés — toutes les écoles</div><button type="button" onClick={onClose}><X size={18} /></button></div>
-      <p className="text-xs" style={{ color: 'var(--muted)' }}>
+      <div className="flex items-center justify-between"><div className="font-bold text-ink">Jours non ouvrés et fériés — toutes les écoles</div><button type="button" onClick={onClose}><X size={18} /></button></div>
+      <p className="text-xs text-muted">
         {isRacine
           ? <>Applique la même liste à <b>toutes les écoles actives du système</b>, tous types et cycles confondus, même si une IEF est sélectionnée dans le filtre.</>
           : <>Applique la même liste aux <b>{nbEcoles} école(s) active(s)</b> de votre groupe scolaire, tous types confondus.</>}
         {' '}Les horaires hebdomadaires propres à chaque école sont conservés ; sa liste de jours non ouvrés est remplacée par celle-ci.
       </p>
-      <label className="block text-sm font-semibold">Jours non ouvrés et fériés<textarea value={jours} onChange={(e) => setJours(e.target.value)} placeholder={'2026-12-25\n2027-01-01'} className="mt-1 w-full px-3 py-2 rounded-lg border min-h-28" /><span className="text-xs font-normal" style={{ color: 'var(--muted)' }}>Une date par ligne, au format AAAA-MM-JJ. Laisser vide efface les listes existantes de toutes les écoles.</span></label>
+      <label className="block text-sm font-semibold">Jours non ouvrés et fériés<textarea value={jours} onChange={(e) => setJours(e.target.value)} placeholder={'2026-12-25\n2027-01-01'} className="mt-1 w-full px-3 py-2 rounded-lg border min-h-28" /><span className="text-xs font-normal text-muted">Une date par ligne, au format AAAA-MM-JJ. Laisser vide efface les listes existantes de toutes les écoles.</span></label>
       <div className="flex justify-end gap-2">
         <button type="button" onClick={onClose} className="px-3 py-2">Annuler</button>
         <button disabled={!!applying} className="px-3 py-2 rounded-lg text-white font-semibold flex items-center gap-2 disabled:opacity-60" style={{ background: 'var(--green-d)' }}>
@@ -1875,6 +1875,14 @@ function GlobalStyles({ dark }) {
       .sygenop-ticker-sweep{ position:absolute; animation-name:sygenopTickerSweep; animation-timing-function:linear; }
       @media (prefers-reduced-motion: reduce){ *{ transition:none!important; animation:none!important; } }
 
+      /* ---------- Utility classes ---------- */
+      .text-muted{ color:var(--muted); }
+      .text-ink{ color:var(--ink); }
+      .text-green{ color:var(--green-d); }
+      .bg-panel{ background:var(--panel); }
+      .bg-bg{ background:var(--bg); }
+      .border-line{ border-color:var(--line); }
+
       /* ---------- Synthèse / Bulletins ---------- */
       .synth-table{ width:100%; border-collapse:collapse; font-size:11.5px; }
       .synth-table th, .synth-table td{ border:1px solid var(--line); padding:5px 7px; text-align:center; }
@@ -1959,9 +1967,9 @@ function StatCard({ icon: Icon, label, value, sub, tone = 'green' }) {
   return (
     <div className="sygenop-card p-5 flex items-start justify-between">
       <div>
-        <div className="text-xs font-semibold" style={{ color: 'var(--muted)' }}>{label}</div>
-        <div className="text-2xl font-extrabold mt-1" style={{ color: 'var(--ink)' }}>{value}</div>
-        {sub && <div className="text-xs mt-1" style={{ color: 'var(--muted)' }}>{sub}</div>}
+        <div className="text-xs font-semibold text-muted">{label}</div>
+        <div className="text-2xl font-extrabold mt-1 text-ink">{value}</div>
+        {sub && <div className="text-xs mt-1 text-muted">{sub}</div>}
       </div>
       <div className="w-11 h-11 rounded-xl flex items-center justify-center flex-shrink-0" style={{ background: t.bg, color: t.fg }}>
         <Icon size={20} />
@@ -2032,8 +2040,7 @@ function ActualitesTicker({ actualites, onOpen }) {
     >
       <button
         onClick={onOpen}
-        className="flex-shrink-0 flex items-center gap-1.5 text-[11px] font-bold px-2 py-0.5 rounded-full"
-        style={{ background: 'var(--green-d)', color: '#fff' }}
+        className="flex-shrink-0 flex items-center gap-1.5 text-[11px] font-bold px-2 py-0.5 rounded-full sygenop-btn"
       >
         <MessageCircle size={12} /> Actualités
       </button>
@@ -2384,11 +2391,11 @@ const entered = String(code).trim();
 
         {/* Bloc de présentation — grand écran uniquement */}
         <div className="hidden lg:flex flex-col w-full max-w-md space-y-4">
-          <h2 className="text-[32px] font-extrabold leading-tight" style={{ color: 'var(--ink)' }}>
+          <h2 className="text-[32px] font-extrabold leading-tight text-ink">
             La gestion scolaire,<br />
             <span style={{ color: 'var(--green-d)' }}>simple et intelligente.</span>
           </h2>
-          <p className="text-sm leading-relaxed" style={{ color: 'var(--muted)' }}>
+          <p className="text-sm leading-relaxed text-muted">
             EduLink Pro réunit dans une seule application la vie entière de votre
             établissement : élèves, notes, finances, personnel et communication —
             avec des comptes sécurisés pour chaque acteur de l'école.
@@ -2404,12 +2411,12 @@ const entered = String(code).trim();
             className="h-12 w-12 mb-2"
           />
           <div className="flex items-center gap-2">
-            <h1 className="text-2xl font-extrabold" style={{ color: 'var(--ink)' }}>
+            <h1 className="text-2xl font-extrabold text-ink">
               EduLink Pro
             </h1>
             <span className="text-[10px] font-bold px-1.5 py-0.5 rounded" style={{ background: 'var(--gold, #d4a017)', color: '#fff' }}>V1</span>
           </div>
-          <p className="text-xs mt-1 text-center" style={{ color: 'var(--muted)' }}>
+          <p className="text-xs mt-1 text-center text-muted">
             La plateforme intelligente de gestion scolaire
           </p>
         </div>
@@ -2419,7 +2426,7 @@ const entered = String(code).trim();
             <img src={`${import.meta.env.BASE_URL}edulink-favicon.svg`} alt="" style={{ width: 300, maxWidth: '80%', height: 'auto' }} />
           </div>
           <div className="relative" style={{ position: 'relative', zIndex: 1 }}>
-          <div className="grid grid-cols-4 gap-1 mb-6 p-1 rounded-xl" style={{ background: 'var(--bg)' }}>
+          <div className="grid grid-cols-4 gap-1 mb-6 p-1 rounded-xl bg-bg">
             {tabs.map((t) => (
               <button
                 key={t.id}
@@ -2490,7 +2497,7 @@ const entered = String(code).trim();
 
           {tab === 'ief' && (
             <form onSubmit={submitIEF} className="space-y-4">
-              <p className="text-xs leading-relaxed" style={{ color: 'var(--muted)' }}>
+              <p className="text-xs leading-relaxed text-muted">
                 Un <b style={{ color: 'var(--green-d)' }}>groupe scolaire</b> regroupe les
                 différents cycles d'une même école (petite enfance, élémentaire, moyen,
                 secondaire). Saisissez son code pour consulter l'ensemble de ses cycles.
@@ -2511,8 +2518,7 @@ const entered = String(code).trim();
 
         <button
           onClick={() => setDark(!dark)}
-          className="mx-auto mt-5 flex items-center gap-2 text-xs font-medium"
-          style={{ color: 'var(--muted)' }}
+          className="mx-auto mt-5 flex items-center gap-2 text-xs font-medium text-muted"
         >
           {dark ? <Sun size={14} /> : <Moon size={14} />} {dark ? 'Thème clair' : 'Thème sombre'}
         </button>
@@ -2531,18 +2537,17 @@ const entered = String(code).trim();
 function CodeField({ code, setCode, show, setShow, label }) {
   return (
     <div>
-      <label className="text-xs font-semibold block mb-1" style={{ color: 'var(--muted)' }}>{label}</label>
+      <label className="text-xs font-semibold block mb-1 text-muted">{label}</label>
       <div className="relative">
-        <KeyRound size={15} className="absolute left-3 top-1/2 -translate-y-1/2" style={{ color: 'var(--muted)' }} />
+        <KeyRound size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-muted" />
         <input
           type={show ? 'text' : 'password'}
           value={code}
           onChange={(e) => setCode(e.target.value)}
-          className="w-full pl-9 pr-9 py-3 rounded-lg border text-sm"
-          style={{ borderColor: 'var(--line)', background: 'var(--panel)', color: 'var(--ink)' }}
+          className="w-full pl-9 pr-9 py-3 rounded-lg border text-sm sygenop-input"
           placeholder="••••••"
         />
-        <button type="button" onClick={() => setShow(!show)} className="absolute right-3 top-1/2 -translate-y-1/2" style={{ color: 'var(--muted)' }}>
+        <button type="button" onClick={() => setShow(!show)} className="absolute right-3 top-1/2 -translate-y-1/2 text-muted">
           {show ? <EyeOff size={15} /> : <Eye size={15} />}
         </button>
       </div>
@@ -2560,11 +2565,10 @@ function CodeField({ code, setCode, show, setShow, label }) {
 function SearchPicker({ label, placeholder, query, setQuery, results, loading, selected, onSelect, onClear, disabled, emptyHint, getKey, renderOption }) {
   return (
     <div>
-      <label className="text-xs font-semibold block mb-1" style={{ color: 'var(--muted)' }}>{label}</label>
+      <label className="text-xs font-semibold block mb-1 text-muted">{label}</label>
       {selected ? (
         <div
-          className="w-full px-3 py-3 rounded-lg border text-sm flex items-center justify-between gap-2"
-          style={{ borderColor: 'var(--line)', background: 'var(--panel)', color: 'var(--ink)' }}
+          className="w-full px-3 py-3 rounded-lg border text-sm flex items-center justify-between gap-2 sygenop-input"
         >
           <span className="truncate">{renderOption(selected)}</span>
           <button type="button" onClick={onClear} className="text-xs font-semibold flex-shrink-0" style={{ color: 'var(--green-d)' }}>
@@ -2578,37 +2582,34 @@ function SearchPicker({ label, placeholder, query, setQuery, results, loading, s
             value={query}
             disabled={disabled}
             onChange={(e) => setQuery(e.target.value)}
-            className="w-full px-3 py-3 rounded-lg border text-sm disabled:opacity-50"
-            style={{ borderColor: 'var(--line)', background: 'var(--panel)', color: 'var(--ink)' }}
+            className="w-full px-3 py-3 rounded-lg border text-sm disabled:opacity-50 sygenop-input"
             placeholder={disabled ? emptyHint : placeholder}
             autoComplete="off"
           />
           {!disabled && query.trim().length >= 2 && (
             <div
-              className="absolute left-0 right-0 mt-1 rounded-lg border shadow-lg z-10 max-h-56 overflow-auto"
-              style={{ borderColor: 'var(--line)', background: 'var(--panel)' }}
+              className="absolute left-0 right-0 mt-1 rounded-lg border shadow-lg z-10 max-h-56 overflow-auto sygenop-input"
             >
               {loading ? (
-                <div className="px-3 py-2 text-xs" style={{ color: 'var(--muted)' }}>Recherche…</div>
+                <div className="px-3 py-2 text-xs text-muted">Recherche…</div>
               ) : results.length ? (
                 results.map((opt) => (
                   <button
                     type="button"
                     key={getKey(opt)}
                     onClick={() => onSelect(opt)}
-                    className="w-full text-left px-3 py-2 text-sm hover:opacity-80"
-                    style={{ color: 'var(--ink)' }}
+                    className="w-full text-left px-3 py-2 text-sm hover:opacity-80 text-ink"
                   >
                     {renderOption(opt)}
                   </button>
                 ))
               ) : (
-                <div className="px-3 py-2 text-xs" style={{ color: 'var(--muted)' }}>Aucun résultat</div>
+                <div className="px-3 py-2 text-xs text-muted">Aucun résultat</div>
               )}
             </div>
           )}
           {!disabled && query.trim().length > 0 && query.trim().length < 2 && (
-            <div className="text-[11px] mt-1" style={{ color: 'var(--muted)' }}>Continuez à taper (2 caractères min.)</div>
+            <div className="text-[11px] mt-1 text-muted">Continuez à taper (2 caractères min.)</div>
           )}
         </div>
       )}
@@ -2900,7 +2901,7 @@ function NewsItemCard({ item, schoolName, onDelete }) {
         <div className="flex items-center gap-2 flex-wrap">
           {item.important && <Pill tone="red">Important</Pill>}
           {schoolName && <Pill tone="gold">{schoolName}</Pill>}
-          <span className="text-[11px] font-semibold" style={{ color: 'var(--muted)' }}>{dateLabel}</span>
+          <span className="text-[11px] font-semibold text-muted">{dateLabel}</span>
         </div>
         {onDelete && (
           <button onClick={() => onDelete(item.id)} title="Supprimer" style={{ color: 'var(--muted)' }}>
@@ -2908,9 +2909,9 @@ function NewsItemCard({ item, schoolName, onDelete }) {
           </button>
         )}
       </div>
-      <div className="font-bold text-sm mt-1.5" style={{ color: 'var(--ink)' }}>{item.titre}</div>
-      <p className="text-sm mt-1 whitespace-pre-wrap" style={{ color: 'var(--muted)' }}>{item.contenu}</p>
-      {item.auteur && <div className="text-[11px] mt-2 font-medium" style={{ color: 'var(--muted)' }}>— {item.auteur}</div>}
+      <div className="font-bold text-sm mt-1.5 text-ink">{item.titre}</div>
+      <p className="text-sm mt-1 whitespace-pre-wrap text-muted">{item.contenu}</p>
+      {item.auteur && <div className="text-[11px] mt-2 font-medium text-muted">— {item.auteur}</div>}
     </div>
   );
 }
@@ -2935,7 +2936,7 @@ function ActualitesPanel({ actualites, onAdd, onDelete, limit, title = 'Actualit
   return (
     <div className="sygenop-card p-5 space-y-4">
       <div className="flex items-center justify-between gap-2">
-        <div className="font-bold text-sm flex items-center gap-2" style={{ color: 'var(--ink)' }}>
+        <div className="font-bold text-sm flex items-center gap-2 text-ink">
           <MessageCircle size={16} /> {title}
         </div>
         {onAdd && (
@@ -2955,19 +2956,17 @@ function ActualitesPanel({ actualites, onAdd, onDelete, limit, title = 'Actualit
             value={titre}
             onChange={(e) => setTitre(e.target.value)}
             placeholder="Titre de l'actualité"
-            className="w-full px-3 py-2 rounded-lg border text-sm"
-            style={{ borderColor: 'var(--line)', background: 'var(--panel)', color: 'var(--ink)' }}
+            className="w-full px-3 py-2 rounded-lg border text-sm sygenop-input"
           />
           <textarea
             value={contenu}
             onChange={(e) => setContenu(e.target.value)}
             placeholder="Contenu…"
             rows={3}
-            className="w-full px-3 py-2 rounded-lg border text-sm"
-            style={{ borderColor: 'var(--line)', background: 'var(--panel)', color: 'var(--ink)' }}
+            className="w-full px-3 py-2 rounded-lg border text-sm sygenop-input"
           />
           <div className="flex items-center justify-between">
-            <label className="flex items-center gap-1.5 text-xs font-semibold" style={{ color: 'var(--muted)' }}>
+            <label className="flex items-center gap-1.5 text-xs font-semibold text-muted">
               <input type="checkbox" checked={important} onChange={(e) => setImportant(e.target.checked)} /> Marquer comme important
             </label>
             <button type="submit" className="px-3.5 py-1.5 rounded-lg text-xs font-semibold text-white" style={{ background: 'var(--green-d)' }}>
@@ -2977,7 +2976,7 @@ function ActualitesPanel({ actualites, onAdd, onDelete, limit, title = 'Actualit
         </form>
       )}
       {shown.length === 0 ? (
-        <div className="text-center text-sm py-6" style={{ color: 'var(--muted)' }}>Aucune actualité publiée pour le moment.</div>
+        <div className="text-center text-sm py-6 text-muted">Aucune actualité publiée pour le moment.</div>
       ) : (
         <div className="space-y-2.5">
           {shown.map((item) => <NewsItemCard key={item.id} item={item} schoolName={item.__school} onDelete={onDelete} />)}
@@ -2991,7 +2990,7 @@ function ActualitesPanel({ actualites, onAdd, onDelete, limit, title = 'Actualit
 function ActualitesView({ state, loading, updateState, notify, readOnly, authorName }) {
   if (loading || !state) {
     return (
-      <div className="flex items-center justify-center py-24" style={{ color: 'var(--muted)' }}>
+      <div className="flex items-center justify-center py-24 text-muted">
         <Loader2 className="animate-spin mr-2" size={18} /> Chargement des données…
       </div>
     );
@@ -3037,10 +3036,10 @@ function StaffRoleDashboard({ state, loading, role, setActive, authorName }) {
   return (
     <div className="space-y-6 sygenop-fade">
       <div className="sygenop-card p-5" style={{ background: 'linear-gradient(135deg, var(--green-l), var(--panel))' }}>
-        <div className="text-xs font-semibold uppercase tracking-wide" style={{ color: 'var(--muted)' }}>Espace professionnel</div>
-        <h2 className="text-xl font-extrabold mt-1" style={{ color: 'var(--ink)' }}>{isAccountant ? 'Tableau de bord Comptabilité' : 'Tableau de bord Secrétariat'}</h2>
+        <div className="text-xs font-semibold uppercase tracking-wide text-muted">Espace professionnel</div>
+        <h2 className="text-xl font-extrabold mt-1 text-ink">{isAccountant ? 'Tableau de bord Comptabilité' : 'Tableau de bord Secrétariat'}</h2>
         <div className="text-sm font-semibold mt-2" style={{ color: 'var(--green-d)' }}>Connecté : {authorName || (isAccountant ? 'Comptable/Gestionnaire' : 'Secrétaire')}</div>
-        <p className="text-sm mt-1" style={{ color: 'var(--muted)' }}>{isAccountant ? 'Suivi des paiements, dépenses, matériel et échanges de données.' : 'Suivi du personnel, des élèves, des actualités, de l’administration et des données.'}</p>
+        <p className="text-sm mt-1 text-muted">{isAccountant ? 'Suivi des paiements, dépenses, matériel et échanges de données.' : 'Suivi du personnel, des élèves, des actualités, de l’administration et des données.'}</p>
       </div>
 
       {isAccountant ? (
@@ -3095,10 +3094,10 @@ class ErrorBoundary extends React.Component {
   render() {
     if (!this.state.error) return this.props.children;
     return (
-      <div className="sygenop-card p-8 max-w-xl mx-auto mt-10 text-center" style={{ color: 'var(--ink)' }}>
+      <div className="sygenop-card p-8 max-w-xl mx-auto mt-10 text-center text-ink">
         <AlertCircle size={34} className="mx-auto mb-3" style={{ color: 'var(--red)' }} />
         <h2 className="font-bold mb-2">Une erreur est survenue dans cette page</h2>
-        <p className="text-sm mb-4" style={{ color: 'var(--muted)' }}>{String((this.state.error && this.state.error.message) || this.state.error)}</p>
+        <p className="text-sm mb-4 text-muted">{String((this.state.error && this.state.error.message) || this.state.error)}</p>
         <div className="flex justify-center gap-2">
           <button type="button" onClick={() => this.setState({ error: null })} className="px-4 py-2 rounded-lg text-sm font-semibold text-white" style={{ background: 'var(--green-d)' }}>Réessayer</button>
           <button type="button" onClick={() => window.location.reload()} className="px-4 py-2 rounded-lg text-sm font-semibold" style={{ border: '1px solid var(--line)', color: 'var(--ink)', background: 'var(--panel)' }}>Recharger la page</button>
@@ -3190,29 +3189,29 @@ function DashboardView({ state, loading, teacherName, teacherStaffId, role, upda
         </div>
         <div className="sygenop-card p-5 space-y-4">
           <div className="flex flex-wrap items-center justify-between gap-3">
-            <div className="font-bold text-sm flex items-center gap-2" style={{ color: 'var(--ink)' }}><Clock size={16} /> Mon pointage et mes objectifs</div>
-            <input type="month" value={presMois} onChange={(e) => setPresMois(e.target.value)} className="px-2.5 py-1.5 rounded-lg border text-xs" style={{ borderColor: 'var(--line)', background: 'var(--panel)', color: 'var(--ink)' }} />
+            <div className="font-bold text-sm flex items-center gap-2 text-ink"><Clock size={16} /> Mon pointage et mes objectifs</div>
+            <input type="month" value={presMois} onChange={(e) => setPresMois(e.target.value)} className="px-2.5 py-1.5 rounded-lg border text-xs sygenop-input" />
           </div>
           {teacherAttendance ? (
             <div className="grid grid-cols-2 lg:grid-cols-5 gap-3 text-sm">
-              <div><div className="text-xs" style={{ color: 'var(--muted)' }}>Objectif mensuel</div><div className="font-bold">{teacherAttendance.target} h</div></div>
-              <div><div className="text-xs" style={{ color: 'var(--muted)' }}>Heures servies</div><div className="font-bold" style={{ color: 'var(--green-d)' }}>{teacherAttendance.heures} h</div></div>
-              <div><div className="text-xs" style={{ color: 'var(--muted)' }}>Exécution</div><div className="font-bold" style={{ color: 'var(--gold)' }}>{Math.round(teacherAttendance.execution * 100)}%</div></div>
-              <div><div className="text-xs" style={{ color: 'var(--muted)' }}>Absences</div><div className="font-bold" style={{ color: 'var(--red)' }}>{teacherAttendance.absences} jour(s)</div></div>
-              <div><div className="text-xs" style={{ color: 'var(--muted)' }}>Présences / retards</div><div className="font-bold">{teacherAttendance.presents} / {teacherAttendance.retards}</div></div>
+              <div><div className="text-xs text-muted">Objectif mensuel</div><div className="font-bold">{teacherAttendance.target} h</div></div>
+              <div><div className="text-xs text-muted">Heures servies</div><div className="font-bold" style={{ color: 'var(--green-d)' }}>{teacherAttendance.heures} h</div></div>
+              <div><div className="text-xs text-muted">Exécution</div><div className="font-bold" style={{ color: 'var(--gold)' }}>{Math.round(teacherAttendance.execution * 100)}%</div></div>
+              <div><div className="text-xs text-muted">Absences</div><div className="font-bold" style={{ color: 'var(--red)' }}>{teacherAttendance.absences} jour(s)</div></div>
+              <div><div className="text-xs text-muted">Présences / retards</div><div className="font-bold">{teacherAttendance.presents} / {teacherAttendance.retards}</div></div>
             </div>
-          ) : <div className="text-sm" style={{ color: 'var(--muted)' }}>Votre fiche de personnel n’est pas encore associée à ce compte.</div>}
+          ) : <div className="text-sm text-muted">Votre fiche de personnel n’est pas encore associée à ce compte.</div>}
         </div>
         <div className="sygenop-card p-5">
-          <div className="font-bold text-sm mb-3 flex items-center gap-2" style={{ color: 'var(--ink)' }}><Package size={16} /> Matériel affecté à mes classes</div>
-          {visibleAssignments.length ? <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-sm">{visibleAssignments.map((a) => <div key={a.id} className="rounded-lg px-3 py-2" style={{ background: 'var(--bg)' }}><b>{(state.materiel || []).find((m) => m.id === a.materielId)?.nom || 'Matériel'}</b> — {a.quantite} unité(s) <span style={{ color: 'var(--muted)' }}>· {(state.classes || {})[a.classId]?.name}</span></div>)}</div> : <div className="text-sm" style={{ color: 'var(--muted)' }}>Aucun matériel n’est encore affecté à votre classe.</div>}
+          <div className="font-bold text-sm mb-3 flex items-center gap-2 text-ink"><Package size={16} /> Matériel affecté à mes classes</div>
+          {visibleAssignments.length ? <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-sm">{visibleAssignments.map((a) => <div key={a.id} className="rounded-lg px-3 py-2 bg-bg"><b>{(state.materiel || []).find((m) => m.id === a.materielId)?.nom || 'Matériel'}</b> — {a.quantite} unité(s) <span className="text-muted">· {(state.classes || {})[a.classId]?.name}</span></div>)}</div> : <div className="text-sm text-muted">Aucun matériel n’est encore affecté à votre classe.</div>}
         </div>
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
-          <div className="sygenop-card p-5 lg:col-span-2 flex flex-col items-center justify-center text-center py-10" style={{ color: 'var(--muted)' }}>
+          <div className="sygenop-card p-5 lg:col-span-2 flex flex-col items-center justify-center text-center py-10 text-muted">
             <div className="text-sm">Ce tableau de bord affiche uniquement les données de votre classe. Retrouvez la saisie des notes, la synthèse et les bulletins dans le menu « Évaluation ».</div>
           </div>
           <div className="sygenop-card p-5">
-            <div className="font-bold text-sm mb-4" style={{ color: 'var(--ink)' }}>Répartition par genre</div>
+            <div className="font-bold text-sm mb-4 text-ink">Répartition par genre</div>
             <ResponsiveContainer width="100%" height={220}>
               <PieChart>
                 <Pie data={genderData} dataKey="value" nameKey="name" innerRadius={55} outerRadius={80} paddingAngle={2}>
@@ -3246,13 +3245,13 @@ function DashboardView({ state, loading, teacherName, teacherStaffId, role, upda
         <StatCard icon={CheckCircle2} label="Niveaux couverts" value={stats.byLevel.filter((l) => l.effectif > 0).length + ' / ' + stats.byLevel.length} sub={cycleLabel(state.header?.cycle)} tone="gold" />
       </div>
       <div className="sygenop-card p-5">
-        <div className="font-bold text-sm mb-3 flex items-center gap-2" style={{ color: 'var(--ink)' }}><Package size={16} /> Matériel de l’école</div>
-        {visibleAssignments.length ? <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2 text-sm">{visibleAssignments.map((a) => <div key={a.id} className="rounded-lg px-3 py-2" style={{ background: 'var(--bg)' }}><b>{(state.materiel || []).find((m) => m.id === a.materielId)?.nom || 'Matériel'}</b> — {a.quantite} unité(s) <span style={{ color: 'var(--muted)' }}>· {(state.classes || {})[a.classId]?.name}</span></div>)}</div> : <div className="text-sm" style={{ color: 'var(--muted)' }}>Aucun matériel n’est encore affecté aux classes.</div>}
+        <div className="font-bold text-sm mb-3 flex items-center gap-2 text-ink"><Package size={16} /> Matériel de l’école</div>
+        {visibleAssignments.length ? <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2 text-sm">{visibleAssignments.map((a) => <div key={a.id} className="rounded-lg px-3 py-2 bg-bg"><b>{(state.materiel || []).find((m) => m.id === a.materielId)?.nom || 'Matériel'}</b> — {a.quantite} unité(s) <span className="text-muted">· {(state.classes || {})[a.classId]?.name}</span></div>)}</div> : <div className="text-sm text-muted">Aucun matériel n’est encore affecté aux classes.</div>}
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
         <div className="sygenop-card p-5 lg:col-span-2">
-          <div className="font-bold text-sm mb-4" style={{ color: 'var(--ink)' }}>Effectifs par niveau</div>
+          <div className="font-bold text-sm mb-4 text-ink">Effectifs par niveau</div>
           <ResponsiveContainer width="100%" height={260}>
             <BarChart data={stats.byLevel}>
               <CartesianGrid strokeDasharray="3 3" stroke="var(--line)" />
@@ -3264,7 +3263,7 @@ function DashboardView({ state, loading, teacherName, teacherStaffId, role, upda
           </ResponsiveContainer>
         </div>
         <div className="sygenop-card p-5">
-          <div className="font-bold text-sm mb-4" style={{ color: 'var(--ink)' }}>Répartition par genre</div>
+          <div className="font-bold text-sm mb-4 text-ink">Répartition par genre</div>
           <ResponsiveContainer width="100%" height={220}>
             <PieChart>
               <Pie data={genderData} dataKey="value" nameKey="name" innerRadius={55} outerRadius={80} paddingAngle={2}>
@@ -3282,7 +3281,7 @@ function DashboardView({ state, loading, teacherName, teacherStaffId, role, upda
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         <div className="sygenop-card p-5">
-          <div className="font-bold text-sm mb-4" style={{ color: 'var(--ink)' }}>Personnel — Répartition Homme / Femme</div>
+          <div className="font-bold text-sm mb-4 text-ink">Personnel — Répartition Homme / Femme</div>
           <ResponsiveContainer width="100%" height={220}>
             <PieChart>
               <Pie data={personnelGenderData} dataKey="value" nameKey="name" innerRadius={55} outerRadius={80} paddingAngle={2}>
@@ -3296,31 +3295,30 @@ function DashboardView({ state, loading, teacherName, teacherStaffId, role, upda
             <span className="flex items-center gap-1.5"><i className="w-2.5 h-2.5 rounded-full inline-block" style={{ background: PERSONNEL_GENDER_COLORS[1] }} /> Femmes</span>
             {stats.personnelUnknown > 0 && <span className="flex items-center gap-1.5"><i className="w-2.5 h-2.5 rounded-full inline-block" style={{ background: PERSONNEL_GENDER_COLORS[2] }} /> Non renseigné</span>}
           </div>
-          <div className="text-xs text-center mt-2" style={{ color: 'var(--muted)' }}>Hommes : {stats.personnelMale} · Femmes : {stats.personnelFemale}{stats.personnelUnknown ? ` · Non renseigné : ${stats.personnelUnknown}` : ''}</div>
+          <div className="text-xs text-center mt-2 text-muted">Hommes : {stats.personnelMale} · Femmes : {stats.personnelFemale}{stats.personnelUnknown ? ` · Non renseigné : ${stats.personnelUnknown}` : ''}</div>
         </div>
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
         <div className="sygenop-card p-5 space-y-3">
           <div className="flex flex-wrap items-center justify-between gap-2">
-            <div className="font-bold text-sm flex items-center gap-2" style={{ color: 'var(--ink)' }}>
+            <div className="font-bold text-sm flex items-center gap-2 text-ink">
               <Clock size={16} /> Présences du personnel
             </div>
             <input
               type="month"
               value={presMois}
               onChange={(e) => setPresMois(e.target.value)}
-              className="px-2.5 py-1.5 rounded-lg border text-xs"
-              style={{ borderColor: 'var(--line)', background: 'var(--panel)', color: 'var(--ink)' }}
+              className="px-2.5 py-1.5 rounded-lg border text-xs sygenop-input"
             />
           </div>
           {presence && presence.personnelTotal > 0 ? (
             <>
               <div className="flex items-end gap-2">
                 <span className="text-3xl font-extrabold" style={{ color: 'var(--green-d)' }}>{presence.tauxExecution == null ? '—' : `${Math.round(presence.tauxExecution * 100)}%`}</span>
-                <span className="text-xs mb-1" style={{ color: 'var(--muted)' }}>score d’exécution des heures — {monthLabelFr(presMois)}</span>
+                <span className="text-xs mb-1 text-muted">score d’exécution des heures — {monthLabelFr(presMois)}</span>
               </div>
-              <div className="flex flex-wrap gap-x-4 gap-y-1 text-xs" style={{ color: 'var(--muted)' }}>
+              <div className="flex flex-wrap gap-x-4 gap-y-1 text-xs text-muted">
                 <span>{stats.personnelTotal} agent(s) au total</span>
                 <span>Moyenne des agents : {presence.moyenneHeures.toFixed(1)} h</span>
                 <span>Objectif par agent : {presence.heuresPrevuesParAgent} h</span>
@@ -3329,16 +3327,16 @@ function DashboardView({ state, loading, teacherName, teacherStaffId, role, upda
               </div>
             </>
           ) : (
-            <div className="text-sm py-4" style={{ color: 'var(--muted)' }}>Ajoutez des agents pour calculer le score mensuel de l’école.</div>
+            <div className="text-sm py-4 text-muted">Ajoutez des agents pour calculer le score mensuel de l’école.</div>
           )}
         </div>
 
         <div className="sygenop-card p-5 space-y-3">
           <div className="flex flex-wrap items-center justify-between gap-2">
-            <div className="font-bold text-sm flex items-center gap-2" style={{ color: 'var(--ink)' }}>
+            <div className="font-bold text-sm flex items-center gap-2 text-ink">
               <Trophy size={16} /> Score de la période
             </div>
-            <div className="flex gap-1 p-1 rounded-lg" style={{ background: 'var(--bg)' }}>
+            <div className="flex gap-1 p-1 rounded-lg bg-bg">
               {schoolPeriods.map((t) => (
                 <button
                   key={t.key}
@@ -3355,15 +3353,15 @@ function DashboardView({ state, loading, teacherName, teacherStaffId, role, upda
             <>
               <div className="flex items-end gap-2">
                 <span className="text-3xl font-extrabold" style={{ color: 'var(--gold)' }}>{fmtNote(academic.moyenne)}{supportsWeightedAssessments(state) ? '/20' : '/10'}</span>
-                <span className="text-xs mb-1" style={{ color: 'var(--muted)' }}>moyenne générale — {periodLabel(state, notePeriod)}</span>
+                <span className="text-xs mb-1 text-muted">moyenne générale — {periodLabel(state, notePeriod)}</span>
               </div>
-              <div className="flex flex-wrap gap-x-4 gap-y-1 text-xs" style={{ color: 'var(--muted)' }}>
+              <div className="flex flex-wrap gap-x-4 gap-y-1 text-xs text-muted">
                 <span>{fmtPctVal(academic.tauxReussite)} de taux de réussite</span>
                 <span>{academic.effectifNote} élève(s) noté(s)</span>
               </div>
             </>
           ) : (
-            <div className="text-sm py-4" style={{ color: 'var(--muted)' }}>Aucune note saisie pour cette période.</div>
+            <div className="text-sm py-4 text-muted">Aucune note saisie pour cette période.</div>
           )}
         </div>
       </div>
@@ -3406,8 +3404,8 @@ function ConfirmModal({ title, message, onConfirm, onCancel, danger }) {
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
       <div className="sygenop-card p-6 max-w-sm w-full sygenop-fade">
-        <div className="font-bold mb-2" style={{ color: 'var(--ink)' }}>{title}</div>
-        <p className="text-sm mb-5" style={{ color: 'var(--muted)' }}>{message}</p>
+        <div className="font-bold mb-2 text-ink">{title}</div>
+        <p className="text-sm mb-5 text-muted">{message}</p>
         <div className="flex justify-end gap-2">
           <button onClick={onCancel} className="px-3.5 py-2 rounded-lg text-sm font-semibold" style={{ background: 'var(--bg)', color: 'var(--ink)' }}>Annuler</button>
           <button
@@ -3453,8 +3451,8 @@ return (
       <form onSubmit={submit} className="sygenop-card w-full max-w-lg max-h-[92vh] flex flex-col overflow-hidden sygenop-fade">
         <div className="flex items-center justify-between gap-3 px-6 py-4 flex-shrink-0" style={{ borderBottom: '1px solid var(--modal-line)' }}>
           <div>
-            <div className="font-bold text-[15px]" style={{ color: 'var(--ink)' }}>{isEdit ? 'Modifier le membre du personnel' : 'Ajouter un membre du personnel'}</div>
-            <div className="text-[11px]" style={{ color: 'var(--muted)' }}>{isEdit ? 'Mise à jour de la fiche agent' : 'Création dʼune nouvelle fiche agent'}</div>
+            <div className="font-bold text-[15px] text-ink">{isEdit ? 'Modifier le membre du personnel' : 'Ajouter un membre du personnel'}</div>
+            <div className="text-[11px] text-muted">{isEdit ? 'Mise à jour de la fiche agent' : 'Création dʼune nouvelle fiche agent'}</div>
           </div>
           <button type="button" onClick={onClose} className="p-1.5 rounded-lg transition-colors" style={{ color: 'var(--muted)', background: 'var(--bg)' }}><X size={17} /></button>
         </div>
@@ -3466,35 +3464,32 @@ return (
           </div>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <div>
-              <label className="text-xs font-semibold block mb-1" style={{ color: 'var(--muted)' }}>Prénom(s) *</label>
+              <label className="text-xs font-semibold block mb-1 text-muted">Prénom(s) *</label>
               <input
                 autoFocus
                 value={form.prenom}
                 onChange={(e) => set('prenom', e.target.value)}
-                className="w-full px-3 py-2 rounded-lg border text-sm"
-                style={{ borderColor: 'var(--line)', background: 'var(--panel)', color: 'var(--ink)' }}
+                className="w-full px-3 py-2 rounded-lg border text-sm sygenop-input"
                 placeholder="Ex : Aïssatou"
               />
             </div>
             <div>
-              <label className="text-xs font-semibold block mb-1" style={{ color: 'var(--muted)' }}>Nom *</label>
+              <label className="text-xs font-semibold block mb-1 text-muted">Nom *</label>
               <input
                 value={form.nom}
                 onChange={(e) => set('nom', e.target.value)}
-                className="w-full px-3 py-2 rounded-lg border text-sm"
-                style={{ borderColor: 'var(--line)', background: 'var(--panel)', color: 'var(--ink)' }}
+                className="w-full px-3 py-2 rounded-lg border text-sm sygenop-input"
                 placeholder="Ex : Diop"
               />
             </div>
           </div>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <div>
-              <label className="text-xs font-semibold block mb-1" style={{ color: 'var(--muted)' }}>Genre</label>
+              <label className="text-xs font-semibold block mb-1 text-muted">Genre</label>
               <select
                 value={form.genre}
                 onChange={(e) => set('genre', e.target.value)}
-                className="w-full px-3 py-2 rounded-lg border text-sm"
-                style={{ borderColor: 'var(--line)', background: 'var(--panel)', color: 'var(--ink)' }}
+                className="w-full px-3 py-2 rounded-lg border text-sm sygenop-input"
               >
                 {[{ value: 'Homme', label: 'Homme' }, { value: 'Femme', label: 'Femme' }].map((item) => (
                   <option key={item.value} value={item.value}>{item.label}</option>
@@ -3502,12 +3497,11 @@ return (
               </select>
             </div>
             <div>
-              <label className="text-xs font-semibold block mb-1" style={{ color: 'var(--muted)' }}>Fonction</label>
+              <label className="text-xs font-semibold block mb-1 text-muted">Fonction</label>
               <select
                 value={form.role}
                 onChange={(e) => set('role', e.target.value)}
-                className="w-full px-3 py-2 rounded-lg border text-sm"
-                style={{ borderColor: 'var(--line)', background: 'var(--panel)', color: 'var(--ink)' }}
+                className="w-full px-3 py-2 rounded-lg border text-sm sygenop-input"
               >
                 {STAFF_ROLES.map((r) => <option key={r} value={r}>{displayStaffRole(r, cycle)}</option>)}
               </select>
@@ -3515,14 +3509,14 @@ return (
           </div>
           {['moyen', 'secondaire'].includes(cycle) && form.role === 'Enseignant(e)' && (
             <div className="rounded-xl p-3" style={{ border: '1px solid var(--line)', background: 'var(--bg)' }}>
-              <label className="text-xs font-semibold block mb-1.5" style={{ color: 'var(--muted)' }}>
+              <label className="text-xs font-semibold block mb-1.5 text-muted">
                 Spécialités enseignées {form.specialites?.length ? `(${form.specialites.length})` : ''}
               </label>
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-4 gap-y-1.5">
                 {specialitesForCycle(cycle).map((matiere) => {
                   const checked = (form.specialites || []).includes(matiere);
                   return (
-                    <label key={matiere} className="flex items-center gap-1.5 text-xs cursor-pointer" style={{ color: 'var(--ink)' }}>
+                    <label key={matiere} className="flex items-center gap-1.5 text-xs cursor-pointer text-ink">
                       <input
                         type="checkbox"
                         checked={checked}
@@ -3548,47 +3542,43 @@ return (
           </div>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <div>
-              <label className="text-xs font-semibold block mb-1" style={{ color: 'var(--muted)' }}>Statut</label>
+              <label className="text-xs font-semibold block mb-1 text-muted">Statut</label>
               <select
                 value={form.statut}
                 onChange={(e) => set('statut', e.target.value)}
-                className="w-full px-3 py-2 rounded-lg border text-sm"
-                style={{ borderColor: 'var(--line)', background: 'var(--panel)', color: 'var(--ink)' }}
+                className="w-full px-3 py-2 rounded-lg border text-sm sygenop-input"
               >
                 {['Actif', 'Congé', 'Suspendu', 'Absent'].map((s) => <option key={s} value={s}>{s}</option>)}
               </select>
             </div>
             <div>
-              <label className="text-xs font-semibold block mb-1" style={{ color: 'var(--muted)' }}>Téléphone</label>
+              <label className="text-xs font-semibold block mb-1 text-muted">Téléphone</label>
               <input
                 value={form.telephone}
                 onChange={(e) => set('telephone', e.target.value)}
-                className="w-full px-3 py-2 rounded-lg border text-sm"
-                style={{ borderColor: 'var(--line)', background: 'var(--panel)', color: 'var(--ink)' }}
+                className="w-full px-3 py-2 rounded-lg border text-sm sygenop-input"
                 placeholder="77 000 00 00"
               />
             </div>
           </div>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <div>
-              <label className="text-xs font-semibold block mb-1" style={{ color: 'var(--muted)' }}>Salaire de base (FCFA)</label>
+              <label className="text-xs font-semibold block mb-1 text-muted">Salaire de base (FCFA)</label>
               <input
                 type="number" min="0" step="1000"
                 value={form.salaireBase}
                 onChange={(e) => set('salaireBase', e.target.value)}
-                className="w-full px-3 py-2 rounded-lg border text-sm"
-                style={{ borderColor: 'var(--line)', background: 'var(--panel)', color: 'var(--ink)' }}
+                className="w-full px-3 py-2 rounded-lg border text-sm sygenop-input"
                 placeholder="0"
               />
             </div>
             <div>
-              <label className="text-xs font-semibold block mb-1" style={{ color: 'var(--muted)' }}>Date d'embauche</label>
+              <label className="text-xs font-semibold block mb-1 text-muted">Date d'embauche</label>
               <input
                 type="date"
                 value={form.dateEmbauche}
                 onChange={(e) => set('dateEmbauche', e.target.value)}
-                className="w-full px-3 py-2 rounded-lg border text-sm"
-                style={{ borderColor: 'var(--line)', background: 'var(--panel)', color: 'var(--ink)' }}
+                className="w-full px-3 py-2 rounded-lg border text-sm sygenop-input"
               />
             </div>
           </div>
@@ -3608,18 +3598,16 @@ return (
                     type={showCode ? 'text' : 'password'}
                     value={form.code}
                     onChange={(e) => set('code', e.target.value.toUpperCase())}
-                    className="w-full pl-9 pr-3 py-2 rounded-lg border text-sm font-mono tracking-widest"
-                    style={{ borderColor: 'var(--line)', background: 'var(--panel)', color: 'var(--ink)' }}
+                    className="w-full pl-9 pr-3 py-2 rounded-lg border text-sm font-mono tracking-widest sygenop-input"
                   />
-                  <button type="button" onClick={() => setShowCode((s) => !s)} className="absolute right-3 top-1/2 -translate-y-1/2" style={{ color: 'var(--muted)' }}>
+                  <button type="button" onClick={() => setShowCode((s) => !s)} className="absolute right-3 top-1/2 -translate-y-1/2 text-muted">
                     {showCode ? <EyeOff size={15} /> : <Eye size={15} />}
                   </button>
                 </div>
                 <button
                   type="button"
                   onClick={() => set('code', generateAccessCode())}
-                  className="px-3 py-2 rounded-lg text-xs font-semibold whitespace-nowrap"
-                  style={{ background: 'var(--bg)', color: 'var(--ink)', border: '1px solid var(--line)' }}
+                  className="px-3 py-2 rounded-lg text-xs font-semibold whitespace-nowrap sygenop-btn sygenop-btn--ghost"
                 >
                   Générer
                 </button>
@@ -3696,28 +3684,26 @@ function ClassModal({ cls, level, personnel, materiel = [], affectations = [], c
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
       <form onSubmit={submit} className="sygenop-card p-6 max-w-sm w-full sygenop-fade">
         <div className="flex items-center justify-between mb-4">
-          <div className="font-bold" style={{ color: 'var(--ink)' }}>{isEdit ? 'Modifier la classe' : `Ajouter une classe (${level})`}</div>
+          <div className="font-bold text-ink">{isEdit ? 'Modifier la classe' : `Ajouter une classe (${level})`}</div>
           <button type="button" onClick={onClose} style={{ color: 'var(--muted)' }}><X size={18} /></button>
         </div>
         <div className="space-y-3">
           <div>
-            <label className="text-xs font-semibold block mb-1" style={{ color: 'var(--muted)' }}>Nom de la classe *</label>
+            <label className="text-xs font-semibold block mb-1 text-muted">Nom de la classe *</label>
             <input
               autoFocus
               value={form.name}
               onChange={(e) => set('name', e.target.value)}
-              className="w-full px-3 py-2.5 rounded-lg border text-sm"
-              style={{ borderColor: 'var(--line)', background: 'var(--panel)', color: 'var(--ink)' }}
+              className="w-full px-3 py-2.5 rounded-lg border text-sm sygenop-input"
               placeholder={`Ex : ${level} A`}
             />
           </div>
           <div>
-            <label className="text-xs font-semibold block mb-1" style={{ color: 'var(--muted)' }}>{cycleTerminology(cycle).teacher}</label>
+            <label className="text-xs font-semibold block mb-1 text-muted">{cycleTerminology(cycle).teacher}</label>
             <select
               value={form.teacher || ''}
               onChange={(e) => set('teacher', e.target.value)}
-              className="w-full px-3 py-2.5 rounded-lg border text-sm"
-              style={{ borderColor: 'var(--line)', background: 'var(--panel)', color: 'var(--ink)' }}
+              className="w-full px-3 py-2.5 rounded-lg border text-sm sygenop-input"
             >
               <option value="">— Aucun —</option>
               {(personnel || []).map((p) => <option key={p.id} value={personFullName(p)}>{personFullName(p)}</option>)}
@@ -3725,8 +3711,8 @@ function ClassModal({ cls, level, personnel, materiel = [], affectations = [], c
           </div>
           {selectedProf && ['moyen', 'secondaire'].includes(cycle) && (
             <div className="rounded-lg border p-3" style={{ borderColor: 'var(--line)', background: 'var(--bg)' }}>
-              <div className="text-xs font-semibold" style={{ color: 'var(--ink)' }}>Matière(s) tenue(s) par ce professeur dans {level}</div>
-              <p className="text-[11px] mt-1" style={{ color: 'var(--muted)' }}>
+              <div className="text-xs font-semibold text-ink">Matière(s) tenue(s) par ce professeur dans {level}</div>
+              <p className="text-[11px] mt-1 text-muted">
                 Seules les spécialités présentes dans les matières configurées de cette classe sont proposées.
               </p>
               {matieresDisponibles.length ? (
@@ -3734,7 +3720,7 @@ function ClassModal({ cls, level, personnel, materiel = [], affectations = [], c
                   {matieresDisponibles.map((matiere) => {
                     const checked = (form.matieres || []).includes(matiere);
                     return (
-                      <label key={matiere} className="flex items-center gap-1.5 text-sm cursor-pointer" style={{ color: 'var(--ink)' }}>
+                      <label key={matiere} className="flex items-center gap-1.5 text-sm cursor-pointer text-ink">
                         <input type="checkbox" checked={checked} onChange={() => toggleMatiere(matiere)} className="rounded" style={{ accentColor: 'var(--green-d)' }} />
                         {matiere}
                       </label>
@@ -3749,11 +3735,11 @@ function ClassModal({ cls, level, personnel, materiel = [], affectations = [], c
             </div>
           )}
           <div className="rounded-lg border p-3" style={{ borderColor: 'var(--line)', background: 'var(--bg)' }}>
-            <div className="text-xs font-semibold" style={{ color: 'var(--muted)' }}>Matériel affecté à cette classe</div>
+            <div className="text-xs font-semibold text-muted">Matériel affecté à cette classe</div>
             {cls ? (() => {
               const rows = affectations.filter((a) => a.classId === cls.id);
-              return rows.length ? <ul className="mt-2 space-y-1 text-sm">{rows.map((a) => <li key={a.id}>{materiel.find((m) => m.id === a.materielId)?.nom || 'Matériel'} <span style={{ color: 'var(--muted)' }}>— {a.quantite} unité(s)</span></li>)}</ul> : <p className="mt-1 text-xs" style={{ color: 'var(--muted)' }}>Aucun matériel affecté. L'affectation se fait uniquement dans Comptabilité → Matériel.</p>;
-            })() : <p className="mt-1 text-xs" style={{ color: 'var(--muted)' }}>Après la création, le comptable affectera le matériel dans Comptabilité → Matériel.</p>}
+              return rows.length ? <ul className="mt-2 space-y-1 text-sm">{rows.map((a) => <li key={a.id}>{materiel.find((m) => m.id === a.materielId)?.nom || 'Matériel'} <span className="text-muted">— {a.quantite} unité(s)</span></li>)}</ul> : <p className="mt-1 text-xs text-muted">Aucun matériel affecté. L'affectation se fait uniquement dans Comptabilité → Matériel.</p>;
+            })() : <p className="mt-1 text-xs text-muted">Après la création, le comptable affectera le matériel dans Comptabilité → Matériel.</p>}
           </div>
         </div>
         <div className="flex justify-end gap-2 mt-6">
@@ -3779,7 +3765,7 @@ function PersonnelListTab({ personnel, onAdd, onEdit, onDelete, onCard, onAttest
     <div className="space-y-4">
       <div className="sygenop-card p-4 flex flex-col sm:flex-row items-stretch sm:items-center gap-3">
         <div className="relative flex-1">
-          <Search size={15} className="absolute left-3 top-1/2 -translate-y-1/2" style={{ color: 'var(--muted)' }} />
+          <Search size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-muted" />
           <input
             value={q}
             onChange={(e) => setQ(e.target.value)}
@@ -3800,7 +3786,7 @@ function PersonnelListTab({ personnel, onAdd, onEdit, onDelete, onCard, onAttest
       </div>
 
       {filtered.length === 0 ? (
-        <div className="sygenop-card p-10 text-center text-sm" style={{ color: 'var(--muted)' }}>
+        <div className="sygenop-card p-10 text-center text-sm text-muted">
           {personnel.length === 0 ? 'Aucun membre du personnel enregistré pour le moment.' : 'Aucun résultat pour cette recherche.'}
         </div>
       ) : (
@@ -3809,7 +3795,7 @@ function PersonnelListTab({ personnel, onAdd, onEdit, onDelete, onCard, onAttest
             <thead>
               <tr className="text-left" style={{ borderBottom: '1px solid var(--line)' }}>
                 {['Nom', 'Fonction', 'Téléphone', 'Salaire de base', 'Statut', ''].map((h) => (
-                  <th key={h} className="px-4 py-3 text-[11px] font-bold uppercase tracking-wide" style={{ color: 'var(--muted)' }}>{h}</th>
+                  <th key={h} className="px-4 py-3 text-[11px] font-bold uppercase tracking-wide text-muted">{h}</th>
                 ))}
               </tr>
             </thead>
@@ -3822,8 +3808,8 @@ function PersonnelListTab({ personnel, onAdd, onEdit, onDelete, onCard, onAttest
                         {isFemale(p.genre) ? <AvatarGirl size={36} /> : <AvatarBoy size={36} />}
                       </span>
                       <div>
-                        <div className="font-semibold" style={{ color: 'var(--ink)' }}>{p.prenom || ''} {p.nom || ''}</div>
-                        <div className="text-[11px] text-muted" style={{ color: 'var(--muted)' }}>
+                        <div className="font-semibold text-ink">{p.prenom || ''} {p.nom || ''}</div>
+                        <div className="text-[11px] text-muted text-muted">
                           {p.genre || 'Homme'}
                         </div>
                         {STAFF_LOGIN_ROLES.has(p.role) && p.code && (
@@ -3836,7 +3822,7 @@ function PersonnelListTab({ personnel, onAdd, onEdit, onDelete, onCard, onAttest
                       </div>
                     </button>
                   </td>
-                  <td className="px-4 py-3" style={{ color: 'var(--muted)' }}>
+                  <td className="px-4 py-3 text-muted">
                     {displayStaffRole(p.role, cycle)}
                     {p.specialites?.length > 0 && (
                       <div className="flex flex-wrap gap-1 mt-1">
@@ -3846,8 +3832,8 @@ function PersonnelListTab({ personnel, onAdd, onEdit, onDelete, onCard, onAttest
                       </div>
                     )}
                   </td>
-                  <td className="px-4 py-3" style={{ color: 'var(--muted)' }}>{p.telephone || '—'}</td>
-                  <td className="px-4 py-3" style={{ color: 'var(--ink)' }}>{fmtFCFA(p.salaireBase)}</td>
+                  <td className="px-4 py-3 text-muted">{p.telephone || '—'}</td>
+                  <td className="px-4 py-3 text-ink">{fmtFCFA(p.salaireBase)}</td>
                   <td className="px-4 py-3">
                     <Pill tone={p.statut === 'Actif' ? 'green' : p.statut === 'Absent' ? 'red' : 'gold'}>{p.statut}</Pill>
                   </td>
@@ -3858,7 +3844,7 @@ function PersonnelListTab({ personnel, onAdd, onEdit, onDelete, onCard, onAttest
                       </button>
                       {!readOnly && (
                         <>
-                          <button onClick={() => onEdit(p)} className="p-1.5 rounded-lg hover:bg-black/5" style={{ color: 'var(--muted)' }} title="Modifier">
+                          <button onClick={() => onEdit(p)} className="p-1.5 rounded-lg hover:bg-black/5 text-muted" title="Modifier">
                             <Pencil size={15} />
                           </button>
                           <button onClick={() => onDelete(p)} className="p-1.5 rounded-lg hover:bg-black/5" style={{ color: 'var(--red)' }} title="Supprimer">
@@ -3905,8 +3891,7 @@ function PointageTab({ personnel, pointage, onSetStatut, onSetHeures, readOnly, 
             type="date"
             value={date}
             onChange={(e) => setDate(e.target.value)}
-            className="px-3 py-2 rounded-lg border text-sm"
-            style={{ borderColor: 'var(--line)', background: 'var(--panel)', color: 'var(--ink)' }}
+            className="px-3 py-2 rounded-lg border text-sm sygenop-input"
           />
         </div>
         <button onClick={() => setDate((d) => shiftDay(d, 1))} className="p-2 rounded-lg" style={{ background: 'var(--bg)', color: 'var(--ink)' }}>
@@ -3917,11 +3902,11 @@ function PointageTab({ personnel, pointage, onSetStatut, onSetHeures, readOnly, 
         </button>
         <div className="ml-auto flex flex-wrap gap-2 text-xs">
           {Object.entries(POINTAGE_STATUTS).map(([k, v]) => (
-            <span key={k} className="flex items-center gap-1 font-semibold" style={{ color: 'var(--muted)' }}>
+            <span key={k} className="flex items-center gap-1 font-semibold text-muted">
               <Pill tone={v.tone}>{v.short}</Pill> {v.label} : {counts[k]}
             </span>
           ))}
-          <span className="flex items-center gap-1 font-semibold" style={{ color: 'var(--muted)' }}>
+          <span className="flex items-center gap-1 font-semibold text-muted">
             <Clock size={13} /> {heuresJour} h servies ce jour
           </span>
           <span className="flex items-center gap-1 font-semibold" style={{ color: 'var(--gold)' }}>
@@ -3929,11 +3914,11 @@ function PointageTab({ personnel, pointage, onSetStatut, onSetHeures, readOnly, 
           </span>
         </div>
       </div>
-      <div className="text-xs font-medium capitalize px-1 -mt-2" style={{ color: 'var(--muted)' }}>{fmtDateFr(date)}</div>
+      <div className="text-xs font-medium capitalize px-1 -mt-2 text-muted">{fmtDateFr(date)}</div>
       {blockedReason && <div className="rounded-xl px-4 py-3 text-sm font-semibold" style={{ background: '#fff5e8', color: '#8a5a14' }}>{blockedReason} : le pointage est fermé pour cette date.</div>}
 
       {personnel.length === 0 ? (
-        <div className="sygenop-card p-10 text-center text-sm" style={{ color: 'var(--muted)' }}>
+        <div className="sygenop-card p-10 text-center text-sm text-muted">
           Ajoutez d'abord des membres du personnel dans l'onglet « Liste » pour pouvoir effectuer le pointage.
         </div>
       ) : (
@@ -3941,10 +3926,10 @@ function PointageTab({ personnel, pointage, onSetStatut, onSetHeures, readOnly, 
           <table className="w-full text-sm">
             <thead>
               <tr className="text-left" style={{ borderBottom: '1px solid var(--line)' }}>
-                <th className="px-4 py-3 text-[11px] font-bold uppercase tracking-wide" style={{ color: 'var(--muted)' }}>Nom</th>
-                <th className="px-4 py-3 text-[11px] font-bold uppercase tracking-wide" style={{ color: 'var(--muted)' }}>Fonction</th>
-                <th className="px-4 py-3 text-[11px] font-bold uppercase tracking-wide" style={{ color: 'var(--muted)' }}>Pointage</th>
-                <th className="px-4 py-3 text-[11px] font-bold uppercase tracking-wide" style={{ color: 'var(--muted)' }}>Heures servies / objectif</th>
+                <th className="px-4 py-3 text-[11px] font-bold uppercase tracking-wide text-muted">Nom</th>
+                <th className="px-4 py-3 text-[11px] font-bold uppercase tracking-wide text-muted">Fonction</th>
+                <th className="px-4 py-3 text-[11px] font-bold uppercase tracking-wide text-muted">Pointage</th>
+                <th className="px-4 py-3 text-[11px] font-bold uppercase tracking-wide text-muted">Heures servies / objectif</th>
               </tr>
             </thead>
             <tbody>
@@ -3954,8 +3939,8 @@ function PointageTab({ personnel, pointage, onSetStatut, onSetHeures, readOnly, 
                 const heuresActives = current === 'P' || current === 'R';
                 return (
                   <tr key={p.id} style={{ borderBottom: '1px solid var(--line)' }}>
-                    <td className="px-4 py-3 font-semibold" style={{ color: 'var(--ink)' }}>{personFullName(p) || p.nom}</td>
-                    <td className="px-4 py-3" style={{ color: 'var(--muted)' }}>{displayStaffRole(p.role, cycle)}</td>
+                    <td className="px-4 py-3 font-semibold text-ink">{personFullName(p) || p.nom}</td>
+                    <td className="px-4 py-3 text-muted">{displayStaffRole(p.role, cycle)}</td>
                     <td className="px-4 py-3">
                       <div className="flex gap-1.5">
                         {Object.entries(POINTAGE_STATUTS).map(([k, v]) => {
@@ -3988,10 +3973,9 @@ function PointageTab({ personnel, pointage, onSetStatut, onSetHeures, readOnly, 
                           disabled={!heuresActives || readOnly || !!blockedReason}
                           value={heuresActives ? (rec?.heures ?? heuresPrevuesJour) : 0}
                           onChange={(e) => onSetHeures(date, p.id, e.target.value)}
-                          className="w-20 px-2.5 py-1.5 rounded-lg border text-sm disabled:opacity-40"
-                          style={{ borderColor: 'var(--line)', background: 'var(--panel)', color: 'var(--ink)' }}
+                          className="w-20 px-2.5 py-1.5 rounded-lg border text-sm disabled:opacity-40 sygenop-input"
                         />
-                        <span className="text-xs" style={{ color: 'var(--muted)' }}>h</span>
+                        <span className="text-xs text-muted">h</span>
                       </div>
                     </td>
                   </tr>
@@ -4035,7 +4019,7 @@ function HeuresRecapPanel({ personnel, pointage, defaultMois, settings }) {
   return (
     <div className="sygenop-card p-5 space-y-4">
       <div className="flex flex-wrap items-center gap-3">
-        <div className="font-bold text-sm flex items-center gap-2" style={{ color: 'var(--ink)' }}>
+        <div className="font-bold text-sm flex items-center gap-2 text-ink">
           <Clock size={16} /> Récapitulatif mensuel des heures
         </div>
         <div className="flex items-center gap-1.5 ml-1">
@@ -4046,14 +4030,13 @@ function HeuresRecapPanel({ personnel, pointage, defaultMois, settings }) {
             type="month"
             value={mois}
             onChange={(e) => setMois(e.target.value)}
-            className="px-2.5 py-1.5 rounded-lg border text-xs"
-            style={{ borderColor: 'var(--line)', background: 'var(--panel)', color: 'var(--ink)' }}
+            className="px-2.5 py-1.5 rounded-lg border text-xs sygenop-input"
           />
           <button onClick={() => setMois((m) => shiftMonth(m, 1))} className="p-1.5 rounded-lg" style={{ background: 'var(--bg)', color: 'var(--ink)' }}>
             <ChevronRight size={14} />
           </button>
         </div>
-        <span className="text-xs font-semibold capitalize" style={{ color: 'var(--muted)' }}>{monthLabelFr(mois)}</span>
+        <span className="text-xs font-semibold capitalize text-muted">{monthLabelFr(mois)}</span>
         <div className="ml-auto flex items-center gap-2">
           <Pill tone="green">Moyenne mensuelle de l'école : {moyenneMensuelleEcole.toFixed(1)} h / agent</Pill>
           <Pill tone="gold">Objectif individuel : {heuresPrevuesParAgent} h</Pill>
@@ -4061,7 +4044,7 @@ function HeuresRecapPanel({ personnel, pointage, defaultMois, settings }) {
       </div>
 
       {personnel.length === 0 ? (
-        <div className="text-center text-sm py-8" style={{ color: 'var(--muted)' }}>
+        <div className="text-center text-sm py-8 text-muted">
           Aucun membre du personnel à récapituler.
         </div>
       ) : (
@@ -4070,28 +4053,28 @@ function HeuresRecapPanel({ personnel, pointage, defaultMois, settings }) {
             <thead>
               <tr className="text-left" style={{ borderBottom: '1px solid var(--line)' }}>
                 {['Nom', 'Fonction', 'Jours pointés', 'Total heures servies', 'Objectif individuel', 'Exécution', 'Moyenne h / jour'].map((h) => (
-                  <th key={h} className="px-4 py-2.5 text-[11px] font-bold uppercase tracking-wide whitespace-nowrap" style={{ color: 'var(--muted)' }}>{h}</th>
+                  <th key={h} className="px-4 py-2.5 text-[11px] font-bold uppercase tracking-wide whitespace-nowrap text-muted">{h}</th>
                 ))}
               </tr>
             </thead>
             <tbody>
               {rows.map((r) => (
                 <tr key={r.id} style={{ borderBottom: '1px solid var(--line)' }}>
-                  <td className="px-4 py-2.5 font-semibold whitespace-nowrap" style={{ color: 'var(--ink)' }}>{personFullName(r) || r.nom}</td>
-                  <td className="px-4 py-2.5" style={{ color: 'var(--muted)' }}>{r.role}</td>
+                  <td className="px-4 py-2.5 font-semibold whitespace-nowrap text-ink">{personFullName(r) || r.nom}</td>
+                  <td className="px-4 py-2.5 text-muted">{r.role}</td>
                   <td className="px-4 py-2.5"><Pill tone="green">{r.joursPresence}</Pill></td>
-                  <td className="px-4 py-2.5 font-bold" style={{ color: 'var(--ink)' }}>{r.heures} h</td>
-                  <td className="px-4 py-2.5" style={{ color: 'var(--muted)' }}>{heuresPrevuesParAgent} h</td>
+                  <td className="px-4 py-2.5 font-bold text-ink">{r.heures} h</td>
+                  <td className="px-4 py-2.5 text-muted">{heuresPrevuesParAgent} h</td>
                   <td className="px-4 py-2.5"><Pill tone={r.execution >= 1 ? 'green' : 'gold'}>{Math.round(r.execution * 100)}%</Pill></td>
-                  <td className="px-4 py-2.5" style={{ color: 'var(--muted)' }}>{r.moyenneJour.toFixed(1)} h</td>
+                  <td className="px-4 py-2.5 text-muted">{r.moyenneJour.toFixed(1)} h</td>
                 </tr>
               ))}
             </tbody>
             <tfoot>
               <tr>
-                <td className="px-4 py-2.5 font-bold" style={{ color: 'var(--ink)' }}>École (objectif cumulé)</td>
+                <td className="px-4 py-2.5 font-bold text-ink">École (objectif cumulé)</td>
                 <td></td>
-                <td className="px-4 py-2.5 font-bold" style={{ color: 'var(--ink)' }}>{rows.reduce((s, r) => s + r.joursPresence, 0)}</td>
+                <td className="px-4 py-2.5 font-bold text-ink">{rows.reduce((s, r) => s + r.joursPresence, 0)}</td>
                 <td className="px-4 py-2.5 font-bold" style={{ color: 'var(--green-d)' }}>{totalHeuresEcole} h</td>
                 <td className="px-4 py-2.5 font-bold" style={{ color: 'var(--gold)' }}>{heuresPrevuesParAgent * personnel.length} h</td>
                 <td className="px-4 py-2.5 font-bold" style={{ color: 'var(--green-d)' }}>{heuresPrevuesParAgent > 0 && personnel.length > 0 ? Math.round((totalHeuresEcole / (heuresPrevuesParAgent * personnel.length)) * 100) : 0}%</td>
@@ -4101,7 +4084,7 @@ function HeuresRecapPanel({ personnel, pointage, defaultMois, settings }) {
           </table>
         </div>
       )}
-      <p className="text-xs" style={{ color: 'var(--muted)' }}>
+      <p className="text-xs text-muted">
         L’objectif individuel est calculé uniquement sur les jours ouvrés du mois, hors jours fériés et non ouvrés. L’objectif cumulé de l’école est cet objectif multiplié par le nombre d’agents.
       </p>
     </div>
@@ -4171,13 +4154,12 @@ function PaieTab({ personnel, pointage, state, updateState, readOnly }) {
           type="month"
           value={mois}
           onChange={(e) => setMois(e.target.value)}
-          className="px-3 py-2 rounded-lg border text-sm"
-          style={{ borderColor: 'var(--line)', background: 'var(--panel)', color: 'var(--ink)' }}
+          className="px-3 py-2 rounded-lg border text-sm sygenop-input"
         />
         <button onClick={() => setMois((m) => shiftMonth(m, 1))} className="p-2 rounded-lg" style={{ background: 'var(--bg)', color: 'var(--ink)' }}>
           <ChevronRight size={16} />
         </button>
-        <span className="text-xs font-semibold capitalize" style={{ color: 'var(--muted)' }}>{monthLabelFr(mois)} · {joursOuvres} jours ouvrés ({libelleJoursOuvres(horaires.joursOuvres)})</span>
+        <span className="text-xs font-semibold capitalize text-muted">{monthLabelFr(mois)} · {joursOuvres} jours ouvrés ({libelleJoursOuvres(horaires.joursOuvres)})</span>
         <button
           onClick={exportCSV}
           className="ml-auto px-3.5 py-2 rounded-lg text-sm font-semibold text-white flex items-center gap-1.5"
@@ -4200,7 +4182,7 @@ function PaieTab({ personnel, pointage, state, updateState, readOnly }) {
       )}
 
       {personnel.length === 0 ? (
-        <div className="sygenop-card p-10 text-center text-sm" style={{ color: 'var(--muted)' }}>
+        <div className="sygenop-card p-10 text-center text-sm text-muted">
           Aucun membre du personnel. Le calcul de la paie sera disponible une fois le personnel ajouté.
         </div>
       ) : (
@@ -4209,20 +4191,20 @@ function PaieTab({ personnel, pointage, state, updateState, readOnly }) {
             <thead>
               <tr className="text-left" style={{ borderBottom: '1px solid var(--line)' }}>
                 {['Nom', 'Salaire de base', 'Présents', 'Absents', 'Retards', 'Congés', 'Heures', 'Retenue', 'Salaire net'].map((h) => (
-                  <th key={h} className="px-4 py-3 text-[11px] font-bold uppercase tracking-wide whitespace-nowrap" style={{ color: 'var(--muted)' }}>{h}</th>
+                  <th key={h} className="px-4 py-3 text-[11px] font-bold uppercase tracking-wide whitespace-nowrap text-muted">{h}</th>
                 ))}
               </tr>
             </thead>
             <tbody>
               {rows.map((r) => (
                 <tr key={r.id} style={{ borderBottom: '1px solid var(--line)' }}>
-                  <td className="px-4 py-3 font-semibold whitespace-nowrap" style={{ color: 'var(--ink)' }}>{personFullName(r) || r.nom}</td>
-                  <td className="px-4 py-3 whitespace-nowrap" style={{ color: 'var(--muted)' }}>{fmtFCFA(r.salaireBase)}</td>
+                  <td className="px-4 py-3 font-semibold whitespace-nowrap text-ink">{personFullName(r) || r.nom}</td>
+                  <td className="px-4 py-3 whitespace-nowrap text-muted">{fmtFCFA(r.salaireBase)}</td>
                   <td className="px-4 py-3"><Pill tone="green">{r.present}</Pill></td>
                   <td className="px-4 py-3"><Pill tone="red">{r.absent}</Pill></td>
                   <td className="px-4 py-3"><Pill tone="gold">{r.retard}</Pill></td>
                   <td className="px-4 py-3"><Pill tone="muted">{r.conge}</Pill></td>
-                  <td className="px-4 py-3 whitespace-nowrap" style={{ color: 'var(--ink)' }}>{r.heures} h</td>
+                  <td className="px-4 py-3 whitespace-nowrap text-ink">{r.heures} h</td>
                   <td className="px-4 py-3 whitespace-nowrap" style={{ color: 'var(--red)' }}>
                     {isPrivateSchool && r.absent > 0 && !readOnly ? (
                       <input
@@ -4240,8 +4222,8 @@ function PaieTab({ personnel, pointage, state, updateState, readOnly }) {
             </tbody>
             <tfoot>
               <tr>
-                <td className="px-4 py-3 font-bold" style={{ color: 'var(--ink)' }}>Total</td>
-                <td className="px-4 py-3 font-bold" style={{ color: 'var(--ink)' }}>{fmtFCFA(totalBase)}</td>
+                <td className="px-4 py-3 font-bold text-ink">Total</td>
+                <td className="px-4 py-3 font-bold text-ink">{fmtFCFA(totalBase)}</td>
                 <td colSpan={5}></td>
                 <td className="px-4 py-3 font-bold" style={{ color: 'var(--red)' }}>− {fmtFCFA(totalRetenue)}</td>
                 <td className="px-4 py-3 font-bold" style={{ color: 'var(--green-d)' }}>{fmtFCFA(totalNet)}</td>
@@ -4250,7 +4232,7 @@ function PaieTab({ personnel, pointage, state, updateState, readOnly }) {
           </table>
         </div>
       )}
-      <p className="text-xs px-1" style={{ color: 'var(--muted)' }}>
+      <p className="text-xs px-1 text-muted">
         Calcul indicatif : taux journalier = salaire de base ÷ jours ouvrés du mois. Une absence retire un jour complet, un retard un quart de jour. {isPrivateSchool ? 'Les retenues peuvent être ajustées directement dans le tableau.' : 'Les jours fériés ne sont pas encore pris en compte.'}
       </p>
     </div>
@@ -4369,11 +4351,11 @@ function StudentTransferRequestsPanel({ state, updateState, notify, mode, teache
           <RotateCcw size={16} style={{ color: 'var(--gold)' }} />
           <div>
             <div className="font-bold text-sm">Demander le transfert d’un élève</div>
-            <p className="text-xs" style={{ color: 'var(--muted)' }}>Le transfert concerne deux classes du même niveau et reste soumis à la validation du directeur.</p>
+            <p className="text-xs text-muted">Le transfert concerne deux classes du même niveau et reste soumis à la validation du directeur.</p>
           </div>
         </div>
         {!teacherClasses.length ? (
-          <p className="text-xs" style={{ color: 'var(--muted)' }}>Aucune classe ne vous est actuellement affectée.</p>
+          <p className="text-xs text-muted">Aucune classe ne vous est actuellement affectée.</p>
         ) : (
           <form onSubmit={submitRequest} className="grid grid-cols-1 md:grid-cols-4 gap-2 items-end">
             <label className="text-xs font-semibold">Ma classe
@@ -4412,22 +4394,22 @@ function StudentTransferRequestsPanel({ state, updateState, notify, mode, teache
       <div className="flex items-center justify-between gap-2">
         <div>
           <div className="font-bold text-sm">Demandes de transfert d’élèves</div>
-          <p className="text-xs" style={{ color: 'var(--muted)' }}>Aucun élève n’est déplacé sans validation explicite de la direction.</p>
+          <p className="text-xs text-muted">Aucun élève n’est déplacé sans validation explicite de la direction.</p>
         </div>
         <Pill tone={pendingRequests.length ? 'gold' : 'green'}>{pendingRequests.length} en attente</Pill>
       </div>
-      {pendingRequests.length === 0 ? <p className="text-sm" style={{ color: 'var(--muted)' }}>Aucune demande en attente.</p> : (
+      {pendingRequests.length === 0 ? <p className="text-sm text-muted">Aucune demande en attente.</p> : (
         <div className="space-y-2">
           {pendingRequests.map((request) => (
             <div key={request.id} className="rounded-lg border p-3 flex flex-col lg:flex-row lg:items-center gap-3" style={{ borderColor: 'var(--line)' }}>
               <div className="flex-1 text-sm">
                 <div className="font-semibold">{request.studentName}</div>
-                <div style={{ color: 'var(--muted)' }}>{request.fromClassName} → {request.toClassName} · niveau {request.fromLevel}</div>
+                <div className="text-muted">{request.fromClassName} → {request.toClassName} · niveau {request.fromLevel}</div>
                 {request.fromTeacher && <div className="text-xs">Enseignant demandeur : {request.fromTeacher}</div>}
                 {request.reason && <div className="text-xs mt-1">Motif : {request.reason}</div>}
               </div>
               <div className="flex gap-2">
-                <button onClick={() => decideRequest(request, 'approved')} className="sygenop-btn text-sm" style={{ background: 'var(--green-d)', color: '#fff' }}><CheckCircle2 size={14} /> Valider</button>
+                <button onClick={() => decideRequest(request, 'approved')} className="sygenop-btn text-sm sygenop-btn"><CheckCircle2 size={14} /> Valider</button>
                 <button onClick={() => decideRequest(request, 'rejected')} className="sygenop-btn sygenop-btn--danger text-sm"><X size={14} /> Refuser</button>
               </div>
             </div>
@@ -4540,11 +4522,11 @@ function StaffAbsencesView({ state, loading, updateState, notify, session, readO
             <CalendarX size={16} style={{ color: 'var(--gold)' }} />
             <div>
               <div className="font-bold text-sm">Demander une autorisation d’absence</div>
-              <p className="text-xs" style={{ color: 'var(--muted)' }}>La demande est transmise à la direction (directeur, censeur ou proviseur) qui seule décide.</p>
+              <p className="text-xs text-muted">La demande est transmise à la direction (directeur, censeur ou proviseur) qui seule décide.</p>
             </div>
           </div>
           {readOnly ? (
-            <p className="text-xs" style={{ color: 'var(--muted)' }}>Lecture seule : aucune demande ne peut être soumise.</p>
+            <p className="text-xs text-muted">Lecture seule : aucune demande ne peut être soumise.</p>
           ) : (
             <form onSubmit={submitRequest} className="space-y-3">
               <label className="block text-xs font-semibold">Motif de l'absence
@@ -4565,14 +4547,14 @@ function StaffAbsencesView({ state, loading, updateState, notify, session, readO
                 <textarea value={commentaire} onChange={(event) => setCommentaire(event.target.value)} className="sygenop-input mt-1" rows={2} placeholder="Justificatif, précisions, remplacement prévu…" maxLength={500} />
               </label>
               <div className="flex items-center justify-between gap-2">
-                <div className="text-[11px]" style={{ color: 'var(--muted)' }}>{dateDebut ? (nbJours > 1 ? `${nbJours} jour(s) d'absence` : '1 jour') : ''}</div>
+                <div className="text-[11px] text-muted">{dateDebut ? (nbJours > 1 ? `${nbJours} jour(s) d'absence` : '1 jour') : ''}</div>
                 <button type="submit" className="sygenop-btn sygenop-btn--gold text-sm"><ClipboardCheck size={14} /> Envoyer la demande</button>
               </div>
             </form>
           )}
           <div className="space-y-1.5">
             <div className="text-xs font-bold">Mes demandes ({myRequests.length})</div>
-            {myRequests.length === 0 ? <p className="text-xs" style={{ color: 'var(--muted)' }}>Aucune demande pour le moment.</p> : myRequests.slice().reverse().map((request) => <StaffAbsenceStatus key={request.id} request={request} onDocument={handleDocument} />)}
+            {myRequests.length === 0 ? <p className="text-xs text-muted">Aucune demande pour le moment.</p> : myRequests.slice().reverse().map((request) => <StaffAbsenceStatus key={request.id} request={request} onDocument={handleDocument} />)}
           </div>
         </div>
 
@@ -4581,24 +4563,24 @@ function StaffAbsencesView({ state, loading, updateState, notify, session, readO
             <div className="flex items-center justify-between gap-2">
               <div>
                 <div className="font-bold text-sm">Validations en attente</div>
-                <p className="text-xs" style={{ color: 'var(--muted)' }}>Seuls le directeur, le censeur / proviseur ou un directeur pédagogique peuvent décider.</p>
+                <p className="text-xs text-muted">Seuls le directeur, le censeur / proviseur ou un directeur pédagogique peuvent décider.</p>
               </div>
               <Pill tone={pendingRequests.length ? 'gold' : 'green'}>{pendingRequests.length} en attente</Pill>
             </div>
-            {pendingRequests.length === 0 ? <p className="text-sm" style={{ color: 'var(--muted)' }}>Aucune demande en attente.</p> : (
+            {pendingRequests.length === 0 ? <p className="text-sm text-muted">Aucune demande en attente.</p> : (
               <div className="space-y-2">
                 {pendingRequests.map((request) => (
                   <div key={request.id} className="rounded-lg border p-3 space-y-2" style={{ borderColor: 'var(--line)' }}>
                     <div className="text-sm">
-                      <div className="font-semibold">{request.requesterLabel} <span className="text-[11px] font-normal" style={{ color: 'var(--muted)' }}>{fmtDateFr(request.dateDebut)}{request.dateFin ? ' → ' + fmtDateFr(request.dateFin) : ''}</span></div>
+                      <div className="font-semibold">{request.requesterLabel} <span className="text-[11px] font-normal text-muted">{fmtDateFr(request.dateDebut)}{request.dateFin ? ' → ' + fmtDateFr(request.dateFin) : ''}</span></div>
                       <div className="text-xs flex items-center gap-1.5 mt-0.5" style={{ color: 'var(--gold)' }}><CalendarX size={12} /> {request.motif}</div>
-                      {request.commentaire && <div className="text-xs mt-1" style={{ color: 'var(--muted)' }}>{request.commentaire}</div>}
+                      {request.commentaire && <div className="text-xs mt-1 text-muted">{request.commentaire}</div>}
                     </div>
                     {!readOnly && (
                       <>
                         <input value={noteDeco[request.id] || ''} onChange={(event) => setNoteDeco((notes) => ({ ...notes, [request.id]: event.target.value }))} className="sygenop-input" placeholder="Note de décision (facultatif)" maxLength={240} />
                         <div className="flex gap-2">
-                          <button onClick={() => decideRequest(request, 'approved')} className="sygenop-btn text-sm" style={{ background: 'var(--green-d)', color: '#fff' }}><CheckCircle2 size={14} /> Autoriser</button>
+                          <button onClick={() => decideRequest(request, 'approved')} className="sygenop-btn text-sm sygenop-btn"><CheckCircle2 size={14} /> Autoriser</button>
                           <button onClick={() => decideRequest(request, 'rejected')} className="sygenop-btn sygenop-btn--danger text-sm"><X size={14} /> Refuser</button>
                         </div>
                       </>
@@ -4629,15 +4611,15 @@ function StaffAbsenceStatus({ request, showDecider, onDocument }) {
     <div className="flex flex-wrap items-center gap-x-2 gap-y-1 text-xs">
       <CalendarX size={12} style={{ color: 'var(--muted)' }} />
       <span>{request.requesterLabel} — {request.motif}</span>
-      <span style={{ color: 'var(--muted)' }}>{fmtDateFr(request.dateDebut)}{request.dateFin ? ' → ' + fmtDateFr(request.dateFin) : ''}</span>
+      <span className="text-muted">{fmtDateFr(request.dateDebut)}{request.dateFin ? ' → ' + fmtDateFr(request.dateFin) : ''}</span>
       <Pill tone={status.tone}>{status.label}</Pill>
       {onDocument && request.statut === 'approved' && (
         <>
-          <button type="button" onClick={() => onDocument(request, 'print')} className="flex items-center gap-1 px-1.5 py-0.5 rounded-md text-[10px] font-bold" style={{ background: 'var(--green-d)', color: '#fff' }}><Printer size={11} /> Imprimer</button>
+          <button type="button" onClick={() => onDocument(request, 'print')} className="flex items-center gap-1 px-1.5 py-0.5 rounded-md text-[10px] font-bold sygenop-btn"><Printer size={11} /> Imprimer</button>
           <button type="button" onClick={() => onDocument(request, 'download')} className="flex items-center gap-1 px-1.5 py-0.5 rounded-md text-[10px] font-bold" style={{ background: '#1d4ed8', color: '#fff' }}><Download size={11} /> Télécharger</button>
         </>
       )}
-      {showDecider && request.decidedBy && <span style={{ color: 'var(--muted)' }}>· décidé(e) par {request.decidedBy}{request.decisionNote ? ` (« ${request.decisionNote} »)` : ''}</span>}
+      {showDecider && request.decidedBy && <span className="text-muted">· décidé(e) par {request.decidedBy}{request.decisionNote ? ` (« ${request.decisionNote} »)` : ''}</span>}
     </div>
   );
 }
@@ -4822,10 +4804,10 @@ function StaffAttestStatus({ request, showDecider }) {
     <div className="flex flex-wrap items-center gap-x-2 gap-y-1 text-xs">
       <FileText size={12} style={{ color: 'var(--muted)' }} />
       <span>{request.requesterLabel} — attestation de service</span>
-      <span style={{ color: 'var(--muted)' }}>{request.usage}</span>
-      <span style={{ color: 'var(--muted)' }}>{fmtDateFr(request.dateDebut || (request.createdAt || '').slice(0, 10))}</span>
+      <span className="text-muted">{request.usage}</span>
+      <span className="text-muted">{fmtDateFr(request.dateDebut || (request.createdAt || '').slice(0, 10))}</span>
       <Pill tone={status.tone}>{status.label}</Pill>
-      {showDecider && request.decidedBy && <span style={{ color: 'var(--muted)' }}>· décidé(e) par {request.decidedBy}{request.decisionNote ? ` (« ${request.decisionNote} »)` : ''}</span>}
+      {showDecider && request.decidedBy && <span className="text-muted">· décidé(e) par {request.decidedBy}{request.decisionNote ? ` (« ${request.decisionNote} »)` : ''}</span>}
     </div>
   );
 }
@@ -4900,11 +4882,11 @@ function StaffMyRequestsView({ state, loading, updateState, notify, session, rea
             <CalendarX size={16} style={{ color: 'var(--gold)' }} />
             <div>
               <div className="font-bold text-sm">Autorisation d’absence</div>
-              <p className="text-xs" style={{ color: 'var(--muted)' }}>La demande est transmise à la direction (directeur, censeur ou proviseur) qui seule décide.</p>
+              <p className="text-xs text-muted">La demande est transmise à la direction (directeur, censeur ou proviseur) qui seule décide.</p>
             </div>
           </div>
           {readOnly ? (
-            <p className="text-xs" style={{ color: 'var(--muted)' }}>Lecture seule : aucune demande ne peut être soumise.</p>
+            <p className="text-xs text-muted">Lecture seule : aucune demande ne peut être soumise.</p>
           ) : (
             <form onSubmit={submitAbsence} className="space-y-3">
               <label className="block text-xs font-semibold">Motif de l'absence
@@ -4925,14 +4907,14 @@ function StaffMyRequestsView({ state, loading, updateState, notify, session, rea
                 <textarea value={commentaire} onChange={(event) => setCommentaire(event.target.value)} className="sygenop-input mt-1" rows={2} placeholder="Justificatif, précisions, remplacement prévu…" maxLength={500} />
               </label>
               <div className="flex items-center justify-between gap-2">
-                <div className="text-[11px]" style={{ color: 'var(--muted)' }}>{dateDebut ? (nbJours > 1 ? `${nbJours} jour(s) d'absence` : '1 jour') : ''}</div>
+                <div className="text-[11px] text-muted">{dateDebut ? (nbJours > 1 ? `${nbJours} jour(s) d'absence` : '1 jour') : ''}</div>
                 <button type="submit" className="sygenop-btn sygenop-btn--gold text-sm"><ClipboardCheck size={14} /> Envoyer la demande</button>
               </div>
             </form>
           )}
           <div className="space-y-1.5">
             <div className="text-xs font-bold">Mes demandes d'absence ({absences.length})</div>
-            {absences.length === 0 ? <p className="text-xs" style={{ color: 'var(--muted)' }}>Aucune demande pour le moment.</p> : absences.map((request) => <StaffAbsenceStatus key={request.id} request={request} showDecider onDocument={handleDocument} />)}
+            {absences.length === 0 ? <p className="text-xs text-muted">Aucune demande pour le moment.</p> : absences.map((request) => <StaffAbsenceStatus key={request.id} request={request} showDecider onDocument={handleDocument} />)}
           </div>
         </div>
 
@@ -4941,11 +4923,11 @@ function StaffMyRequestsView({ state, loading, updateState, notify, session, rea
             <FileText size={16} style={{ color: 'var(--green-d)' }} />
             <div>
               <div className="font-bold text-sm">Attestation de service</div>
-              <p className="text-xs" style={{ color: 'var(--muted)' }}>Une fois validée par la direction, l'attestation est délivrée au format officiel imprimable.</p>
+              <p className="text-xs text-muted">Une fois validée par la direction, l'attestation est délivrée au format officiel imprimable.</p>
             </div>
           </div>
           {readOnly ? (
-            <p className="text-xs" style={{ color: 'var(--muted)' }}>Lecture seule : aucune demande ne peut être soumise.</p>
+            <p className="text-xs text-muted">Lecture seule : aucune demande ne peut être soumise.</p>
           ) : (
             <form onSubmit={submitAttestation} className="space-y-3">
               <label className="block text-xs font-semibold">Usage prévu de l'attestation
@@ -4958,17 +4940,17 @@ function StaffMyRequestsView({ state, loading, updateState, notify, session, rea
                 <textarea value={commentaireAtt} onChange={(event) => setCommentaireAtt(event.target.value)} className="sygenop-input mt-1" rows={2} placeholder="Informations complémentaires…" maxLength={500} />
               </label>
               <div className="flex justify-end">
-                <button type="submit" className="sygenop-btn text-sm" style={{ background: 'var(--green-d)', color: '#fff' }}><FileText size={14} /> Envoyer la demande</button>
+                <button type="submit" className="sygenop-btn text-sm sygenop-btn"><FileText size={14} /> Envoyer la demande</button>
               </div>
             </form>
           )}
           <div className="space-y-1.5">
             <div className="text-xs font-bold">Mes demandes d'attestation ({attestations.length})</div>
-            {attestations.length === 0 ? <p className="text-xs" style={{ color: 'var(--muted)' }}>Aucune demande pour le moment.</p> : attestations.map((request) => <StaffAttestStatus key={request.id} request={request} showDecider />)}
+            {attestations.length === 0 ? <p className="text-xs text-muted">Aucune demande pour le moment.</p> : attestations.map((request) => <StaffAttestStatus key={request.id} request={request} showDecider />)}
           </div>
         </div>
       </div>
-      <p className="text-[11px]" style={{ color: 'var(--muted)' }}>Le statut de vos demandes est mis à jour ici dès qu’une décision est prise par la direction.</p>
+      <p className="text-[11px] text-muted">Le statut de vos demandes est mis à jour ici dès qu’une décision est prise par la direction.</p>
     </div>
   );
 }
@@ -5000,24 +4982,24 @@ function StaffAttestRequestsPanel({ state, updateState, notify, session, readOnl
       <div className="flex items-center justify-between gap-2">
         <div>
           <div className="font-bold text-sm">Demandes d'attestation de service</div>
-          <p className="text-xs" style={{ color: 'var(--muted)' }}>Validez pour délivrer l'attestation, ou refusez une demande.</p>
+          <p className="text-xs text-muted">Validez pour délivrer l'attestation, ou refusez une demande.</p>
         </div>
         <Pill tone={pending.length ? 'gold' : 'green'}>{pending.length} en attente</Pill>
       </div>
-      {pending.length === 0 ? <p className="text-sm" style={{ color: 'var(--muted)' }}>Aucune demande en attente.</p> : (
+      {pending.length === 0 ? <p className="text-sm text-muted">Aucune demande en attente.</p> : (
         <div className="space-y-2">
           {pending.map((request) => (
             <div key={request.id} className="rounded-lg border p-3 space-y-2" style={{ borderColor: 'var(--line)' }}>
               <div className="text-sm">
-                <div className="font-semibold">{request.requesterLabel} <span className="text-[11px] font-normal" style={{ color: 'var(--muted)' }}>demandé(e) le {fmtDateFr((request.createdAt || '').slice(0, 10))}</span></div>
+                <div className="font-semibold">{request.requesterLabel} <span className="text-[11px] font-normal text-muted">demandé(e) le {fmtDateFr((request.createdAt || '').slice(0, 10))}</span></div>
                 <div className="text-xs flex items-center gap-1.5 mt-0.5" style={{ color: 'var(--gold)' }}><FileText size={12} /> {request.usage}</div>
-                {request.commentaire && <div className="text-xs mt-1" style={{ color: 'var(--muted)' }}>{request.commentaire}</div>}
+                {request.commentaire && <div className="text-xs mt-1 text-muted">{request.commentaire}</div>}
               </div>
               {!readOnly && (
                 <>
                   <input value={noteDeco[request.id] || ''} onChange={(event) => setNoteDeco((notes) => ({ ...notes, [request.id]: event.target.value }))} className="sygenop-input" placeholder="Note de décision (facultatif)" maxLength={240} />
                   <div className="flex gap-2">
-                    <button onClick={() => decideRequest(request, 'approved')} className="sygenop-btn text-sm" style={{ background: 'var(--green-d)', color: '#fff' }}><CheckCircle2 size={14} /> Autoriser</button>
+                    <button onClick={() => decideRequest(request, 'approved')} className="sygenop-btn text-sm sygenop-btn"><CheckCircle2 size={14} /> Autoriser</button>
                     <button onClick={() => decideRequest(request, 'rejected')} className="sygenop-btn sygenop-btn--danger text-sm"><X size={14} /> Refuser</button>
                   </div>
                 </>
@@ -5139,8 +5121,8 @@ function PersonnelProfileModal({ person, state, updateState, notify, readOnly, o
               {person.photoData ? <img src={person.photoData} alt={`Photo de ${fullName}`} className="w-full h-full object-cover" /> : (isFemale(person.genre) ? <AvatarGirl size={44} /> : <AvatarBoy size={44} />)}
             </div>
             <div>
-              <div className="font-bold text-lg leading-tight" style={{ color: 'var(--ink)' }}>{fullName}</div>
-              <div className="text-xs mt-0.5" style={{ color: 'var(--muted)' }}>{displayStaffRole(person.role, cycle)}</div>
+              <div className="font-bold text-lg leading-tight text-ink">{fullName}</div>
+              <div className="text-xs mt-0.5 text-muted">{displayStaffRole(person.role, cycle)}</div>
               <div className="mt-1"><Pill tone={statutTone}>{person.statut || 'Actif'}</Pill></div>
             </div>
           </div>
@@ -5148,17 +5130,17 @@ function PersonnelProfileModal({ person, state, updateState, notify, readOnly, o
         </div>
 
         <div className="mt-4 grid grid-cols-1 sm:grid-cols-2 gap-x-5 gap-y-1.5 text-sm">
-          <div><b className="text-xs" style={{ color: 'var(--muted)' }}>Téléphone</b><div style={{ color: 'var(--ink)' }}>{person.telephone || '—'}</div></div>
-          <div><b className="text-xs" style={{ color: 'var(--muted)' }}>Genre</b><div style={{ color: 'var(--ink)' }}>{person.genre || '—'}</div></div>
-          <div><b className="text-xs" style={{ color: 'var(--muted)' }}>Matricule</b><div className="font-mono" style={{ color: 'var(--ink)' }}>{staffCardCode(person)}</div></div>
-          <div><b className="text-xs" style={{ color: 'var(--muted)' }}>Date d'embauche</b><div style={{ color: 'var(--ink)' }}>{person.dateEmbauche ? fmtDateFr(person.dateEmbauche) : '—'}</div></div>
-          <div><b className="text-xs" style={{ color: 'var(--muted)' }}>Salaire de base</b><div style={{ color: 'var(--ink)' }}>{fmtFCFA(person.salaireBase)}</div></div>
-          <div><b className="text-xs" style={{ color: 'var(--muted)' }}>Statut</b><div style={{ color: 'var(--ink)' }}>{person.statut || 'Actif'}</div></div>
+          <div><b className="text-xs text-muted">Téléphone</b><div className="text-ink">{person.telephone || '—'}</div></div>
+          <div><b className="text-xs text-muted">Genre</b><div className="text-ink">{person.genre || '—'}</div></div>
+          <div><b className="text-xs text-muted">Matricule</b><div className="font-mono text-ink">{staffCardCode(person)}</div></div>
+          <div><b className="text-xs text-muted">Date d'embauche</b><div className="text-ink">{person.dateEmbauche ? fmtDateFr(person.dateEmbauche) : '—'}</div></div>
+          <div><b className="text-xs text-muted">Salaire de base</b><div className="text-ink">{fmtFCFA(person.salaireBase)}</div></div>
+          <div><b className="text-xs text-muted">Statut</b><div className="text-ink">{person.statut || 'Actif'}</div></div>
           {person.specialites?.length > 0 && (
-            <div className="sm:col-span-2"><b className="text-xs" style={{ color: 'var(--muted)' }}>Spécialités</b><div className="flex flex-wrap gap-1 mt-1">{person.specialites.map((specialite) => <span key={specialite} className="text-[11px] px-2 py-0.5 rounded-full" style={{ background: 'var(--green-l)', color: 'var(--green-d)' }}>{specialite}</span>)}</div></div>
+            <div className="sm:col-span-2"><b className="text-xs text-muted">Spécialités</b><div className="flex flex-wrap gap-1 mt-1">{person.specialites.map((specialite) => <span key={specialite} className="text-[11px] px-2 py-0.5 rounded-full" style={{ background: 'var(--green-l)', color: 'var(--green-d)' }}>{specialite}</span>)}</div></div>
           )}
           {STAFF_LOGIN_ROLES.has(person.role) && person.code && (
-            <div className="sm:col-span-2"><b className="text-xs" style={{ color: 'var(--muted)' }}>Code de connexion</b><div className="flex items-center gap-1.5 mt-0.5"><span className="font-mono font-semibold tracking-widest text-sm" style={{ color: 'var(--green-d)' }}>{revealed ? person.code : '••••••'}</span><button onClick={() => setRevealed((r) => !r)} style={{ color: 'var(--muted)' }} title={revealed ? 'Masquer le code' : 'Afficher le code'}>{revealed ? <EyeOff size={13} /> : <Eye size={13} />}</button><button onClick={() => copyToClipboard(person.code, () => {})} style={{ color: 'var(--muted)' }} title="Copier le code"><FileSpreadsheet size={13} /></button></div></div>
+            <div className="sm:col-span-2"><b className="text-xs text-muted">Code de connexion</b><div className="flex items-center gap-1.5 mt-0.5"><span className="font-mono font-semibold tracking-widest text-sm" style={{ color: 'var(--green-d)' }}>{revealed ? person.code : '••••••'}</span><button onClick={() => setRevealed((r) => !r)} style={{ color: 'var(--muted)' }} title={revealed ? 'Masquer le code' : 'Afficher le code'}>{revealed ? <EyeOff size={13} /> : <Eye size={13} />}</button><button onClick={() => copyToClipboard(person.code, () => {})} style={{ color: 'var(--muted)' }} title="Copier le code"><FileSpreadsheet size={13} /></button></div></div>
           )}
         </div>
 
@@ -5169,7 +5151,7 @@ function PersonnelProfileModal({ person, state, updateState, notify, readOnly, o
 
         {!readOnly && (
           <form onSubmit={submitAbsence} className="mt-4 pt-4 space-y-3" style={{ borderTop: '1px solid var(--line)' }}>
-            <div className="font-bold text-sm" style={{ color: 'var(--ink)' }}>Demande d'autorisation d'absence</div>
+            <div className="font-bold text-sm text-ink">Demande d'autorisation d'absence</div>
             <label className="block text-xs font-semibold">Motif de l'absence
               <input value={motif} onChange={(event) => setMotif(event.target.value)} className="sygenop-input mt-1" placeholder="Ex : maladie, convocation, deuil…" maxLength={160} />
             </label>
@@ -5327,11 +5309,11 @@ function PersonnelView({ state, loading, updateState, notify, session, readOnly 
       {tab === 'pointage' && (
         <div className="space-y-4">
           <div>
-            <div className="font-bold text-sm mb-2" style={{ color: 'var(--ink)' }}>Pointage automatique (scan badge)</div>
+            <div className="font-bold text-sm mb-2 text-ink">Pointage automatique (scan badge)</div>
             <StudentCardVerification state={state} updateState={readOnly ? undefined : updateState} notify={notify} />
           </div>
           <div>
-            <div className="font-bold text-sm mb-2" style={{ color: 'var(--ink)' }}>Pointage manuel</div>
+            <div className="font-bold text-sm mb-2 text-ink">Pointage manuel</div>
             <PointageTab personnel={personnel} pointage={pointage} onSetStatut={setStatut} onSetHeures={setHeures} readOnly={readOnly} settings={settings} cycle={schoolCycle} />
           </div>
         </div>
@@ -5350,11 +5332,11 @@ function PersonnelView({ state, loading, updateState, notify, session, readOnly 
       )}
 
       {cardPerson && (
-        <div id="staff-card-print" className="fixed inset-0 z-50 overflow-auto p-4"><div className="max-w-2xl mx-auto mt-4"><div className="no-print flex flex-wrap justify-end gap-2 mb-2"><label className="px-3 py-2 rounded-lg text-sm font-semibold cursor-pointer" style={{ background: 'var(--gold-l)', color: 'var(--gold)' }}>Ajouter / changer la photo<input type="file" accept="image/*" className="hidden" onChange={(e) => { const file = e.target.files?.[0]; if (!file) return; const reader = new FileReader(); reader.onload = () => saveStaffPhoto(cardPerson.id, String(reader.result || '')); reader.readAsDataURL(file); }} /></label><button onClick={() => window.print()} className="px-3 py-2 rounded-lg text-white flex items-center gap-1" style={{ background: 'var(--green-d)' }}><Printer size={14} /> Imprimer / PDF</button><button onClick={() => setCardPerson(null)} className="px-3 py-2 rounded-lg" style={{ background: 'var(--panel)' }}>Fermer</button></div><StaffIdentityCard state={state} person={cardPerson} /></div></div>
+        <div id="staff-card-print" className="fixed inset-0 z-50 overflow-auto p-4"><div className="max-w-2xl mx-auto mt-4"><div className="no-print flex flex-wrap justify-end gap-2 mb-2"><label className="px-3 py-2 rounded-lg text-sm font-semibold cursor-pointer" style={{ background: 'var(--gold-l)', color: 'var(--gold)' }}>Ajouter / changer la photo<input type="file" accept="image/*" className="hidden" onChange={(e) => { const file = e.target.files?.[0]; if (!file) return; const reader = new FileReader(); reader.onload = () => saveStaffPhoto(cardPerson.id, String(reader.result || '')); reader.readAsDataURL(file); }} /></label><button onClick={() => window.print()} className="px-3 py-2 rounded-lg text-white flex items-center gap-1" style={{ background: 'var(--green-d)' }}><Printer size={14} /> Imprimer / PDF</button><button onClick={() => setCardPerson(null)} className="px-3 py-2 rounded-lg bg-panel">Fermer</button></div><StaffIdentityCard state={state} person={cardPerson} /></div></div>
       )}
 
       {attestPerson && (
-        <div id="staff-cert-print" className="fixed inset-0 z-50 overflow-auto p-4"><div className="max-w-[220mm] mx-auto mt-4"><div className="no-print flex flex-wrap justify-end gap-2 mb-2"><button onClick={() => window.print()} className="px-3 py-2 rounded-lg text-white flex items-center gap-1" style={{ background: 'var(--green-d)' }}><Printer size={14} /> Imprimer / PDF</button><button onClick={() => setAttestPerson(null)} className="px-3 py-2 rounded-lg" style={{ background: 'var(--panel)' }}>Fermer</button></div><StaffServiceAttestation state={state} person={attestPerson} /></div></div>
+        <div id="staff-cert-print" className="fixed inset-0 z-50 overflow-auto p-4"><div className="max-w-[220mm] mx-auto mt-4"><div className="no-print flex flex-wrap justify-end gap-2 mb-2"><button onClick={() => window.print()} className="px-3 py-2 rounded-lg text-white flex items-center gap-1" style={{ background: 'var(--green-d)' }}><Printer size={14} /> Imprimer / PDF</button><button onClick={() => setAttestPerson(null)} className="px-3 py-2 rounded-lg bg-panel">Fermer</button></div><StaffServiceAttestation state={state} person={attestPerson} /></div></div>
       )}
 
       {profilePerson && (
@@ -5535,9 +5517,9 @@ function TimetableView({ state, classId, teacherName, updateState, notify, readO
       <div className="sygenop-card p-5">
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div>
-            <div className="text-xs font-bold uppercase" style={{ color: 'var(--muted)' }}>Planning scolaire</div>
-            <h2 className="text-xl font-extrabold mt-1" style={{ color: 'var(--ink)' }}>Emploi du temps</h2>
-            <p className="text-sm mt-1" style={{ color: 'var(--muted)' }}>Consultez les matières et horaires par classe.</p>
+            <div className="text-xs font-bold uppercase text-muted">Planning scolaire</div>
+            <h2 className="text-xl font-extrabold mt-1 text-ink">Emploi du temps</h2>
+            <p className="text-sm mt-1 text-muted">Consultez les matières et horaires par classe.</p>
           </div>
           <CalendarDays size={30} style={{ color: 'var(--green-d)' }} />
         </div>
@@ -5545,8 +5527,8 @@ function TimetableView({ state, classId, teacherName, updateState, notify, readO
 
       <div className="sygenop-card p-4 flex flex-wrap items-end gap-3">
         <div>
-          <label className="text-xs font-semibold block mb-1" style={{ color: 'var(--muted)' }}>Classe</label>
-          <select value={filterClassId || 'all'} onChange={(event) => setFilterClassId(event.target.value)} className="px-3 py-2 rounded-lg border text-sm" style={{ borderColor: 'var(--line)', background: 'var(--panel)', color: 'var(--ink)' }}>
+          <label className="text-xs font-semibold block mb-1 text-muted">Classe</label>
+          <select value={filterClassId || 'all'} onChange={(event) => setFilterClassId(event.target.value)} className="px-3 py-2 rounded-lg border text-sm sygenop-input">
             <option value="all">Toutes les classes</option>
             {Object.entries(classes).map(([id, cls]) => <option key={id} value={id}>{cls.name} — {cls.level}</option>)}
           </select>
@@ -5555,7 +5537,7 @@ function TimetableView({ state, classId, teacherName, updateState, notify, readO
           <button type="button" onClick={exportCSV} className="px-3 py-2 rounded-lg text-sm font-semibold flex items-center gap-1.5" style={{ background: 'var(--green-l)', color: 'var(--green-d)' }}><Download size={14} /> Télécharger CSV</button>
           <button type="button" onClick={printPDF} className="px-3 py-2 rounded-lg text-sm font-semibold text-white flex items-center gap-1.5" style={{ background: 'var(--green-d)' }}><Printer size={14} /> Télécharger PDF</button>
           {canEdit && <>
-            <button type="button" onClick={downloadTemplate} className="px-3 py-2 rounded-lg text-sm font-semibold flex items-center gap-1.5" style={{ background: 'var(--bg)', color: 'var(--ink)', border: '1px solid var(--line)' }}><FileSpreadsheet size={14} /> Modèle CSV</button>
+            <button type="button" onClick={downloadTemplate} className="px-3 py-2 rounded-lg text-sm font-semibold flex items-center gap-1.5 sygenop-btn sygenop-btn--ghost"><FileSpreadsheet size={14} /> Modèle CSV</button>
             <input ref={importInputRef} type="file" accept=".csv,text/csv" onChange={importCSV} className="hidden" />
             <button type="button" onClick={() => importInputRef.current?.click()} className="px-3 py-2 rounded-lg text-sm font-semibold flex items-center gap-1.5" style={{ background: 'var(--gold-l)', color: 'var(--gold)' }}><Upload size={14} /> Importer CSV</button>
           </>}
@@ -5565,13 +5547,13 @@ function TimetableView({ state, classId, teacherName, updateState, notify, readO
 
       {canEdit && (
         <form onSubmit={addEntry} className="sygenop-card p-4 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
-          <select value={form.day} onChange={(event) => setForm((prev) => ({ ...prev, day: event.target.value }))} className="px-3 py-2 rounded-lg border text-sm" style={{ borderColor: 'var(--line)', background: 'var(--panel)', color: 'var(--ink)' }}>{TIMETABLE_DAYS.map((day) => <option key={day}>{day}</option>)}</select>
-          <input type="time" value={form.start} onChange={(event) => setForm((prev) => ({ ...prev, start: event.target.value }))} className="px-3 py-2 rounded-lg border text-sm" style={{ borderColor: 'var(--line)', background: 'var(--panel)', color: 'var(--ink)' }} />
-          <input type="time" value={form.end} onChange={(event) => setForm((prev) => ({ ...prev, end: event.target.value }))} className="px-3 py-2 rounded-lg border text-sm" style={{ borderColor: 'var(--line)', background: 'var(--panel)', color: 'var(--ink)' }} />
-          <input value={form.subject} onChange={(event) => setForm((prev) => ({ ...prev, subject: event.target.value }))} placeholder="Matière" className="px-3 py-2 rounded-lg border text-sm" style={{ borderColor: 'var(--line)', background: 'var(--panel)', color: 'var(--ink)' }} />
-          <select value={form.classId} onChange={(event) => setForm((prev) => ({ ...prev, classId: event.target.value }))} className="px-3 py-2 rounded-lg border text-sm" style={{ borderColor: 'var(--line)', background: 'var(--panel)', color: 'var(--ink)' }}><option value="">Classe</option>{Object.entries(classes).map(([id, cls]) => <option key={id} value={id}>{cls.name}</option>)}</select>
-          <select value={form.teacher} onChange={(event) => setForm((prev) => ({ ...prev, teacher: event.target.value }))} className="px-3 py-2 rounded-lg border text-sm" style={{ borderColor: 'var(--line)', background: 'var(--panel)', color: 'var(--ink)' }}><option value="">{cycleTerminology(state?.header?.cycle || LEGACY_DEFAULT_CYCLE).teacher}</option>{personnel.filter((person) => person.role === 'Enseignant(e)').map((person) => <option key={person.id} value={personFullName(person)}>{personFullName(person)}</option>)}</select>
-          <input value={form.room} onChange={(event) => setForm((prev) => ({ ...prev, room: event.target.value }))} placeholder="Salle (facultatif)" className="px-3 py-2 rounded-lg border text-sm" style={{ borderColor: 'var(--line)', background: 'var(--panel)', color: 'var(--ink)' }} />
+          <select value={form.day} onChange={(event) => setForm((prev) => ({ ...prev, day: event.target.value }))} className="px-3 py-2 rounded-lg border text-sm sygenop-input">{TIMETABLE_DAYS.map((day) => <option key={day}>{day}</option>)}</select>
+          <input type="time" value={form.start} onChange={(event) => setForm((prev) => ({ ...prev, start: event.target.value }))} className="px-3 py-2 rounded-lg border text-sm sygenop-input" />
+          <input type="time" value={form.end} onChange={(event) => setForm((prev) => ({ ...prev, end: event.target.value }))} className="px-3 py-2 rounded-lg border text-sm sygenop-input" />
+          <input value={form.subject} onChange={(event) => setForm((prev) => ({ ...prev, subject: event.target.value }))} placeholder="Matière" className="px-3 py-2 rounded-lg border text-sm sygenop-input" />
+          <select value={form.classId} onChange={(event) => setForm((prev) => ({ ...prev, classId: event.target.value }))} className="px-3 py-2 rounded-lg border text-sm sygenop-input"><option value="">Classe</option>{Object.entries(classes).map(([id, cls]) => <option key={id} value={id}>{cls.name}</option>)}</select>
+          <select value={form.teacher} onChange={(event) => setForm((prev) => ({ ...prev, teacher: event.target.value }))} className="px-3 py-2 rounded-lg border text-sm sygenop-input"><option value="">{cycleTerminology(state?.header?.cycle || LEGACY_DEFAULT_CYCLE).teacher}</option>{personnel.filter((person) => person.role === 'Enseignant(e)').map((person) => <option key={person.id} value={personFullName(person)}>{personFullName(person)}</option>)}</select>
+          <input value={form.room} onChange={(event) => setForm((prev) => ({ ...prev, room: event.target.value }))} placeholder="Salle (facultatif)" className="px-3 py-2 rounded-lg border text-sm sygenop-input" />
           <button type="submit" className="px-4 py-2 rounded-lg text-sm font-semibold text-white" style={{ background: 'var(--green-d)' }}><Plus size={15} className="inline mr-1" /> Ajouter le créneau</button>
         </form>
       )}
@@ -5581,7 +5563,7 @@ function TimetableView({ state, classId, teacherName, updateState, notify, readO
           const dayEntries = entries.filter((entry) => entry.day === day);
           return <div key={day} className="sygenop-card p-4 min-h-[150px]">
             <div className="font-bold mb-3" style={{ color: 'var(--green-d)' }}>{day}</div>
-            {dayEntries.length ? <div className="space-y-2">{dayEntries.map((entry) => <div key={entry.id} className="rounded-lg p-3" style={{ background: 'var(--green-l)' }}><div className="flex items-start justify-between gap-2"><div><div className="font-semibold text-sm" style={{ color: 'var(--ink)' }}>{entry.subject}</div><div className="text-xs mt-1" style={{ color: 'var(--muted)' }}>{entry.start} – {entry.end} · {classes[entry.classId]?.name || 'Classe'}{entry.room ? ` · Salle ${entry.room}` : ''}</div>{entry.teacher && <div className="text-xs mt-1" style={{ color: 'var(--muted)' }}>{entry.teacher}</div>}</div>{canEdit && <button type="button" onClick={() => removeEntry(entry.id)} style={{ color: 'var(--red)' }} title="Supprimer"><Trash2 size={14} /></button>}</div></div>)}</div> : <div className="text-xs" style={{ color: 'var(--muted)' }}>Aucun cours programmé.</div>}
+            {dayEntries.length ? <div className="space-y-2">{dayEntries.map((entry) => <div key={entry.id} className="rounded-lg p-3" style={{ background: 'var(--green-l)' }}><div className="flex items-start justify-between gap-2"><div><div className="font-semibold text-sm text-ink">{entry.subject}</div><div className="text-xs mt-1 text-muted">{entry.start} – {entry.end} · {classes[entry.classId]?.name || 'Classe'}{entry.room ? ` · Salle ${entry.room}` : ''}</div>{entry.teacher && <div className="text-xs mt-1 text-muted">{entry.teacher}</div>}</div>{canEdit && <button type="button" onClick={() => removeEntry(entry.id)} style={{ color: 'var(--red)' }} title="Supprimer"><Trash2 size={14} /></button>}</div></div>)}</div> : <div className="text-xs text-muted">Aucun cours programmé.</div>}
           </div>;
         })}
       </div>
@@ -5655,7 +5637,7 @@ const classes = (state && state.classes) || {};
 
   if (loading || !state) {
     return (
-      <div className="flex items-center justify-center py-24" style={{ color: 'var(--muted)' }}>
+      <div className="flex items-center justify-center py-24 text-muted">
         <Loader2 className="animate-spin mr-2" size={18} /> Chargement des données…
       </div>
     );
@@ -5719,7 +5701,7 @@ function saveClass(form) {
 
   if (isTeacherScoped && !availableLevels.length) {
     return (
-      <div className="sygenop-card p-10 text-center text-sm" style={{ color: 'var(--muted)' }}>
+      <div className="sygenop-card p-10 text-center text-sm text-muted">
         Aucune classe ne vous est assignée pour le moment. Demandez à la direction de l'école de vous assigner une classe (onglet Personnel).
       </div>
     );
@@ -5735,10 +5717,10 @@ function saveClass(form) {
   );
 
   if (studentSection === 'appel') {
-    return <div className="space-y-4 sygenop-fade">{commonStudentHeader}{currentClass ? <AppelView state={state} updateState={updateState} notify={notify} teacherStaffId={teacherStaffId} readOnly={readOnly} fixedClassId={classId} /> : <div className="sygenop-card p-5 text-sm" style={{ color: 'var(--muted)' }}>Sélectionnez d'abord une classe dans l'onglet « Classes et élèves ».</div>}</div>;
+    return <div className="space-y-4 sygenop-fade">{commonStudentHeader}{currentClass ? <AppelView state={state} updateState={updateState} notify={notify} teacherStaffId={teacherStaffId} readOnly={readOnly} fixedClassId={classId} /> : <div className="sygenop-card p-5 text-sm text-muted">Sélectionnez d'abord une classe dans l'onglet « Classes et élèves ».</div>}</div>;
   }
   if (studentSection === 'rapport') {
-    return <div className="space-y-4 sygenop-fade">{commonStudentHeader}{currentClass ? <PresenceRapportView state={state} fixedClassId={classId} /> : <div className="sygenop-card p-5 text-sm" style={{ color: 'var(--muted)' }}>Sélectionnez d'abord une classe dans l'onglet « Classes et élèves ».</div>}</div>;
+    return <div className="space-y-4 sygenop-fade">{commonStudentHeader}{currentClass ? <PresenceRapportView state={state} fixedClassId={classId} /> : <div className="sygenop-card p-5 text-sm text-muted">Sélectionnez d'abord une classe dans l'onglet « Classes et élèves ».</div>}</div>;
   }
   if (studentSection === 'timetable') {
     return <div className="space-y-4 sygenop-fade">{commonStudentHeader}<TimetableView state={state} classId={classId} teacherName={teacherName} updateState={updateState} notify={notify} readOnly={true} /></div>;
@@ -5792,7 +5774,7 @@ function saveClass(form) {
           <>
             <button
               onClick={() => setClassModal({ ...currentClass, __key: classId })}
-              className="p-1.5 rounded-full hover:bg-black/5" style={{ color: 'var(--muted)' }} title="Modifier la classe"
+              className="p-1.5 rounded-full hover:bg-black/5 text-muted" title="Modifier la classe"
             >
               <Pencil size={14} />
             </button>
@@ -5817,24 +5799,24 @@ function saveClass(form) {
             </button>
           ))}
         </div>
-        <select value={evaluationType} onChange={(e) => setEvaluationType(e.target.value)} className="px-3 py-1.5 rounded-lg text-xs font-semibold border" style={{ borderColor: 'var(--line)', background: 'var(--panel)', color: 'var(--ink)' }} aria-label="Type d’évaluation">
+        <select value={evaluationType} onChange={(e) => setEvaluationType(e.target.value)} className="px-3 py-1.5 rounded-lg text-xs font-semibold border sygenop-input" aria-label="Type d’évaluation">
           {EVALUATION_TYPES.map((type) => <option key={type.key} value={type.key}>{type.label}</option>)}
         </select>
       </div>
 
       {currentClass && (
         <div className="sygenop-card px-4 py-3 flex flex-wrap items-center gap-3">
-          <div><div className="text-xs font-bold uppercase" style={{ color: 'var(--muted)' }}>Matériel affecté à {currentClass.name}</div><div className="text-sm mt-1">{(state.affectationsMateriel || []).filter((a) => a.classId === classId).map((a) => `${(state.materiel || []).find((m) => m.id === a.materielId)?.nom || 'Matériel'} (${a.quantite})`).join(' · ') || 'Aucun matériel affecté pour le moment.'}</div></div>
-          <span className="ml-auto text-xs" style={{ color: 'var(--muted)' }}>Consultation uniquement — affectation par la comptabilité.</span>
+          <div><div className="text-xs font-bold uppercase text-muted">Matériel affecté à {currentClass.name}</div><div className="text-sm mt-1">{(state.affectationsMateriel || []).filter((a) => a.classId === classId).map((a) => `${(state.materiel || []).find((m) => m.id === a.materielId)?.nom || 'Matériel'} (${a.quantite})`).join(' · ') || 'Aucun matériel affecté pour le moment.'}</div></div>
+          <span className="ml-auto text-xs text-muted">Consultation uniquement — affectation par la comptabilité.</span>
         </div>
       )}
 
       {!currentClass ? (
-        <div className="sygenop-card p-10 text-center text-sm" style={{ color: 'var(--muted)' }}>
+        <div className="sygenop-card p-10 text-center text-sm text-muted">
           Aucune classe de {level} pour le moment. Ajoutez-en une pour commencer la saisie des notes.
         </div>
       ) : isTeacherScoped && ['moyen', 'secondaire'].includes(cycle) && Array.isArray(currentClass.matieres) && currentClass.matieres.length && !(gradingCfg.domains || []).length ? (
-        <div className="sygenop-card p-10 text-center text-sm" style={{ color: 'var(--muted)' }}>
+        <div className="sygenop-card p-10 text-center text-sm text-muted">
           Aucune matière ne vous est affectée pour {currentClass.name}. Demandez à la direction de l'école de vérifier votre affectation (Élèves → Classes, ou Personnel → vos spécialités).
         </div>
       ) : (
@@ -5896,8 +5878,8 @@ function AddStudentModal({ onSave, onClose }) {
       <form onSubmit={submit} className="sygenop-card w-full max-w-lg max-h-[92vh] flex flex-col overflow-hidden sygenop-fade">
         <div className="flex items-center justify-between gap-3 px-6 py-4 flex-shrink-0" style={{ borderBottom: '1px solid var(--modal-line)' }}>
           <div>
-            <div className="font-bold text-[15px]" style={{ color: 'var(--ink)' }}>Ajouter un élève</div>
-            <div className="text-[11px]" style={{ color: 'var(--muted)' }}>Création d'une nouvelle fiche élève</div>
+            <div className="font-bold text-[15px] text-ink">Ajouter un élève</div>
+            <div className="text-[11px] text-muted">Création d'une nouvelle fiche élève</div>
           </div>
           <button type="button" onClick={onClose} className="p-1.5 rounded-lg transition-colors" style={{ color: 'var(--muted)', background: 'var(--bg)' }}><X size={17} /></button>
         </div>
@@ -5909,30 +5891,30 @@ function AddStudentModal({ onSave, onClose }) {
           </div>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <div>
-              <label className="text-xs font-semibold block mb-1" style={{ color: 'var(--muted)' }}>Prénom</label>
+              <label className="text-xs font-semibold block mb-1 text-muted">Prénom</label>
               <input autoFocus value={form.prenom} onChange={(e) => set('prenom', e.target.value)}
                 className="w-full px-3 py-2 rounded-lg border text-sm" style={fieldStyle} placeholder="Prénom de l'élève" />
             </div>
             <div>
-              <label className="text-xs font-semibold block mb-1" style={{ color: 'var(--muted)' }}>Nom</label>
+              <label className="text-xs font-semibold block mb-1 text-muted">Nom</label>
               <input value={form.nom} onChange={(e) => set('nom', e.target.value)}
                 className="w-full px-3 py-2 rounded-lg border text-sm" style={fieldStyle} placeholder="Nom de l'élève" />
             </div>
           </div>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <div>
-              <label className="text-xs font-semibold block mb-1" style={{ color: 'var(--muted)' }}>Date de naissance</label>
+              <label className="text-xs font-semibold block mb-1 text-muted">Date de naissance</label>
               <input type="date" value={form.dateNaissance} onChange={(e) => set('dateNaissance', e.target.value)}
                 className="w-full px-3 py-2 rounded-lg border text-sm" style={fieldStyle} />
             </div>
             <div>
-              <label className="text-xs font-semibold block mb-1" style={{ color: 'var(--muted)' }}>Lieu de naissance</label>
+              <label className="text-xs font-semibold block mb-1 text-muted">Lieu de naissance</label>
               <input value={form.lieuNaissance} onChange={(e) => set('lieuNaissance', e.target.value)}
                 className="w-full px-3 py-2 rounded-lg border text-sm" style={fieldStyle} placeholder="Ex : Dakar" />
             </div>
           </div>
           <div>
-            <label className="text-xs font-semibold block mb-1" style={{ color: 'var(--muted)' }}>Genre</label>
+            <label className="text-xs font-semibold block mb-1 text-muted">Genre</label>
             <select value={form.genre} onChange={(e) => set('genre', e.target.value)}
               className="w-full px-3 py-2 rounded-lg border text-sm" style={fieldStyle}>
               <option value="">—</option>
@@ -5946,13 +5928,13 @@ function AddStudentModal({ onSave, onClose }) {
             <span className="text-[11px] font-bold uppercase tracking-wide" style={{ color: 'var(--gold)' }}>Situation</span>
           </div>
           <div>
-            <label className="text-xs font-semibold block mb-1" style={{ color: 'var(--muted)' }}>Adresse</label>
+            <label className="text-xs font-semibold block mb-1 text-muted">Adresse</label>
             <input value={form.adresse} onChange={(e) => set('adresse', e.target.value)}
               className="w-full px-3 py-2 rounded-lg border text-sm" style={fieldStyle} placeholder="Ex : Parcelles Assainies, Dakar" />
           </div>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <div>
-              <label className="text-xs font-semibold block mb-1" style={{ color: 'var(--muted)' }}>Handicap</label>
+              <label className="text-xs font-semibold block mb-1 text-muted">Handicap</label>
               <select value={form.handicap} onChange={(e) => set('handicap', e.target.value)}
                 className="w-full px-3 py-2 rounded-lg border text-sm" style={fieldStyle}>
                 <option value="">—</option>
@@ -5961,7 +5943,7 @@ function AddStudentModal({ onSave, onClose }) {
               </select>
             </div>
             <div>
-              <label className="text-xs font-semibold block mb-1" style={{ color: 'var(--muted)' }}>Cas social</label>
+              <label className="text-xs font-semibold block mb-1 text-muted">Cas social</label>
               <select value={form.casSocial} onChange={(e) => set('casSocial', e.target.value)}
                 className="w-full px-3 py-2 rounded-lg border text-sm" style={fieldStyle}>
                 <option value="">—</option>
@@ -5972,7 +5954,7 @@ function AddStudentModal({ onSave, onClose }) {
           </div>
           {form.handicap === 'Oui' && (
             <div>
-              <label className="text-xs font-semibold block mb-1" style={{ color: 'var(--muted)' }}>Type de handicap</label>
+              <label className="text-xs font-semibold block mb-1 text-muted">Type de handicap</label>
               <input value={form.typeHandicap} onChange={(e) => set('typeHandicap', e.target.value)}
                 className="w-full px-3 py-2 rounded-lg border text-sm" style={fieldStyle} placeholder="Ex : moteur, visuel, auditif…" />
             </div>
@@ -5996,15 +5978,15 @@ function StudentFicheModal({ student, clsName, onCard, onCert, onEdit, onClose }
     : '';
   const row = (label, value, action) => (
     <div className="flex items-center justify-between py-2.5" style={{ borderBottom: '1px solid var(--line)' }}>
-      <span className="text-xs font-semibold" style={{ color: 'var(--muted)' }}>{label}</span>
-      <span className="text-sm font-medium" style={{ color: 'var(--ink)' }}>{value || '—'}</span>
+      <span className="text-xs font-semibold text-muted">{label}</span>
+      <span className="text-sm font-medium text-ink">{value || '—'}</span>
     </div>
   );
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
       <div className="sygenop-card p-8 max-w-2xl w-full sygenop-fade">
         <div className="flex items-center justify-between mb-5">
-          <div className="font-bold text-lg" style={{ color: 'var(--ink)' }}>Fiche élève</div>
+          <div className="font-bold text-lg text-ink">Fiche élève</div>
           <button type="button" onClick={onClose} style={{ color: 'var(--muted)' }}><X size={20} /></button>
         </div>
         <div className="flex items-center gap-4 mb-5">
@@ -6012,10 +5994,10 @@ function StudentFicheModal({ student, clsName, onCard, onCert, onEdit, onClose }
             {isFemale(student.genre) ? <AvatarGirl size={64} /> : <AvatarBoy size={64} />}
           </span>
           <div>
-            <div className="font-bold text-xl" style={{ color: 'var(--ink)' }}>
-              {((student.prenom || '') + ' ' + (student.nom || '')).trim() || <span className="italic text-sm" style={{ color: 'var(--muted)' }}>Élève sans nom</span>}
+            <div className="font-bold text-xl text-ink">
+              {((student.prenom || '') + ' ' + (student.nom || '')).trim() || <span className="italic text-sm text-muted">Élève sans nom</span>}
             </div>
-            <div className="text-sm mt-0.5" style={{ color: 'var(--muted)' }}>{clsName || ''}</div>
+            <div className="text-sm mt-0.5 text-muted">{clsName || ''}</div>
           </div>
         </div>
         <div>
@@ -6082,8 +6064,8 @@ return (
       <form onSubmit={submit} className="sygenop-card w-full max-w-lg max-h-[92vh] flex flex-col overflow-hidden sygenop-fade">
         <div className="flex items-center justify-between gap-3 px-6 py-4 flex-shrink-0" style={{ borderBottom: '1px solid var(--modal-line)' }}>
           <div>
-            <div className="font-bold text-[15px]" style={{ color: 'var(--ink)' }}>Modifier l'élève</div>
-            <div className="text-[11px]" style={{ color: 'var(--muted)' }}>Mise à jour de la fiche élève</div>
+            <div className="font-bold text-[15px] text-ink">Modifier l'élève</div>
+            <div className="text-[11px] text-muted">Mise à jour de la fiche élève</div>
           </div>
           <button type="button" onClick={onClose} className="p-1.5 rounded-lg transition-colors" style={{ color: 'var(--muted)', background: 'var(--bg)' }}><X size={17} /></button>
         </div>
@@ -6095,30 +6077,30 @@ return (
           </div>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <div>
-              <label className="text-xs font-semibold block mb-1" style={{ color: 'var(--muted)' }}>Prénom</label>
+              <label className="text-xs font-semibold block mb-1 text-muted">Prénom</label>
               <input autoFocus value={form.prenom} onChange={(e) => set('prenom', e.target.value)}
                 className="w-full px-3 py-2 rounded-lg border text-sm" style={fieldStyle} placeholder="Prénom de l'élève" />
             </div>
             <div>
-              <label className="text-xs font-semibold block mb-1" style={{ color: 'var(--muted)' }}>Nom</label>
+              <label className="text-xs font-semibold block mb-1 text-muted">Nom</label>
               <input value={form.nom} onChange={(e) => set('nom', e.target.value)}
                 className="w-full px-3 py-2 rounded-lg border text-sm" style={fieldStyle} placeholder="Nom de l'élève" />
             </div>
           </div>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <div>
-              <label className="text-xs font-semibold block mb-1" style={{ color: 'var(--muted)' }}>Date de naissance</label>
+              <label className="text-xs font-semibold block mb-1 text-muted">Date de naissance</label>
               <input type="date" value={form.dateNaissance} onChange={(e) => set('dateNaissance', e.target.value)}
                 className="w-full px-3 py-2 rounded-lg border text-sm" style={fieldStyle} />
             </div>
             <div>
-              <label className="text-xs font-semibold block mb-1" style={{ color: 'var(--muted)' }}>Lieu de naissance</label>
+              <label className="text-xs font-semibold block mb-1 text-muted">Lieu de naissance</label>
               <input value={form.lieuNaissance} onChange={(e) => set('lieuNaissance', e.target.value)}
                 className="w-full px-3 py-2 rounded-lg border text-sm" style={fieldStyle} placeholder="Ex : Dakar" />
             </div>
           </div>
           <div>
-            <label className="text-xs font-semibold block mb-1" style={{ color: 'var(--muted)' }}>Genre</label>
+            <label className="text-xs font-semibold block mb-1 text-muted">Genre</label>
             <select value={form.genre} onChange={(e) => set('genre', e.target.value)}
               className="w-full px-3 py-2 rounded-lg border text-sm" style={fieldStyle}>
               <option value="">—</option>
@@ -6132,13 +6114,13 @@ return (
             <span className="text-[11px] font-bold uppercase tracking-wide" style={{ color: 'var(--gold)' }}>Situation</span>
           </div>
           <div>
-            <label className="text-xs font-semibold block mb-1" style={{ color: 'var(--muted)' }}>Adresse</label>
+            <label className="text-xs font-semibold block mb-1 text-muted">Adresse</label>
             <input value={form.adresse} onChange={(e) => set('adresse', e.target.value)}
               className="w-full px-3 py-2 rounded-lg border text-sm" style={fieldStyle} placeholder="Ex : Parcelles Assainies, Dakar" />
           </div>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <div>
-              <label className="text-xs font-semibold block mb-1" style={{ color: 'var(--muted)' }}>Handicap</label>
+              <label className="text-xs font-semibold block mb-1 text-muted">Handicap</label>
               <select value={form.handicap} onChange={(e) => set('handicap', e.target.value)}
                 className="w-full px-3 py-2 rounded-lg border text-sm" style={fieldStyle}>
                 <option value="">—</option>
@@ -6147,7 +6129,7 @@ return (
               </select>
             </div>
             <div>
-              <label className="text-xs font-semibold block mb-1" style={{ color: 'var(--muted)' }}>Cas social</label>
+              <label className="text-xs font-semibold block mb-1 text-muted">Cas social</label>
               <select value={form.casSocial} onChange={(e) => set('casSocial', e.target.value)}
                 className="w-full px-3 py-2 rounded-lg border text-sm" style={fieldStyle}>
                 <option value="">—</option>
@@ -6158,7 +6140,7 @@ return (
           </div>
           {form.handicap === 'Oui' && (
             <div>
-              <label className="text-xs font-semibold block mb-1" style={{ color: 'var(--muted)' }}>Type de handicap</label>
+              <label className="text-xs font-semibold block mb-1 text-muted">Type de handicap</label>
               <input value={form.typeHandicap} onChange={(e) => set('typeHandicap', e.target.value)}
                 className="w-full px-3 py-2 rounded-lg border text-sm" style={fieldStyle} placeholder="Ex : moteur, visuel, auditif…" />
             </div>
@@ -6170,20 +6152,20 @@ return (
           </div>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <div>
-              <label className="text-xs font-semibold block mb-1" style={{ color: 'var(--muted)' }}>Nom du tuteur</label>
+              <label className="text-xs font-semibold block mb-1 text-muted">Nom du tuteur</label>
               <input value={form.tuteurNom} onChange={(e) => set('tuteurNom', e.target.value)}
                 className="w-full px-3 py-2 rounded-lg border text-sm" style={fieldStyle} placeholder="Ex : M. Diop" />
             </div>
             <div>
-              <label className="text-xs font-semibold block mb-1" style={{ color: 'var(--muted)' }}>Téléphone du tuteur</label>
+              <label className="text-xs font-semibold block mb-1 text-muted">Téléphone du tuteur</label>
               <input value={form.tuteurTel} onChange={(e) => set('tuteurTel', e.target.value)}
                 className="w-full px-3 py-2 rounded-lg border text-sm" style={fieldStyle} placeholder="77 000 00 00" />
             </div>
           </div>
           <div>
-            <label className="text-xs font-semibold block mb-1" style={{ color: 'var(--muted)' }}>Photo de l'élève</label>
+            <label className="text-xs font-semibold block mb-1 text-muted">Photo de l'élève</label>
             <div className="flex items-center gap-3">
-              <div className="w-14 h-16 rounded-lg border overflow-hidden flex items-center justify-center" style={{ borderColor: 'var(--line)', background: 'var(--bg)' }}>{form.photoData ? <img src={form.photoData} alt="Aperçu" className="w-full h-full object-cover" /> : <span className="text-[10px] text-center" style={{ color: 'var(--muted)' }}>Aucune photo</span>}</div>
+              <div className="w-14 h-16 rounded-lg border overflow-hidden flex items-center justify-center" style={{ borderColor: 'var(--line)', background: 'var(--bg)' }}>{form.photoData ? <img src={form.photoData} alt="Aperçu" className="w-full h-full object-cover" /> : <span className="text-[10px] text-center text-muted">Aucune photo</span>}</div>
               <input type="file" accept="image/*" onChange={(e) => { const file = e.target.files?.[0]; if (!file) return; const reader = new FileReader(); reader.onload = () => set('photoData', String(reader.result || '')); reader.readAsDataURL(file); }} className="text-xs" />
             </div>
           </div>
@@ -6272,10 +6254,10 @@ function StudentIdentityCard({ state, cls, student }) {
     : '';
   const qrValue = `SYGENOP|CARTE|${code}|${student.id}`;
   return <div className="student-id-card-sheet"><div className="student-id-card-front sygenop-card p-5" style={{ border: '2px solid var(--green-d)' }}>
-    <div className="flex items-start justify-between gap-4"><div className="flex items-center gap-2 flex-shrink-0"><SenegalFlag className="w-16 h-auto flex-shrink-0" /></div><div><div className="text-lg font-bold" style={{ color: 'var(--green-d)' }}>{school}</div><div className="text-xs" style={{ color: 'var(--muted)' }}>CARTE D’IDENTITÉ SCOLAIRE · RECTO · Année {state.header?.annee || 'en cours'}</div></div><SchoolLogoMark state={state} width={72} /></div>
-    <div className="grid grid-cols-[1fr_150px] gap-4 mt-3 pt-3" style={{ borderTop: '1px solid var(--line)' }}><div className="space-y-1 text-sm"><div><b>Élève :</b> {student.prenom || '—'} {student.nom || ''}</div><div><b>Identifiant :</b> {code}</div><div><b>Classe :</b> {cls.name} · {cls.level}</div><div><b>Né(e) le :</b> {birthDate || '—'}</div><div><b>Lieu de naissance :</b> {student.lieuNaissance || '—'}</div><div><b>Genre :</b> {student.genre === 'F' ? 'Féminin' : student.genre === 'M' ? 'Masculin' : (student.genre || '—')}</div><div><b>Tuteur / Responsable :</b> {student.tuteurNom || 'Non renseigné'}</div><div><b>Contact tuteur :</b> {student.tuteurTel || 'Non renseigné'}</div></div><div className="border rounded-lg flex items-center justify-center overflow-hidden" style={{ borderColor: 'var(--line)', height: 150, background: 'var(--bg)' }}>{student.photoData ? <img src={student.photoData} alt={`Photo de ${student.prenom || 'l’élève'}`} className="w-full h-full object-cover" /> : <span className="text-xs text-center px-2" style={{ color: 'var(--muted)' }}>Photo de l’élève</span>}</div></div>
-    <div className="flex items-end justify-between gap-4 mt-2 pt-2" style={{ borderTop: '1px solid var(--line)' }}><div className="text-[10px] flex-1" style={{ color: 'var(--muted)' }}>Scannez ce QR code pour vérifier la situation des mensualités dans l'application.</div><QRBadge value={qrValue} size={64} label="" /></div>
-  </div><div className="student-id-card-back sygenop-card p-6 text-center" style={{ border: '2px solid var(--green-d)' }}><div className="font-bold text-lg" style={{ color: 'var(--green-d)' }}>{school}</div><div className="text-xs mb-5" style={{ color: 'var(--muted)' }}>CARTE D’IDENTITÉ SCOLAIRE · VERSO</div><QRBadge value={qrValue} size={230} label="Identifiant permanent de l’élève" /><div className="mt-5 text-xs" style={{ color: 'var(--muted)' }}>Ce QR ne change jamais. La comptabilité le scanne pour consulter les mensualités à jour dans le système.</div></div></div>;
+    <div className="flex items-start justify-between gap-4"><div className="flex items-center gap-2 flex-shrink-0"><SenegalFlag className="w-16 h-auto flex-shrink-0" /></div><div><div className="text-lg font-bold" style={{ color: 'var(--green-d)' }}>{school}</div><div className="text-xs text-muted">CARTE D’IDENTITÉ SCOLAIRE · RECTO · Année {state.header?.annee || 'en cours'}</div></div><SchoolLogoMark state={state} width={72} /></div>
+    <div className="grid grid-cols-[1fr_150px] gap-4 mt-3 pt-3" style={{ borderTop: '1px solid var(--line)' }}><div className="space-y-1 text-sm"><div><b>Élève :</b> {student.prenom || '—'} {student.nom || ''}</div><div><b>Identifiant :</b> {code}</div><div><b>Classe :</b> {cls.name} · {cls.level}</div><div><b>Né(e) le :</b> {birthDate || '—'}</div><div><b>Lieu de naissance :</b> {student.lieuNaissance || '—'}</div><div><b>Genre :</b> {student.genre === 'F' ? 'Féminin' : student.genre === 'M' ? 'Masculin' : (student.genre || '—')}</div><div><b>Tuteur / Responsable :</b> {student.tuteurNom || 'Non renseigné'}</div><div><b>Contact tuteur :</b> {student.tuteurTel || 'Non renseigné'}</div></div><div className="border rounded-lg flex items-center justify-center overflow-hidden" style={{ borderColor: 'var(--line)', height: 150, background: 'var(--bg)' }}>{student.photoData ? <img src={student.photoData} alt={`Photo de ${student.prenom || 'l’élève'}`} className="w-full h-full object-cover" /> : <span className="text-xs text-center px-2 text-muted">Photo de l’élève</span>}</div></div>
+    <div className="flex items-end justify-between gap-4 mt-2 pt-2" style={{ borderTop: '1px solid var(--line)' }}><div className="text-[10px] flex-1 text-muted">Scannez ce QR code pour vérifier la situation des mensualités dans l'application.</div><QRBadge value={qrValue} size={64} label="" /></div>
+  </div><div className="student-id-card-back sygenop-card p-6 text-center" style={{ border: '2px solid var(--green-d)' }}><div className="font-bold text-lg" style={{ color: 'var(--green-d)' }}>{school}</div><div className="text-xs mb-5 text-muted">CARTE D’IDENTITÉ SCOLAIRE · VERSO</div><QRBadge value={qrValue} size={230} label="Identifiant permanent de l’élève" /><div className="mt-5 text-xs text-muted">Ce QR ne change jamais. La comptabilité le scanne pour consulter les mensualités à jour dans le système.</div></div></div>;
 }
 
 /* ---- Carte professionnelle du personnel — même format que la carte élève ---- */
@@ -6288,10 +6270,10 @@ function StaffIdentityCard({ state, person }) {
   const school = state.header?.ecole || 'Établissement scolaire';
   const qrValue = `SYGENOP|STAFF|${code}|${person.id}`;
   return <div className="student-id-card-sheet"><div className="student-id-card-front sygenop-card p-5" style={{ border: '2px solid var(--gold, #d4a017)' }}>
-    <div className="flex items-start justify-between gap-4"><div className="flex items-center gap-2 flex-shrink-0"><SenegalFlag className="w-16 h-auto flex-shrink-0" /></div><div><div className="text-lg font-bold" style={{ color: 'var(--green-d)' }}>{school}</div><div className="text-xs" style={{ color: 'var(--muted)' }}>CARTE PROFESSIONNELLE · RECTO · Année {state.header?.annee || 'en cours'}</div></div><SchoolLogoMark state={state} width={72} /></div>
-    <div className="grid grid-cols-[1fr_150px] gap-4 mt-3 pt-3" style={{ borderTop: '1px solid var(--line)' }}><div className="space-y-1 text-sm"><div><b>Agent :</b> {person.prenom || '—'} {person.nom || ''}</div><div><b>Matricule :</b> {code}</div><div><b>Fonction :</b> {person.role || '—'}</div>{person.specialites?.length > 0 && <div><b>Spécialités :</b> {person.specialites.join(', ')}</div>}<div><b>Téléphone :</b> {person.telephone || '—'}</div><div><b>Statut :</b> {person.statut || 'Actif'}</div></div><div className="border rounded-lg flex items-center justify-center overflow-hidden" style={{ borderColor: 'var(--line)', height: 150, background: 'var(--bg)' }}>{person.photoData ? <img src={person.photoData} alt={`Photo de ${person.prenom || 'l’agent'}`} className="w-full h-full object-cover" /> : <span className="text-xs text-center px-2" style={{ color: 'var(--muted)' }}>Photo de l’agent</span>}</div></div>
-    <div className="flex items-end justify-between gap-4 mt-2 pt-2" style={{ borderTop: '1px solid var(--line)' }}><div className="text-[10px] flex-1" style={{ color: 'var(--muted)' }}>Scannez ce QR code : badge d'accès au portail.</div><QRBadge value={qrValue} size={64} label="" /></div>
-  </div><div className="student-id-card-back sygenop-card p-6 text-center" style={{ border: '2px solid var(--gold, #d4a017)' }}><div className="font-bold text-lg" style={{ color: 'var(--green-d)' }}>{school}</div><div className="text-xs mb-5" style={{ color: 'var(--muted)' }}>CARTE PROFESSIONNELLE · VERSO</div><QRBadge value={qrValue} size={230} label="Identifiant permanent de l’agent" /><div className="mt-5 text-xs" style={{ color: 'var(--muted)' }}>Ce QR ne change jamais. Il sert de badge d’accès et d’identification du personnel dans le système.</div></div></div>;
+    <div className="flex items-start justify-between gap-4"><div className="flex items-center gap-2 flex-shrink-0"><SenegalFlag className="w-16 h-auto flex-shrink-0" /></div><div><div className="text-lg font-bold" style={{ color: 'var(--green-d)' }}>{school}</div><div className="text-xs text-muted">CARTE PROFESSIONNELLE · RECTO · Année {state.header?.annee || 'en cours'}</div></div><SchoolLogoMark state={state} width={72} /></div>
+    <div className="grid grid-cols-[1fr_150px] gap-4 mt-3 pt-3" style={{ borderTop: '1px solid var(--line)' }}><div className="space-y-1 text-sm"><div><b>Agent :</b> {person.prenom || '—'} {person.nom || ''}</div><div><b>Matricule :</b> {code}</div><div><b>Fonction :</b> {person.role || '—'}</div>{person.specialites?.length > 0 && <div><b>Spécialités :</b> {person.specialites.join(', ')}</div>}<div><b>Téléphone :</b> {person.telephone || '—'}</div><div><b>Statut :</b> {person.statut || 'Actif'}</div></div><div className="border rounded-lg flex items-center justify-center overflow-hidden" style={{ borderColor: 'var(--line)', height: 150, background: 'var(--bg)' }}>{person.photoData ? <img src={person.photoData} alt={`Photo de ${person.prenom || 'l’agent'}`} className="w-full h-full object-cover" /> : <span className="text-xs text-center px-2 text-muted">Photo de l’agent</span>}</div></div>
+    <div className="flex items-end justify-between gap-4 mt-2 pt-2" style={{ borderTop: '1px solid var(--line)' }}><div className="text-[10px] flex-1 text-muted">Scannez ce QR code : badge d'accès au portail.</div><QRBadge value={qrValue} size={64} label="" /></div>
+  </div><div className="student-id-card-back sygenop-card p-6 text-center" style={{ border: '2px solid var(--gold, #d4a017)' }}><div className="font-bold text-lg" style={{ color: 'var(--green-d)' }}>{school}</div><div className="text-xs mb-5 text-muted">CARTE PROFESSIONNELLE · VERSO</div><QRBadge value={qrValue} size={230} label="Identifiant permanent de l’agent" /><div className="mt-5 text-xs text-muted">Ce QR ne change jamais. Il sert de badge d’accès et d’identification du personnel dans le système.</div></div></div>;
 }
 
 function StudentSchoolCertificate({ state, cls, student }) {
@@ -6441,7 +6423,7 @@ function StudentCardVerification({ state: incomingState, updateState, notify }) 
   })() : [];
   const access = monthlyRows.some((row) => row.status === 'Impayé') ? 'REFUSÉ — régularisation nécessaire' : monthlyRows.some((row) => row.status === 'Partiel') ? 'À RÉGULARISER' : 'AUTORISÉ — à jour';
   const gateStatus = found ? studentDayStatus(state, todayISO(), found.student.id, found.classId) : null;
-  return <div className="space-y-4"><div className="sygenop-card p-5"><div className="font-bold flex items-center gap-2"><ScanLine size={18} /> Contrôle portail / Vérifier une carte</div><p className="text-xs mt-1" style={{ color: 'var(--muted)' }}>Scannez avec la caméra du smartphone ou une douchette QR.</p><div className="flex gap-2 mt-3"><button onClick={startCamera} className="px-3 py-2 rounded-lg text-white text-sm" style={{ background: 'var(--green-d)' }}>Scanner avec la caméra</button><button onClick={stopCamera} className="px-3 py-2 rounded-lg text-sm" style={{ background: 'var(--bg)' }}>Arrêter</button></div><video ref={videoRef} muted playsInline className="mt-3 w-full max-w-sm rounded-lg" /><input autoFocus value={rawCode} onChange={(e) => setRawCode(e.target.value)} placeholder="Code QR scanné" className="mt-3 w-full px-3 py-2.5 rounded-lg border text-sm" style={{ borderColor: 'var(--line)', background: 'var(--panel)' }} />{cameraError && <div className="text-xs mt-2" style={{ color: 'var(--red)' }}>{cameraError}</div>}</div>{rawCode && !found && !staffFound && <div className="sygenop-card p-5 text-sm" style={{ color: 'var(--red)' }}>Aucun élève ne correspond à ce code.</div>}{staffFound && <div className="sygenop-card p-5"><div className="font-bold text-center p-3 rounded-lg" style={{ background: staffRecord ? 'var(--green-l)' : 'var(--gold-l)', color: staffRecord ? 'var(--green-d)' : '#92710c' }}>{staffRecord ? `BADGE RECONNU — ${STAFF_POINTAGE_LABELS[staffRecord.statut]?.[0] || staffRecord.statut}` : 'BADGE RECONNU — non pointé aujourd\u2019hui'}</div><div className="mt-3 font-bold">{personFullName(staffFound)} — {staffFound.role || ''}</div><div className="text-xs mt-1" style={{ color: 'var(--muted)' }}>Matricule {staffCardCode(staffFound)} · Statut administratif : {staffFound.statut || 'Actif'}</div>{staffRecord && <div className="mt-2 text-sm">Pointage du jour : <Pill tone={STAFF_POINTAGE_LABELS[staffRecord.statut]?.[1] || 'gold'}>{STAFF_POINTAGE_LABELS[staffRecord.statut]?.[0] || staffRecord.statut}</Pill> · {Number(staffRecord.heures) || 0} h</div>}</div>}{found && <div className="sygenop-card p-5"><div className="font-bold text-center p-3 rounded-lg" style={{ background: access.startsWith('AUTORISÉ') ? 'var(--green-l)' : access.startsWith('À') ? 'var(--gold-l)' : '#fdecea', color: access.startsWith('AUTORISÉ') ? 'var(--green-d)' : 'var(--red)' }}>{access}</div><div className="mt-3 font-bold">{found.student.prenom} {found.student.nom} — {found.cls.name}</div><div className="mt-1.5 text-sm">Pointage du jour : <Pill tone={STUDENT_PRESENCE_LABELS[gateStatus?.statut]?.[1] || 'gold'}>{STUDENT_PRESENCE_LABELS[gateStatus?.statut]?.[0] || '—'}</Pill></div><div className="overflow-x-auto mt-3"><table className="w-full text-sm"><tbody>{monthlyRows.map((row) => <tr key={row.label} style={{ borderTop: '1px solid var(--line)' }}><td className="p-2">{row.label}</td><td className="p-2 text-right">{fmtFCFA(row.paid)}</td><td className="p-2 text-right"><Pill tone={row.status === 'À jour' ? 'green' : row.status === 'Partiel' ? 'gold' : 'red'}>{row.status}</Pill></td></tr>)}</tbody></table></div></div>}</div>;
+  return <div className="space-y-4"><div className="sygenop-card p-5"><div className="font-bold flex items-center gap-2"><ScanLine size={18} /> Contrôle portail / Vérifier une carte</div><p className="text-xs mt-1 text-muted">Scannez avec la caméra du smartphone ou une douchette QR.</p><div className="flex gap-2 mt-3"><button onClick={startCamera} className="px-3 py-2 rounded-lg text-white text-sm" style={{ background: 'var(--green-d)' }}>Scanner avec la caméra</button><button onClick={stopCamera} className="px-3 py-2 rounded-lg text-sm bg-bg">Arrêter</button></div><video ref={videoRef} muted playsInline className="mt-3 w-full max-w-sm rounded-lg" /><input autoFocus value={rawCode} onChange={(e) => setRawCode(e.target.value)} placeholder="Code QR scanné" className="mt-3 w-full px-3 py-2.5 rounded-lg border text-sm sygenop-input" />{cameraError && <div className="text-xs mt-2" style={{ color: 'var(--red)' }}>{cameraError}</div>}</div>{rawCode && !found && !staffFound && <div className="sygenop-card p-5 text-sm" style={{ color: 'var(--red)' }}>Aucun élève ne correspond à ce code.</div>}{staffFound && <div className="sygenop-card p-5"><div className="font-bold text-center p-3 rounded-lg" style={{ background: staffRecord ? 'var(--green-l)' : 'var(--gold-l)', color: staffRecord ? 'var(--green-d)' : '#92710c' }}>{staffRecord ? `BADGE RECONNU — ${STAFF_POINTAGE_LABELS[staffRecord.statut]?.[0] || staffRecord.statut}` : 'BADGE RECONNU — non pointé aujourd\u2019hui'}</div><div className="mt-3 font-bold">{personFullName(staffFound)} — {staffFound.role || ''}</div><div className="text-xs mt-1 text-muted">Matricule {staffCardCode(staffFound)} · Statut administratif : {staffFound.statut || 'Actif'}</div>{staffRecord && <div className="mt-2 text-sm">Pointage du jour : <Pill tone={STAFF_POINTAGE_LABELS[staffRecord.statut]?.[1] || 'gold'}>{STAFF_POINTAGE_LABELS[staffRecord.statut]?.[0] || staffRecord.statut}</Pill> · {Number(staffRecord.heures) || 0} h</div>}</div>}{found && <div className="sygenop-card p-5"><div className="font-bold text-center p-3 rounded-lg" style={{ background: access.startsWith('AUTORISÉ') ? 'var(--green-l)' : access.startsWith('À') ? 'var(--gold-l)' : '#fdecea', color: access.startsWith('AUTORISÉ') ? 'var(--green-d)' : 'var(--red)' }}>{access}</div><div className="mt-3 font-bold">{found.student.prenom} {found.student.nom} — {found.cls.name}</div><div className="mt-1.5 text-sm">Pointage du jour : <Pill tone={STUDENT_PRESENCE_LABELS[gateStatus?.statut]?.[1] || 'gold'}>{STUDENT_PRESENCE_LABELS[gateStatus?.statut]?.[0] || '—'}</Pill></div><div className="overflow-x-auto mt-3"><table className="w-full text-sm"><tbody>{monthlyRows.map((row) => <tr key={row.label} style={{ borderTop: '1px solid var(--line)' }}><td className="p-2">{row.label}</td><td className="p-2 text-right">{fmtFCFA(row.paid)}</td><td className="p-2 text-right"><Pill tone={row.status === 'À jour' ? 'green' : row.status === 'Partiel' ? 'gold' : 'red'}>{row.status}</Pill></td></tr>)}</tbody></table></div></div>}</div>;
 }
 
 /* ---------------------------------------------------------------
@@ -6554,7 +6536,7 @@ function AppelView({ state: incomingState, updateState, notify, teacherName, tea
   const counts = rows.reduce((acc, r) => { const k = r.record?.statut; if (k) acc[k] = (acc[k] || 0) + 1; else acc.none++; return acc; }, { P: 0, R: 0, A: 0, none: 0 });
 
   if (!fixedClassId && !classEntries.length) {
-    return <div className="sygenop-card p-5 text-sm" style={{ color: 'var(--muted)' }}>Aucune classe {isTeacherScoped ? 'ne vous est assignée' : "n'est enregistrée"}.</div>;
+    return <div className="sygenop-card p-5 text-sm text-muted">Aucune classe {isTeacherScoped ? 'ne vous est assignée' : "n'est enregistrée"}.</div>;
   }
 
   return (
@@ -6563,35 +6545,35 @@ function AppelView({ state: incomingState, updateState, notify, teacherName, tea
         <div className="flex flex-wrap gap-3 items-end">
           {!fixedClassId && (
             <div>
-              <label className="text-xs font-semibold block mb-1" style={{ color: 'var(--muted)' }}>Classe</label>
-              <select value={classId} onChange={(e) => setClassId(e.target.value)} className="px-3 py-2.5 rounded-lg border text-sm" style={{ borderColor: 'var(--line)', background: 'var(--panel)', color: 'var(--ink)' }}>
+              <label className="text-xs font-semibold block mb-1 text-muted">Classe</label>
+              <select value={classId} onChange={(e) => setClassId(e.target.value)} className="px-3 py-2.5 rounded-lg border text-sm sygenop-input">
                 {classEntries.map(([id, c]) => <option key={id} value={id}>{c.name}</option>)}
               </select>
             </div>
           )}
           <div>
-            <label className="text-xs font-semibold block mb-1" style={{ color: 'var(--muted)' }}>Date</label>
-            <input type="date" value={date} max={todayISO()} onChange={(e) => setDate(e.target.value)} className="px-3 py-2.5 rounded-lg border text-sm" style={{ borderColor: 'var(--line)', background: 'var(--panel)', color: 'var(--ink)' }} />
+            <label className="text-xs font-semibold block mb-1 text-muted">Date</label>
+            <input type="date" value={date} max={todayISO()} onChange={(e) => setDate(e.target.value)} className="px-3 py-2.5 rounded-lg border text-sm sygenop-input" />
           </div>
           {seances.length > 0 && (
             <div>
-              <label className="text-xs font-semibold block mb-1" style={{ color: 'var(--muted)' }}>Séance</label>
-              <select value={slotId} onChange={(e) => setSlotId(e.target.value)} className="px-3 py-2.5 rounded-lg border text-sm" style={{ borderColor: 'var(--line)', background: 'var(--panel)', color: 'var(--ink)' }}>
+              <label className="text-xs font-semibold block mb-1 text-muted">Séance</label>
+              <select value={slotId} onChange={(e) => setSlotId(e.target.value)} className="px-3 py-2.5 rounded-lg border text-sm sygenop-input">
                 {seances.map((s) => <option key={s.id} value={s.id}>{s.start}–{s.end} · {s.subject}</option>)}
               </select>
             </div>
           )}
         </div>
         {closedReason && <div className="text-xs font-semibold px-3 py-2 rounded-lg" style={{ background: 'var(--gold-l)', color: '#92710c' }}>Appel fermé — {closedReason}.</div>}
-        {!seances.length && <div className="text-xs" style={{ color: 'var(--muted)' }}>Aucun emploi du temps renseigné pour cette classe ce jour-là — pointage journalier unique.</div>}
+        {!seances.length && <div className="text-xs text-muted">Aucun emploi du temps renseigné pour cette classe ce jour-là — pointage journalier unique.</div>}
       </div>
 
       {canEdit && (
         <div className="sygenop-card p-5">
           <div className="font-bold flex items-center gap-2 mb-2"><ScanLine size={18} /> Scanner les cartes des élèves</div>
-          <div className="flex gap-2"><button onClick={startCamera} className="px-3 py-2 rounded-lg text-white text-sm" style={{ background: 'var(--green-d)' }}>Scanner avec la caméra</button><button onClick={stopCamera} className="px-3 py-2 rounded-lg text-sm" style={{ background: 'var(--bg)' }}>Arrêter</button></div>
+          <div className="flex gap-2"><button onClick={startCamera} className="px-3 py-2 rounded-lg text-white text-sm" style={{ background: 'var(--green-d)' }}>Scanner avec la caméra</button><button onClick={stopCamera} className="px-3 py-2 rounded-lg text-sm bg-bg">Arrêter</button></div>
           <video ref={videoRef} muted playsInline className="mt-3 w-full max-w-sm rounded-lg" />
-          <input value={rawCode} onChange={(e) => setRawCode(e.target.value)} placeholder="Ou saisir/coller le code QR ici" className="mt-3 w-full px-3 py-2.5 rounded-lg border text-sm" style={{ borderColor: 'var(--line)', background: 'var(--panel)', color: 'var(--ink)' }} />
+          <input value={rawCode} onChange={(e) => setRawCode(e.target.value)} placeholder="Ou saisir/coller le code QR ici" className="mt-3 w-full px-3 py-2.5 rounded-lg border text-sm sygenop-input" />
           {cameraError && <div className="text-xs mt-2" style={{ color: 'var(--red)' }}>{cameraError}</div>}
         </div>
       )}
@@ -6618,7 +6600,7 @@ function AppelView({ state: incomingState, updateState, notify, teacherName, tea
                 <tr key={student.id} style={{ borderTop: '1px solid var(--line)' }}>
                   <td className="p-2">{student.prenom} {student.nom}</td>
                   <td className="p-2"><Pill tone={STUDENT_PRESENCE_LABELS[record?.statut]?.[1] || 'gold'}>{record ? (STUDENT_PRESENCE_LABELS[record.statut]?.[0] || record.statut) : 'Non pointé'}</Pill></td>
-                  <td className="p-2" style={{ color: 'var(--muted)' }}>{record?.heure || '—'}</td>
+                  <td className="p-2 text-muted">{record?.heure || '—'}</td>
                   {canEdit && (
                     <td className="p-2 text-right whitespace-nowrap">
                       <button onClick={() => markStudent(student.id, 'P')} className="px-2 py-1 rounded text-xs font-semibold mr-1" style={{ background: 'var(--green-l)', color: 'var(--green-d)' }}>Présent</button>
@@ -6706,7 +6688,7 @@ function PresenceRapportView({ state, session, fixedClassId }) {
   const topAbsents = Object.values(stats.perStudentTotals).filter((s) => s.absent > 0).sort((a, b) => b.absent - a.absent).slice(0, 15);
 
   if (!fixedClassId && !classEntries.length) {
-    return <div className="sygenop-card p-5 text-sm" style={{ color: 'var(--muted)' }}>Aucune classe {isTeacherScoped ? 'ne vous est assignée' : "n'est enregistrée"}.</div>;
+    return <div className="sygenop-card p-5 text-sm text-muted">Aucune classe {isTeacherScoped ? 'ne vous est assignée' : "n'est enregistrée"}.</div>;
   }
 
   return (
@@ -6715,27 +6697,27 @@ function PresenceRapportView({ state, session, fixedClassId }) {
         <div className="flex flex-wrap gap-3 items-end">
           {!fixedClassId && (
             <div>
-              <label className="text-xs font-semibold block mb-1" style={{ color: 'var(--muted)' }}>Classe</label>
-              <select value={classId} onChange={(e) => setClassId(e.target.value)} className="px-3 py-2.5 rounded-lg border text-sm" style={{ borderColor: 'var(--line)', background: 'var(--panel)', color: 'var(--ink)' }}>
+              <label className="text-xs font-semibold block mb-1 text-muted">Classe</label>
+              <select value={classId} onChange={(e) => setClassId(e.target.value)} className="px-3 py-2.5 rounded-lg border text-sm sygenop-input">
                 <option value="">Toutes les classes{isTeacherScoped ? ' (les miennes)' : ''}</option>
                 {classEntries.map(([id, c]) => <option key={id} value={id}>{c.name}</option>)}
               </select>
             </div>
           )}
           <div>
-            <label className="text-xs font-semibold block mb-1" style={{ color: 'var(--muted)' }}>Période</label>
-            <select value={periodId} onChange={(e) => setPeriodId(e.target.value)} className="px-3 py-2.5 rounded-lg border text-sm" style={{ borderColor: 'var(--line)', background: 'var(--panel)', color: 'var(--ink)' }}>
+            <label className="text-xs font-semibold block mb-1 text-muted">Période</label>
+            <select value={periodId} onChange={(e) => setPeriodId(e.target.value)} className="px-3 py-2.5 rounded-lg border text-sm sygenop-input">
               {PRESENCE_PERIODS.map((p) => <option key={p.id} value={p.id}>{p.label}</option>)}
             </select>
           </div>
           {periodId === 'custom' && (
             <>
-              <div><label className="text-xs font-semibold block mb-1" style={{ color: 'var(--muted)' }}>Du</label><input type="date" value={customStart} max={today} onChange={(e) => setCustomStart(e.target.value)} className="px-3 py-2.5 rounded-lg border text-sm" style={{ borderColor: 'var(--line)', background: 'var(--panel)', color: 'var(--ink)' }} /></div>
-              <div><label className="text-xs font-semibold block mb-1" style={{ color: 'var(--muted)' }}>Au</label><input type="date" value={customEnd} max={today} min={customStart} onChange={(e) => setCustomEnd(e.target.value)} className="px-3 py-2.5 rounded-lg border text-sm" style={{ borderColor: 'var(--line)', background: 'var(--panel)', color: 'var(--ink)' }} /></div>
+              <div><label className="text-xs font-semibold block mb-1 text-muted">Du</label><input type="date" value={customStart} max={today} onChange={(e) => setCustomStart(e.target.value)} className="px-3 py-2.5 rounded-lg border text-sm sygenop-input" /></div>
+              <div><label className="text-xs font-semibold block mb-1 text-muted">Au</label><input type="date" value={customEnd} max={today} min={customStart} onChange={(e) => setCustomEnd(e.target.value)} className="px-3 py-2.5 rounded-lg border text-sm sygenop-input" /></div>
             </>
           )}
         </div>
-        <div className="text-xs mt-2" style={{ color: 'var(--muted)' }}>{stats.joursComptabilises} jour(s) ouvré(s) comptabilisé(s) entre le {startISO} et le {endISO}.</div>
+        <div className="text-xs mt-2 text-muted">{stats.joursComptabilises} jour(s) ouvré(s) comptabilisé(s) entre le {startISO} et le {endISO}.</div>
       </div>
 
       <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
@@ -6747,7 +6729,7 @@ function PresenceRapportView({ state, session, fixedClassId }) {
 
       {!classId && byClassData.length > 0 && (
         <div className="sygenop-card p-5">
-          <div className="font-bold text-sm mb-4" style={{ color: 'var(--ink)' }}>Taux de présence / absence par classe</div>
+          <div className="font-bold text-sm mb-4 text-ink">Taux de présence / absence par classe</div>
           <ResponsiveContainer width="100%" height={260}>
             <BarChart data={byClassData}>
               <CartesianGrid strokeDasharray="3 3" stroke="var(--line)" />
@@ -6763,7 +6745,7 @@ function PresenceRapportView({ state, session, fixedClassId }) {
 
       {classId && byDayData.length > 0 && (
         <div className="sygenop-card p-5">
-          <div className="font-bold text-sm mb-4" style={{ color: 'var(--ink)' }}>Taux de présence / absence par jour — {state.classes[classId]?.name}</div>
+          <div className="font-bold text-sm mb-4 text-ink">Taux de présence / absence par jour — {state.classes[classId]?.name}</div>
           <ResponsiveContainer width="100%" height={260}>
             <BarChart data={byDayData}>
               <CartesianGrid strokeDasharray="3 3" stroke="var(--line)" />
@@ -6778,9 +6760,9 @@ function PresenceRapportView({ state, session, fixedClassId }) {
       )}
 
       <div className="sygenop-card p-5">
-        <div className="font-bold text-sm mb-3" style={{ color: 'var(--ink)' }}>Élèves les plus absents sur la période</div>
+        <div className="font-bold text-sm mb-3 text-ink">Élèves les plus absents sur la période</div>
         {topAbsents.length === 0 ? (
-          <div className="text-sm" style={{ color: 'var(--muted)' }}>Aucune absence enregistrée sur cette période.</div>
+          <div className="text-sm text-muted">Aucune absence enregistrée sur cette période.</div>
         ) : (
           <div className="overflow-x-auto">
             <table className="w-full text-sm">
@@ -6789,10 +6771,10 @@ function PresenceRapportView({ state, session, fixedClassId }) {
                 {topAbsents.map((s, i) => (
                   <tr key={i} style={{ borderTop: '1px solid var(--line)' }}>
                     <td className="p-2">{s.nom}</td>
-                    {!classId && <td className="p-2" style={{ color: 'var(--muted)' }}>{s.className}</td>}
+                    {!classId && <td className="p-2 text-muted">{s.className}</td>}
                     <td className="p-2 text-right"><Pill tone="red">{s.absent}</Pill></td>
                     <td className="p-2 text-right"><Pill tone="gold">{s.retard}</Pill></td>
-                    <td className="p-2 text-right" style={{ color: 'var(--muted)' }}>{s.jours}</td>
+                    <td className="p-2 text-right text-muted">{s.jours}</td>
                   </tr>
                 ))}
               </tbody>
@@ -6960,24 +6942,23 @@ function addStudent(student) {
     <div className="space-y-3">
 <div className="sygenop-card p-4 flex flex-wrap items-center gap-3">
         <div>
-          <div className="font-bold text-sm" style={{ color: 'var(--ink)' }}>{cls.name}</div>
-          <div className="text-xs" style={{ color: 'var(--muted)' }}>
+          <div className="font-bold text-sm text-ink">{cls.name}</div>
+          <div className="text-xs text-muted">
             {students.length} élève{students.length > 1 ? 's' : ''} · {cfg.weightedAssessments ? `coefficients ${coefficientTotal}` : `barème général /${gbar}`} · {periods.find((t) => t.key === periodKey)?.label || periodKey}
             {maxStudentsPerClass && <span style={{ color: 'var(--gold)' }}> · Limite privée : {students.length}/{maxStudentsPerClass} élèves</span>}
           </div>
         </div>
         <div className="flex items-center gap-2 ml-auto">
           <div className="relative">
-            <Search size={15} className="absolute left-3 top-1/2 -translate-y-1/2" style={{ color: 'var(--muted)' }} />
+            <Search size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-muted" />
             <input
               value={searchText}
               onChange={(e) => setSearchText(e.target.value)}
               placeholder="Rechercher un élève…"
-              className="pl-9 pr-3 py-2 rounded-lg border text-sm w-56"
-              style={{ borderColor: 'var(--line)', background: 'var(--panel)', color: 'var(--ink)' }}
+              className="pl-9 pr-3 py-2 rounded-lg border text-sm w-56 sygenop-input"
             />
             {searchText && (
-              <button onClick={() => setSearchText('')} className="absolute right-2 top-1/2 -translate-y-1/2" style={{ color: 'var(--muted)' }}><X size={14} /></button>
+              <button onClick={() => setSearchText('')} className="absolute right-2 top-1/2 -translate-y-1/2 text-muted"><X size={14} /></button>
             )}
           </div>
           {!readOnly && (
@@ -7004,11 +6985,11 @@ function addStudent(student) {
       </div>
 
       {!doms.length ? (
-        <div className="sygenop-card p-10 text-center text-sm" style={{ color: 'var(--muted)' }}>
+        <div className="sygenop-card p-10 text-center text-sm text-muted">
           Aucune matière configurée pour ce niveau.
         </div>
       ) : !students.length ? (
-        <div className="sygenop-card p-10 text-center text-sm" style={{ color: 'var(--muted)' }}>
+        <div className="sygenop-card p-10 text-center text-sm text-muted">
           Aucun élève dans {cls.name}. Ajoutez le premier élève pour commencer la saisie.
         </div>
       ) : (
@@ -7016,11 +6997,11 @@ function addStudent(student) {
           <table className="w-full text-sm">
             <thead>
               <tr className="text-left" style={{ borderBottom: '1px solid var(--line)' }}>
-                <th className="px-4 py-3 text-[11px] font-bold uppercase tracking-wide" style={{ color: 'var(--muted)' }}>Élève</th>
-                <th className="px-4 py-3 text-[11px] font-bold uppercase tracking-wide" style={{ color: 'var(--muted)' }}>Âge</th>
-                <th className="px-4 py-3 text-[11px] font-bold uppercase tracking-wide" style={{ color: 'var(--muted)' }}>Genre</th>
-                <th className="px-4 py-3 text-[11px] font-bold uppercase tracking-wide" style={{ color: 'var(--muted)' }}>Statut</th>
-                <th className="px-4 py-3 text-[11px] font-bold uppercase tracking-wide text-right" style={{ color: 'var(--muted)' }}>Actions</th>
+                <th className="px-4 py-3 text-[11px] font-bold uppercase tracking-wide text-muted">Élève</th>
+                <th className="px-4 py-3 text-[11px] font-bold uppercase tracking-wide text-muted">Âge</th>
+                <th className="px-4 py-3 text-[11px] font-bold uppercase tracking-wide text-muted">Genre</th>
+                <th className="px-4 py-3 text-[11px] font-bold uppercase tracking-wide text-muted">Statut</th>
+                <th className="px-4 py-3 text-[11px] font-bold uppercase tracking-wide text-right text-muted">Actions</th>
               </tr>
             </thead>
             <tbody>
@@ -7046,13 +7027,13 @@ function addStudent(student) {
                             {isFemale(st.genre) ? <AvatarGirl size={40} /> : <AvatarBoy size={40} />}
                           </span>
                         )}
-                        <div className="font-semibold" style={{ color: 'var(--ink)' }}>
-                          {(st.prenom || '') + ' ' + (st.nom || '') || <span className="italic" style={{ color: 'var(--muted)' }}>Élève sans nom</span>}
+                        <div className="font-semibold text-ink">
+                          {(st.prenom || '') + ' ' + (st.nom || '') || <span className="italic text-muted">Élève sans nom</span>}
                         </div>
                       </div>
                     </td>
-                    <td className="px-4 py-3" style={{ color: 'var(--muted)' }}>{st.age || '—'}</td>
-                    <td className="px-4 py-3" style={{ color: 'var(--muted)' }}>{st.genre || '—'}</td>
+                    <td className="px-4 py-3 text-muted">{st.age || '—'}</td>
+                    <td className="px-4 py-3 text-muted">{st.genre || '—'}</td>
                     <td className="px-4 py-3">
                       {isValidated ? <Pill tone="green">Noté</Pill> : <Pill tone="muted">En attente</Pill>}
                     </td>
@@ -7090,10 +7071,10 @@ function addStudent(student) {
           <div className="sygenop-card p-6 max-w-2xl w-full sygenop-fade max-h-[90vh] overflow-auto">
             <div className="flex items-center justify-between mb-4">
               <div>
-                <div className="font-bold" style={{ color: 'var(--ink)' }}>
+                <div className="font-bold text-ink">
                   Notation — {(gradingStudent.prenom || '') + ' ' + (gradingStudent.nom || '')}
                 </div>
-                <div className="text-xs" style={{ color: 'var(--muted)' }}>
+                <div className="text-xs text-muted">
                   {cls.name} · {periods.find((t) => t.key === periodKey)?.label || periodKey} · Élève {gradingIdx + 1} / {students.length}
                 </div>
               </div>
@@ -7126,11 +7107,11 @@ function addStudent(student) {
                         const noteMoyenne = weightedAssessments ? moyenneMatiereAvecDevoirs(v, devoirs) : toNum(v);
                         return (
                           <div key={x.id} className="rounded-lg p-2" style={{ background: 'var(--panel)', border: '1px solid var(--line)' }}>
-                            <div className="flex items-center justify-between gap-2 mb-1"><label className="text-xs font-medium" style={{ color: 'var(--ink)' }} title={`${x.label} (/${x.max})`}>{x.label}</label>{weightedAssessments && <span className="text-[10px]" style={{ color: 'var(--muted)' }}>coef. {x.coefficient || 1}</span>}</div>
+                            <div className="flex items-center justify-between gap-2 mb-1"><label className="text-xs font-medium text-ink" title={`${x.label} (/${x.max})`}>{x.label}</label>{weightedAssessments && <span className="text-[10px] text-muted">coef. {x.coefficient || 1}</span>}</div>
                             {weightedAssessments ? (
                               <div className="space-y-1.5">
                                 <div className="flex items-center gap-1.5">
-                                  <span className="text-[10px] w-[62px]" style={{ color: 'var(--muted)' }}>Devoirs</span>
+                                  <span className="text-[10px] w-[62px] text-muted">Devoirs</span>
                                   {DEVOIR_KEYS.map((key) => {
                                     const val = devoirs?.[key];
                                     const valOver = !isAbs(val) && val != null && val !== '' && x.max > 0 && toNum(val) > x.max;
@@ -7150,14 +7131,14 @@ function addStudent(student) {
                                   })}
                                 </div>
                                 <div className="flex items-center gap-1.5">
-                                  <span className="text-[10px] w-[62px]" style={{ color: 'var(--muted)' }}>Composition</span>
+                                  <span className="text-[10px] w-[62px] text-muted">Composition</span>
                                   <input value={v == null ? '' : v} onChange={(e) => setDraftScore(x.id, e.target.value)} onBlur={(e) => { const raw = e.target.value.trim(); if (!isAbs(raw) && raw !== '' && x.max > 0) { const num = toNum(raw); if (num > x.max) { setDraftScore(x.id, String(x.max)); notify(`Note ramenée au maximum autorisé (/${x.max})`, true); } else if (num < 0) setDraftScore(x.id, '0'); } }} inputMode="decimal" className="w-14 px-1.5 py-1 rounded border text-xs text-center" style={over ? { borderColor: 'var(--red)', color: 'var(--red)' } : { borderColor: 'var(--line)', color: 'var(--ink)' }} />
-                                  <span className="text-[10px]" style={{ color: 'var(--muted)' }}>/{x.max}</span>
+                                  <span className="text-[10px] text-muted">/{x.max}</span>
                                   <span className="text-[10px] font-semibold ml-auto" style={{ color: 'var(--green-d)' }}>Moy. {noteMoyenne == null ? '0' : fmtNote(noteMoyenne, 2)}</span>
                                 </div>
                               </div>
                             ) : (
-                              <label className="text-[10px]" style={{ color: 'var(--muted)' }}>Note <input value={v == null ? '' : v} onChange={(e) => setDraftScore(x.id, e.target.value)} onBlur={(e) => { const raw = e.target.value.trim(); if (!isAbs(raw) && raw !== '' && x.max > 0) { const num = toNum(raw); if (num > x.max) { setDraftScore(x.id, String(x.max)); notify(`Note ramenée au maximum autorisé (/${x.max})`, true); } else if (num < 0) setDraftScore(x.id, '0'); } }} inputMode="decimal" className="w-14 px-1.5 py-1 rounded border text-xs text-center" style={over ? { borderColor: 'var(--red)', color: 'var(--red)' } : { borderColor: 'var(--line)', color: 'var(--ink)' }} /> /{x.max}</label>
+                              <label className="text-[10px] text-muted">Note <input value={v == null ? '' : v} onChange={(e) => setDraftScore(x.id, e.target.value)} onBlur={(e) => { const raw = e.target.value.trim(); if (!isAbs(raw) && raw !== '' && x.max > 0) { const num = toNum(raw); if (num > x.max) { setDraftScore(x.id, String(x.max)); notify(`Note ramenée au maximum autorisé (/${x.max})`, true); } else if (num < 0) setDraftScore(x.id, '0'); } }} inputMode="decimal" className="w-14 px-1.5 py-1 rounded border text-xs text-center" style={over ? { borderColor: 'var(--red)', color: 'var(--red)' } : { borderColor: 'var(--line)', color: 'var(--ink)' }} /> /{x.max}</label>
                             )}
                           </div>
                         );
@@ -7223,11 +7204,11 @@ function addStudent(student) {
       )}
 
       {cardStudent && (
-        <div id="student-card-print" className="fixed inset-0 z-50 overflow-auto p-4"><div className="max-w-2xl mx-auto mt-4"><div className="no-print flex flex-wrap justify-end gap-2 mb-2"><label className="px-3 py-2 rounded-lg text-sm font-semibold cursor-pointer" style={{ background: 'var(--gold-l)', color: 'var(--gold)' }}>Ajouter / changer la photo<input type="file" accept="image/*" className="hidden" onChange={(e) => { const file = e.target.files?.[0]; if (!file) return; const reader = new FileReader(); reader.onload = () => { const photoData = String(reader.result || ''); const next = students.map((s) => s.id === cardStudent.id ? { ...s, photoData } : s); updateStudents(next); setCardStudent((s) => ({ ...s, photoData })); }; reader.readAsDataURL(file); }} /></label><button onClick={() => window.print()} className="px-3 py-2 rounded-lg text-white flex items-center gap-1" style={{ background: 'var(--green-d)' }}><Printer size={14} /> Imprimer / PDF</button><button onClick={() => setCardStudent(null)} className="px-3 py-2 rounded-lg" style={{ background: 'var(--panel)' }}>Fermer</button></div><StudentIdentityCard state={state} cls={cls} student={cardStudent} /></div></div>
+        <div id="student-card-print" className="fixed inset-0 z-50 overflow-auto p-4"><div className="max-w-2xl mx-auto mt-4"><div className="no-print flex flex-wrap justify-end gap-2 mb-2"><label className="px-3 py-2 rounded-lg text-sm font-semibold cursor-pointer" style={{ background: 'var(--gold-l)', color: 'var(--gold)' }}>Ajouter / changer la photo<input type="file" accept="image/*" className="hidden" onChange={(e) => { const file = e.target.files?.[0]; if (!file) return; const reader = new FileReader(); reader.onload = () => { const photoData = String(reader.result || ''); const next = students.map((s) => s.id === cardStudent.id ? { ...s, photoData } : s); updateStudents(next); setCardStudent((s) => ({ ...s, photoData })); }; reader.readAsDataURL(file); }} /></label><button onClick={() => window.print()} className="px-3 py-2 rounded-lg text-white flex items-center gap-1" style={{ background: 'var(--green-d)' }}><Printer size={14} /> Imprimer / PDF</button><button onClick={() => setCardStudent(null)} className="px-3 py-2 rounded-lg bg-panel">Fermer</button></div><StudentIdentityCard state={state} cls={cls} student={cardStudent} /></div></div>
       )}
 
       {certStudent && (
-        <div id="student-cert-print" className="fixed inset-0 z-50 overflow-auto p-4"><div className="max-w-[220mm] mx-auto mt-4"><div className="no-print flex flex-wrap justify-end gap-2 mb-2"><button onClick={() => window.print()} className="px-3 py-2 rounded-lg text-white flex items-center gap-1" style={{ background: 'var(--green-d)' }}><Printer size={14} /> Imprimer / PDF</button><button onClick={() => setCertStudent(null)} className="px-3 py-2 rounded-lg" style={{ background: 'var(--panel)' }}>Fermer</button></div><StudentSchoolCertificate state={state} cls={cls} student={certStudent} /></div></div>
+        <div id="student-cert-print" className="fixed inset-0 z-50 overflow-auto p-4"><div className="max-w-[220mm] mx-auto mt-4"><div className="no-print flex flex-wrap justify-end gap-2 mb-2"><button onClick={() => window.print()} className="px-3 py-2 rounded-lg text-white flex items-center gap-1" style={{ background: 'var(--green-d)' }}><Printer size={14} /> Imprimer / PDF</button><button onClick={() => setCertStudent(null)} className="px-3 py-2 rounded-lg bg-panel">Fermer</button></div><StudentSchoolCertificate state={state} cls={cls} student={certStudent} /></div></div>
       )}
 
       {toDelete && (
@@ -7286,8 +7267,8 @@ function SynthLevelTable({ state, level, period, teacherName }) {
 
   if (!totalB && !totalF) {
     return (
-      <div className="sygenop-card p-10 text-center text-sm" style={{ color: 'var(--muted)' }}>
-        <div className="font-bold mb-1" style={{ color: 'var(--ink)' }}>Aucune donnée pour {level}</div>
+      <div className="sygenop-card p-10 text-center text-sm text-muted">
+        <div className="font-bold mb-1 text-ink">Aucune donnée pour {level}</div>
         Saisissez des notes (avec le genre G/F) dans une classe de {level} pour « {periodLabel(state, period)} ».
       </div>
     );
@@ -7297,10 +7278,10 @@ function SynthLevelTable({ state, level, period, teacherName }) {
 
   return (
     <div className="sygenop-card p-4 md:p-5 overflow-x-auto">
-      <div className="text-xs font-semibold mb-1" style={{ color: 'var(--muted)' }}>
+      <div className="text-xs font-semibold mb-1 text-muted">
         Synthèse · {level} · {periodLabel(state, period)}
       </div>
-      <h3 className="font-bold text-sm mb-3" style={{ color: 'var(--ink)' }}>Réussite par discipline et globale — {level}</h3>
+      <h3 className="font-bold text-sm mb-3 text-ink">Réussite par discipline et globale — {level}</h3>
       <table className="synth-table">
         <thead>
           <tr>
@@ -7346,7 +7327,7 @@ function SynthLevelTable({ state, level, period, teacherName }) {
           </tr>
         </tbody>
       </table>
-      <p className="text-xs mt-3" style={{ color: 'var(--muted)' }}>
+      <p className="text-xs mt-3 text-muted">
         « Réussite » = élèves dont le résultat atteint la moitié du barème (≥ 5/10). Seuls les élèves dont le genre (G/F) est renseigné sont comptés. Pourcentage rapporté à l'effectif de la ligne.
       </p>
     </div>
@@ -7391,10 +7372,10 @@ function SynthSchoolTable({ state, period }) {
 
   return (
     <div className="sygenop-card p-4 md:p-5 overflow-x-auto">
-      <div className="text-xs font-semibold mb-1" style={{ color: 'var(--muted)' }}>
+      <div className="text-xs font-semibold mb-1 text-muted">
         Synthèse · École entière · {periodLabel(state, period)}
       </div>
-      <h3 className="font-bold text-sm mb-3" style={{ color: 'var(--ink)' }}>Résultats consolidés de l'établissement</h3>
+      <h3 className="font-bold text-sm mb-3 text-ink">Résultats consolidés de l'établissement</h3>
       <table className="synth-table">
         <thead>
           <tr><th>Niveau</th><th>Effectif</th><th>G</th><th>F</th><th>LC</th><th>Maths</th><th>ESVS</th><th>EPSA</th><th>Moy. Gén.</th></tr>
@@ -7409,7 +7390,7 @@ function SynthSchoolTable({ state, period }) {
           ) : (
             <tr key={r.level}>
               <td className="cl">{r.level}</td><td>0</td><td className="gf">0</td><td className="gf">0</td>
-              <td colSpan={5} className="text-xs" style={{ color: 'var(--muted)' }}>— non renseigné —</td>
+              <td colSpan={5} className="text-xs text-muted">— non renseigné —</td>
             </tr>
           ))}
           <tr className="grand">
@@ -7419,7 +7400,7 @@ function SynthSchoolTable({ state, period }) {
           </tr>
         </tbody>
       </table>
-      <p className="text-xs mt-3" style={{ color: 'var(--muted)' }}>
+      <p className="text-xs mt-3 text-muted">
         Les 4 premiers domaines de chaque niveau sont consolidés (LC / Maths / ESVS / EPSA). Élèves au genre renseigné uniquement.
       </p>
     </div>
@@ -7455,7 +7436,7 @@ function SynthView({ state, loading, teacherName }) {
 
   if (loading || !state) {
     return (
-      <div className="flex items-center justify-center py-24" style={{ color: 'var(--muted)' }}>
+      <div className="flex items-center justify-center py-24 text-muted">
         <Loader2 className="animate-spin mr-2" size={18} /> Chargement des données…
       </div>
     );
@@ -7463,7 +7444,7 @@ function SynthView({ state, loading, teacherName }) {
 
   if (isTeacherScoped && !availableLevels.length) {
     return (
-      <div className="sygenop-card p-10 text-center text-sm" style={{ color: 'var(--muted)' }}>
+      <div className="sygenop-card p-10 text-center text-sm text-muted">
         Aucune classe ne vous est assignée pour le moment.
       </div>
     );
@@ -7505,7 +7486,7 @@ function SynthView({ state, loading, teacherName }) {
             </button>
           ))}
         </div>
-        <select value={evaluationType} onChange={(e) => setEvaluationType(e.target.value)} className="px-3 py-1.5 rounded-lg text-xs font-semibold border" style={{ borderColor: 'var(--line)', background: 'var(--panel)', color: 'var(--ink)' }}>
+        <select value={evaluationType} onChange={(e) => setEvaluationType(e.target.value)} className="px-3 py-1.5 rounded-lg text-xs font-semibold border sygenop-input">
           {EVALUATION_TYPES.map((type) => <option key={type.key} value={type.key}>{type.label}</option>)}
         </select>
         <button
@@ -7516,7 +7497,7 @@ function SynthView({ state, loading, teacherName }) {
           🖶 Imprimer / PDF
         </button>
       </div>
-      <div className="text-sm font-bold" style={{ color: 'var(--ink)' }}>
+      <div className="text-sm font-bold text-ink">
         Synthèse {level === '__ALL__' ? '— École entière' : `— ${level}`} — {periodLabel(state, evaluationKey(period, evaluationType))}
         {state.header && state.header.ecole ? ` — ${state.header.ecole}` : ''}
       </div>
@@ -7749,7 +7730,7 @@ function BulletinView({ state, loading, teacherName }) {
 
   if (loading || !state) {
     return (
-      <div className="flex items-center justify-center py-24" style={{ color: 'var(--muted)' }}>
+      <div className="flex items-center justify-center py-24 text-muted">
         <Loader2 className="animate-spin mr-2" size={18} /> Chargement des données…
       </div>
     );
@@ -7757,8 +7738,8 @@ function BulletinView({ state, loading, teacherName }) {
 
   if (!sheets.length) {
     return (
-      <div className="sygenop-card p-10 text-center text-sm" style={{ color: 'var(--muted)' }}>
-        <div className="font-bold mb-1" style={{ color: 'var(--ink)' }}>Aucun élève</div>
+      <div className="sygenop-card p-10 text-center text-sm text-muted">
+        <div className="font-bold mb-1 text-ink">Aucun élève</div>
         Ajoutez des élèves dans une classe du cycle {cycleLabel(state.header?.cycle).toLowerCase()} pour générer des bulletins.
       </div>
     );
@@ -7789,24 +7770,22 @@ function BulletinView({ state, loading, teacherName }) {
     <div className="space-y-4 sygenop-fade">
       <div className="no-print flex flex-wrap items-end gap-3">
         <div>
-          <label className="block text-xs font-semibold mb-1" style={{ color: 'var(--muted)' }}>Classe</label>
+          <label className="block text-xs font-semibold mb-1 text-muted">Classe</label>
           <select
             value={classId || ''}
             onChange={(e) => { setClassId(e.target.value); setStudentIdx(0); setMode('single'); }}
-            className="px-3 py-2 rounded-lg border text-sm"
-            style={{ borderColor: 'var(--line)', background: 'var(--panel)', color: 'var(--ink)' }}
+            className="px-3 py-2 rounded-lg border text-sm sygenop-input"
           >
             {sheets.map(([id, c]) => <option key={id} value={id}>{c.name} — {c.level}</option>)}
           </select>
         </div>
         {mode === 'single' && (
           <div>
-            <label className="block text-xs font-semibold mb-1" style={{ color: 'var(--muted)' }}>Élève</label>
+            <label className="block text-xs font-semibold mb-1 text-muted">Élève</label>
             <select
               value={studentIdx}
               onChange={(e) => setStudentIdx(+e.target.value)}
-              className="px-3 py-2 rounded-lg border text-sm"
-              style={{ borderColor: 'var(--line)', background: 'var(--panel)', color: 'var(--ink)' }}
+              className="px-3 py-2 rounded-lg border text-sm sygenop-input"
             >
               {students.map((s, i) => <option key={s.id} value={i}>{(s.prenom || '') + ' ' + (s.nom || '') || `Élève ${i + 1}`}</option>)}
             </select>
@@ -7824,7 +7803,7 @@ function BulletinView({ state, loading, teacherName }) {
             </button>
           ))}
         </div>
-        <select value={evaluationType} onChange={(e) => setEvaluationType(e.target.value)} className="px-3 py-2 rounded-lg border text-sm" style={{ borderColor: 'var(--line)', background: 'var(--panel)', color: 'var(--ink)' }}>
+        <select value={evaluationType} onChange={(e) => setEvaluationType(e.target.value)} className="px-3 py-2 rounded-lg border text-sm sygenop-input">
           {EVALUATION_TYPES.map((type) => <option key={type.key} value={type.key}>{type.label}</option>)}
         </select>
         <button
@@ -7858,7 +7837,7 @@ function BulletinView({ state, loading, teacherName }) {
       ) : student ? (
         <BulletinSheet state={state} cls={cls} level={cls.level} cfg={cfg} student={student} studentIndex={studentIdx} period={selectedEvaluationKey} />
       ) : (
-        <div className="sygenop-card p-10 text-center text-sm" style={{ color: 'var(--muted)' }}>Sélectionnez un élève.</div>
+        <div className="sygenop-card p-10 text-center text-sm text-muted">Sélectionnez un élève.</div>
       )}
     </div>
   );
@@ -7873,7 +7852,7 @@ function phoneDigits(tel) {
 function QRBadge({ value, label = 'Document vérifiable', size = 120 }) {
   const sourceSize = Math.max(240, size * 2);
   const src = `https://api.qrserver.com/v1/create-qr-code/?size=${sourceSize}x${sourceSize}&ecc=M&margin=4&format=png&data=${encodeURIComponent(value)}`;
-  return <div className="text-center text-[9px]" style={{ color: 'var(--muted)' }}><img src={src} alt="QR code de vérification" width={size} height={size} className="mx-auto" style={{ background: '#fff', padding: 3 }} />{label}</div>;
+  return <div className="text-center text-[9px] text-muted"><img src={src} alt="QR code de vérification" width={size} height={size} className="mx-auto" style={{ background: '#fff', padding: 3 }} />{label}</div>;
 }
 
 function FeesModal({ level, fees, onSave, onClose }) {
@@ -7895,10 +7874,10 @@ function FeesModal({ level, fees, onSave, onClose }) {
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
       <form onSubmit={submit} className="sygenop-card p-6 max-w-5xl w-full sygenop-fade flex flex-col" style={{ maxHeight: '90vh' }}>
         <div className="flex items-center justify-between mb-2">
-          <div className="font-bold" style={{ color: 'var(--ink)' }}>Frais de scolarité — {level}</div>
+          <div className="font-bold text-ink">Frais de scolarité — {level}</div>
           <button type="button" onClick={onClose} style={{ color: 'var(--muted)' }}><X size={18} /></button>
         </div>
-        <p className="text-xs mb-3" style={{ color: 'var(--muted)' }}>Chaque rubrique est un montant annuel pour les élèves de {level}. Les rubriques « À l'entrée » sont payées à l'inscription et ne sont pas incluses dans les mensualités.</p>
+        <p className="text-xs mb-3 text-muted">Chaque rubrique est un montant annuel pour les élèves de {level}. Les rubriques « À l'entrée » sont payées à l'inscription et ne sont pas incluses dans les mensualités.</p>
         <div className="overflow-y-auto pr-1">
           <div className="grid md:grid-cols-2 xl:grid-cols-3 gap-3 items-start">
             {rubriques.map((r, index) => <div key={r.id} className="rounded-lg border p-3 flex flex-col gap-3" style={{ borderColor: 'var(--line)' }}><div className="flex items-center gap-2"><label className="block text-xs font-semibold flex-1">Rubrique<input value={r.label} onChange={(e) => setRubriques((list) => list.map((x, i) => i === index ? { ...x, label: e.target.value } : x))} className="mt-1 w-full px-3 py-2 rounded-lg border text-sm" style={{ borderColor: 'var(--line)' }} placeholder="Cantine, transport…" /></label><button type="button" onClick={() => setRubriques((list) => list.filter((_, i) => i !== index))} className="p-2 rounded-lg" style={{ color: 'var(--red)' }} title="Retirer"><Trash2 size={16} /></button></div><div className="flex items-end gap-2"><label className="block text-xs font-semibold flex-1">Montant<input type="number" min="0" step="500" value={r.montant} onChange={(e) => setRubriques((list) => list.map((x, i) => i === index ? { ...x, montant: e.target.value } : x))} className="mt-1 w-full px-3 py-2 rounded-lg border text-sm" style={{ borderColor: 'var(--line)' }} /></label><label className="block text-[10px] font-semibold w-28">Échéance<select value={r.nature || 'annuel'} onChange={(e) => setRubriques((list) => list.map((x, i) => i === index ? { ...x, nature: e.target.value } : x))} className="mt-1 w-full px-1.5 py-2 rounded-lg border text-xs"><option value="annuel">Annuelle</option><option value="entree">À l'entrée</option></select></label></div></div>)}
@@ -7908,8 +7887,8 @@ function FeesModal({ level, fees, onSave, onClose }) {
         <div className="flex flex-wrap items-center justify-between gap-3 mt-4 pt-4" style={{ borderTop: '1px solid var(--line)' }}>
           <div className="flex items-end gap-4">
             <label className="text-xs font-semibold block">Nombre de mensualités<input type="number" min="1" max="12" value={mensualites} onChange={(e) => setMensualites(e.target.value)} className="mt-1 w-24 px-3 py-2 rounded-lg border text-sm" style={{ borderColor: 'var(--line)' }} /></label>
-            <div className="text-xs leading-relaxed" style={{ color: 'var(--muted)' }}>
-              Total annuel : <b style={{ color: 'var(--ink)' }}>{fmtFCFA(total)}</b> · Dont à l'entrée : <b style={{ color: 'var(--gold, #d4a017)' }}>{fmtFCFA(totalEntree)}</b><br />
+            <div className="text-xs leading-relaxed text-muted">
+              Total annuel : <b className="text-ink">{fmtFCFA(total)}</b> · Dont à l'entrée : <b style={{ color: 'var(--gold, #d4a017)' }}>{fmtFCFA(totalEntree)}</b><br />
               Mensualité ({nbMois} mois, hors entrée) : <b style={{ color: 'var(--green-d)' }}>{fmtFCFA(Math.round(totalAnnuel / nbMois))}</b>
             </div>
           </div>
@@ -7953,19 +7932,19 @@ function StudentFeesModal({ level, fees, months, student, onSave, onClose }) {
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
       <form onSubmit={submit} className="sygenop-card p-6 max-w-3xl w-full sygenop-fade flex flex-col" style={{ maxHeight: '90vh' }}>
         <div className="flex items-center justify-between mb-2">
-          <div className="font-bold" style={{ color: 'var(--ink)' }}>Frais spécifiques — {student ? `${student.prenom || ''} ${student.nom || ''}`.trim() : ''}</div>
+          <div className="font-bold text-ink">Frais spécifiques — {student ? `${student.prenom || ''} ${student.nom || ''}`.trim() : ''}</div>
           <button type="button" onClick={onClose} style={{ color: 'var(--muted)' }}><X size={18} /></button>
         </div>
-        <p className="text-xs mb-3" style={{ color: 'var(--muted)' }}>{level} · Par défaut l'élève est abonné à toutes les rubriques tous les mois. Désactivez les mois où il n'est pas abonné (cantine, car…). S'il est « cas social », indiquez sa réduction en %.</p>
+        <p className="text-xs mb-3 text-muted">{level} · Par défaut l'élève est abonné à toutes les rubriques tous les mois. Désactivez les mois où il n'est pas abonné (cantine, car…). S'il est « cas social », indiquez sa réduction en %.</p>
         <div className="overflow-y-auto pr-1 space-y-2">
           {rubriques.map((r) => {
             const liste = rubriquesMois[r.id] || [];
             return (
               <div key={r.id} className="rounded-lg border p-3 space-y-2" style={{ borderColor: 'var(--line)' }}>
                 <div className="flex items-center gap-2 flex-wrap">
-                  <span className="text-sm font-semibold flex-1" style={{ color: 'var(--ink)' }}>{r.label}</span>
+                  <span className="text-sm font-semibold flex-1 text-ink">{r.label}</span>
                   <span className="text-xs font-semibold whitespace-nowrap" style={{ color: 'var(--green-d)' }}>{fmtFCFA(Number(r.montant) || 0)}</span>
-                  <span className="text-[10px] uppercase whitespace-nowrap" style={{ color: 'var(--muted)' }}>{r.nature === 'entree' ? "À l'entrée" : `Mensuel ×${mensualites}`}</span>
+                  <span className="text-[10px] uppercase whitespace-nowrap text-muted">{r.nature === 'entree' ? "À l'entrée" : `Mensuel ×${mensualites}`}</span>
                   <button type="button" onClick={() => setAll(r.id, true)} className="px-2 py-0.5 rounded text-[10px] font-bold uppercase" style={{ background: 'var(--green-l)', color: 'var(--green-d)' }}>Tous</button>
                   <button type="button" onClick={() => setAll(r.id, false)} className="px-2 py-0.5 rounded text-[10px] font-bold uppercase" style={{ background: 'var(--bg)', color: 'var(--muted)' }}>Aucun</button>
                 </div>
@@ -7980,8 +7959,8 @@ function StudentFeesModal({ level, fees, months, student, onSave, onClose }) {
           })}
           <div className="flex flex-wrap items-end gap-4">
             <label className="text-xs font-semibold block">Réduction « cas social » (%)<input type="number" min="0" max="100" value={casSocial} onChange={(e) => setCasSocial(e.target.value)} className="mt-1 w-28 px-3 py-2 rounded-lg border text-sm" style={{ borderColor: 'var(--line)' }} placeholder="0" /></label>
-            <div className="text-xs leading-relaxed" style={{ color: 'var(--muted)' }}>
-              Inscription : <b style={{ color: 'var(--gold, #d4a017)' }}>{fmtFCFA(inscriptionDue)}</b> · Mensualités (année) : <b style={{ color: 'var(--ink)' }}>{fmtFCFA(anneeDue)}</b><br />
+            <div className="text-xs leading-relaxed text-muted">
+              Inscription : <b style={{ color: 'var(--gold, #d4a017)' }}>{fmtFCFA(inscriptionDue)}</b> · Mensualités (année) : <b className="text-ink">{fmtFCFA(anneeDue)}</b><br />
               Total à payer par l'élève : <b style={{ color: 'var(--green-d)' }}>{fmtFCFA(inscriptionDue + anneeDue)}</b>{casSocial > 0 ? ` (réduction de ${casSocial}%)` : ''}
             </div>
           </div>
@@ -8034,10 +8013,10 @@ function PaymentModal({ student, payment, rubriques = [], onSave, onClose, defau
       <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
         <div className="sygenop-card p-6 max-w-lg w-full sygenop-fade">
           <div className="flex items-center justify-between mb-4">
-            <div className="font-bold" style={{ color: 'var(--ink)' }}>Type de paiement — {student.prenom} {student.nom}</div>
+            <div className="font-bold text-ink">Type de paiement — {student.prenom} {student.nom}</div>
             <button type="button" onClick={onClose} style={{ color: 'var(--muted)' }}><X size={18} /></button>
           </div>
-          <p className="text-xs mb-4" style={{ color: 'var(--muted)' }}>Choisissez le type de paiement avant de procéder à l'encaissement.</p>
+          <p className="text-xs mb-4 text-muted">Choisissez le type de paiement avant de procéder à l'encaissement.</p>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <button
               type="button"
@@ -8051,9 +8030,9 @@ function PaymentModal({ student, payment, rubriques = [], onSave, onClose, defau
                 <div className="w-10 h-10 rounded-lg flex items-center justify-center" style={{ background: 'var(--gold-l)', color: 'var(--gold)' }}>
                   <ClipboardCheck size={20} />
                 </div>
-                <div className="font-bold text-sm" style={{ color: 'var(--ink)' }}>Inscription / Réinscription</div>
+                <div className="font-bold text-sm text-ink">Inscription / Réinscription</div>
               </div>
-              <div className="text-xs" style={{ color: 'var(--muted)' }}>Frais d'entrée à l'inscription (inscription, tenue…)</div>
+              <div className="text-xs text-muted">Frais d'entrée à l'inscription (inscription, tenue…)</div>
             </button>
             <button
               type="button"
@@ -8067,9 +8046,9 @@ function PaymentModal({ student, payment, rubriques = [], onSave, onClose, defau
                 <div className="w-10 h-10 rounded-lg flex items-center justify-center" style={{ background: 'var(--green-l)', color: 'var(--green-d)' }}>
                   <CalendarDays size={20} />
                 </div>
-                <div className="font-bold text-sm" style={{ color: 'var(--ink)' }}>Mensualité / Scolarité</div>
+                <div className="font-bold text-sm text-ink">Mensualité / Scolarité</div>
               </div>
-              <div className="text-xs" style={{ color: 'var(--muted)' }}>Paiement mensuel de la scolarité</div>
+              <div className="text-xs text-muted">Paiement mensuel de la scolarité</div>
             </button>
           </div>
         </div>
@@ -8081,7 +8060,7 @@ function PaymentModal({ student, payment, rubriques = [], onSave, onClose, defau
       <form onSubmit={submit} className="sygenop-card p-6 max-w-5xl w-full sygenop-fade flex flex-col" style={{ maxHeight: '90vh' }}>
         <div className="flex items-center justify-between mb-4">
           <div className="flex items-center gap-3">
-            <div className="font-bold" style={{ color: 'var(--ink)' }}>
+            <div className="font-bold text-ink">
               {isEdit ? `Modifier le paiement — reçu ${payment.recu}` : `Nouveau paiement — ${student.prenom} ${student.nom}`}
             </div>
             {!isEdit && (
@@ -8101,42 +8080,39 @@ function PaymentModal({ student, payment, rubriques = [], onSave, onClose, defau
         </div>
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
           <div>
-            <label className="text-xs font-semibold block mb-1" style={{ color: 'var(--muted)' }}>Montant (FCFA) *</label>
+            <label className="text-xs font-semibold block mb-1 text-muted">Montant (FCFA) *</label>
             <input
               autoFocus type="number" min="0" step="any" inputMode="decimal" value={form.montant}
               onChange={(e) => setForm((f) => ({ ...f, montant: e.target.value }))}
-              className="w-full px-3 py-2.5 rounded-lg border text-sm"
-              style={{ borderColor: 'var(--line)', background: 'var(--panel)', color: 'var(--ink)' }}
+              className="w-full px-3 py-2.5 rounded-lg border text-sm sygenop-input"
               placeholder="0"
             />
           </div>
           <div>
-            <label className="text-xs font-semibold block mb-1" style={{ color: 'var(--muted)' }}>Date</label>
+            <label className="text-xs font-semibold block mb-1 text-muted">Date</label>
             <input
               type="date" value={form.date}
               onChange={(e) => setForm((f) => ({ ...f, date: e.target.value }))}
-              className="w-full px-3 py-2.5 rounded-lg border text-sm"
-              style={{ borderColor: 'var(--line)', background: 'var(--panel)', color: 'var(--ink)' }}
+              className="w-full px-3 py-2.5 rounded-lg border text-sm sygenop-input"
             />
           </div>
           <div>
-            <label className="text-xs font-semibold block mb-1" style={{ color: 'var(--muted)' }}>Mode de paiement</label>
+            <label className="text-xs font-semibold block mb-1 text-muted">Mode de paiement</label>
             <select
               value={form.mode} onChange={(e) => setForm((f) => ({ ...f, mode: e.target.value }))}
-              className="w-full px-3 py-2.5 rounded-lg border text-sm"
-              style={{ borderColor: 'var(--line)', background: 'var(--panel)', color: 'var(--ink)' }}
+              className="w-full px-3 py-2.5 rounded-lg border text-sm sygenop-input"
             >
               {Object.entries(MODES_PAIEMENT).map(([k, v]) => <option key={k} value={k}>{v}</option>)}
             </select>
           </div>
           <div>
-            <label className="text-xs font-semibold block mb-1" style={{ color: 'var(--muted)' }}>Mois concerné</label>
-            <input type="month" value={form.mois} onChange={(e) => setForm((f) => ({ ...f, mois: e.target.value }))} className="w-full px-3 py-2.5 rounded-lg border text-sm" style={{ borderColor: 'var(--line)', background: 'var(--panel)', color: 'var(--ink)' }} />
+            <label className="text-xs font-semibold block mb-1 text-muted">Mois concerné</label>
+            <input type="month" value={form.mois} onChange={(e) => setForm((f) => ({ ...f, mois: e.target.value }))} className="w-full px-3 py-2.5 rounded-lg border text-sm sygenop-input" />
           </div>
         </div>
         <div className="overflow-y-auto pr-1 mt-4">
           <div className="rounded-lg border p-3 space-y-2" style={{ borderColor: 'var(--line)' }}>
-            <div className="text-xs font-semibold" style={{ color: 'var(--muted)' }}>
+            <div className="text-xs font-semibold text-muted">
               {typePaiement === 'inscription' ? "Rubriques d'inscription — cochez et ajustez le montant" : "Rubriques mensuelles — cochez et ajustez le montant si paiement partiel"}
             </div>
             <div className="grid md:grid-cols-2 xl:grid-cols-3 gap-x-4 gap-y-2">
@@ -8145,7 +8121,7 @@ function PaymentModal({ student, payment, rubriques = [], onSave, onClose, defau
                 return <div key={line.id} className="grid grid-cols-[auto_1fr_120px] items-center gap-2 text-sm"><input type="checkbox" checked={!!line.checked} onChange={(e) => setForm((f) => ({ ...f, lignes: f.lignes.map((x, i) => i === realIndex ? { ...x, checked: e.target.checked } : x) }))} /><span>{line.label}</span><input type="number" min="0" disabled={!line.checked} value={line.montant} onChange={(e) => setForm((f) => ({ ...f, lignes: f.lignes.map((x, i) => i === realIndex ? { ...x, montant: e.target.value } : x) }))} className="px-2 py-1 rounded border" style={{ borderColor: 'var(--line)' }} /></div>;
               })}
               {filteredLines.length === 0 && (
-                <div className="text-xs py-2" style={{ color: 'var(--muted)' }}>
+                <div className="text-xs py-2 text-muted">
                   {typePaiement === 'inscription' ? "Aucune rubrique d'entrée configurée pour ce niveau." : "Aucune rubrique mensuelle configurée pour ce niveau."}
                 </div>
               )}
@@ -8153,16 +8129,15 @@ function PaymentModal({ student, payment, rubriques = [], onSave, onClose, defau
           </div>
         </div>
         <div className="mt-3">
-          <label className="text-xs font-semibold block mb-1" style={{ color: 'var(--muted)' }}>Note (facultatif)</label>
+          <label className="text-xs font-semibold block mb-1 text-muted">Note (facultatif)</label>
           <input
             value={form.note} onChange={(e) => setForm((f) => ({ ...f, note: e.target.value }))}
-            className="w-full px-3 py-2.5 rounded-lg border text-sm"
-            style={{ borderColor: 'var(--line)', background: 'var(--panel)', color: 'var(--ink)' }}
+            className="w-full px-3 py-2.5 rounded-lg border text-sm sygenop-input"
             placeholder="Ex : versement partiel"
           />
         </div>
         <div className="flex flex-wrap items-center justify-between gap-3 mt-4 pt-4" style={{ borderTop: '1px solid var(--line)' }}>
-          <div className="text-xs font-semibold" style={{ color: 'var(--muted)' }}>
+          <div className="text-xs font-semibold text-muted">
             Montant total : <b style={{ color: 'var(--green-d)' }}>{fmtFCFA(form.lignes?.filter((line) => line.checked).reduce((sum, line) => sum + (Number(line.montant) || 0), 0) || Number(String(form.montant).replace(',', '.')) || 0)}</b>
           </div>
           <div className="flex justify-end gap-2">
@@ -8276,8 +8251,8 @@ function StudentHistoryModal({ state, student, cls, due, monthlyDue = 0, onClose
       <div className="sygenop-card p-6 max-w-lg w-full sygenop-fade max-h-[85vh] overflow-auto">
         <div className="flex items-center justify-between mb-3">
           <div>
-            <div className="font-bold" style={{ color: 'var(--ink)' }}>Historique — {student.prenom} {student.nom}</div>
-            <div className="text-xs" style={{ color: 'var(--muted)' }}>
+            <div className="font-bold text-ink">Historique — {student.prenom} {student.nom}</div>
+            <div className="text-xs text-muted">
               {cls.name} · Mensualité {fmtFCFA(monthlyDue)} · Dû {fmtFCFA(due)} · Payé {fmtFCFA(paid)} · Solde {fmtFCFA(solde)}
             </div>
             <div className="flex items-center gap-3 mt-1.5">
@@ -8293,12 +8268,12 @@ function StudentHistoryModal({ state, student, cls, due, monthlyDue = 0, onClose
         </div>
         {!!monthKeys.length && (
           <div className="mb-4">
-            <div className="text-xs font-bold uppercase tracking-wide mb-2" style={{ color: 'var(--muted)' }}>Récap mensuel — versements &amp; reliquats</div>
+            <div className="text-xs font-bold uppercase tracking-wide mb-2 text-muted">Récap mensuel — versements &amp; reliquats</div>
             <table className="w-full text-xs">
               <thead>
                 <tr style={{ borderBottom: '1px solid var(--line)' }}>
                   {['Mois', 'Versé', 'Situation', 'Reliquat'].map((hh) => (
-                    <th key={hh} className="py-1.5 px-1 text-left font-bold uppercase tracking-wide" style={{ color: 'var(--muted)' }}>{hh}</th>
+                    <th key={hh} className="py-1.5 px-1 text-left font-bold uppercase tracking-wide text-muted">{hh}</th>
                   ))}
                 </tr>
               </thead>
@@ -8309,7 +8284,7 @@ function StudentHistoryModal({ state, student, cls, due, monthlyDue = 0, onClose
                   const stM = paidM <= 0 ? { label: 'Pas à jour', tone: 'red' } : (monthlyDue > 0 && paidM >= monthlyDue) ? { label: 'À jour', tone: 'green' } : { label: 'Partiel', tone: 'gold' };
                   return (
                     <tr key={month} style={{ borderBottom: '1px solid var(--line)' }}>
-                      <td className="py-1.5 px-1 font-semibold" style={{ color: 'var(--ink)' }}>{monthLabel(month)}</td>
+                      <td className="py-1.5 px-1 font-semibold text-ink">{monthLabel(month)}</td>
                       <td className="py-1.5 px-1" style={{ color: paidM > 0 ? 'var(--green-d)' : 'var(--muted)' }}>{paidM > 0 ? fmtFCFA(paidM) : '—'}</td>
                       <td className="py-1.5 px-1"><Pill tone={stM.tone}>{stM.label}</Pill></td>
                       <td className="py-1.5 px-1 font-semibold" style={{ color: resteM > 0 ? 'var(--red)' : 'var(--muted)' }}>{resteM > 0 ? fmtFCFA(resteM) : '—'}</td>
@@ -8321,18 +8296,18 @@ function StudentHistoryModal({ state, student, cls, due, monthlyDue = 0, onClose
           </div>
         )}
         {!payments.length ? (
-          <div className="text-sm text-center py-8" style={{ color: 'var(--muted)' }}>Aucun paiement enregistré pour cet élève.</div>
+          <div className="text-sm text-center py-8 text-muted">Aucun paiement enregistré pour cet élève.</div>
         ) : (
           <div className="space-y-2">
             {payments.map((p) => (
-              <div key={p.id} className="flex items-center justify-between gap-2 p-3 rounded-lg" style={{ background: 'var(--bg)' }}>
+              <div key={p.id} className="flex items-center justify-between gap-2 p-3 rounded-lg bg-bg">
                 <div>
-                  <div className="text-sm font-semibold" style={{ color: 'var(--ink)' }}>
-                    {fmtFCFA(p.montant)} <span className="font-normal" style={{ color: 'var(--muted)' }}>· {MODES_PAIEMENT[p.mode] || p.mode}</span>
+                  <div className="text-sm font-semibold text-ink">
+                    {fmtFCFA(p.montant)} <span className="font-normal text-muted">· {MODES_PAIEMENT[p.mode] || p.mode}</span>
                     {p.type_paiement === 'inscription' && <span className="ml-1 inline-flex items-center gap-0.5 text-[10px] font-bold px-1.5 py-0.5 rounded-full" style={{ background: 'var(--gold-l)', color: 'var(--gold)' }}><ClipboardCheck size={9} /> Inscription</span>}
                     {p.type_paiement === 'mensualite' && <span className="ml-1 inline-flex items-center gap-0.5 text-[10px] font-bold px-1.5 py-0.5 rounded-full" style={{ background: 'var(--green-l)', color: 'var(--green-d)' }}><CalendarDays size={9} /> Mensualité</span>}
                   </div>
-                  <div className="text-xs" style={{ color: 'var(--muted)' }}>{fmtDateFr(p.date)} · Reçu {p.recu}{p.note ? ` · ${p.note}` : ''}</div>
+                  <div className="text-xs text-muted">{fmtDateFr(p.date)} · Reçu {p.recu}{p.note ? ` · ${p.note}` : ''}</div>
                 </div>
                 <div className="flex items-center gap-1.5 flex-shrink-0">
                   {onEdit && <button onClick={() => onEdit(p)} className="p-1.5 rounded-lg" style={{ background: 'var(--bg)', color: 'var(--muted)', border: '1px solid var(--line)' }} title="Modifier ce reçu"><Pencil size={14} /></button>}
@@ -8385,7 +8360,7 @@ const schools = (await sb('GET', 'schools', 'select=id,name,type&actif=not.is.fa
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center py-16" style={{ color: 'var(--muted)' }}>
+      <div className="flex items-center justify-center py-16 text-muted">
         <Loader2 className="animate-spin mr-2" size={18} /> Calcul du classement…
       </div>
     );
@@ -8400,11 +8375,11 @@ const schools = (await sb('GET', 'schools', 'select=id,name,type&actif=not.is.fa
   const withData = rows.filter((r) => r.effectif > 0);
   return (
     <div className="space-y-3">
-      <p className="text-xs px-1" style={{ color: 'var(--muted)' }}>
+      <p className="text-xs px-1 text-muted">
         Classement des écoles selon leur taux de recouvrement des frais de scolarité (montant encaissé ÷ montant dû), toutes classes confondues.
       </p>
       {!withData.length ? (
-        <div className="sygenop-card p-10 text-center text-sm" style={{ color: 'var(--muted)' }}>
+        <div className="sygenop-card p-10 text-center text-sm text-muted">
           Aucune donnée de paiement disponible pour le moment dans les écoles connectées.
         </div>
       ) : (
@@ -8413,7 +8388,7 @@ const schools = (await sb('GET', 'schools', 'select=id,name,type&actif=not.is.fa
             <thead>
               <tr className="text-left" style={{ borderBottom: '1px solid var(--line)' }}>
                 {['Rang', 'École', 'Élèves', 'Dû', 'Encaissé', 'Taux', 'À jour'].map((hh) => (
-                  <th key={hh} className="px-4 py-3 text-[11px] font-bold uppercase tracking-wide whitespace-nowrap" style={{ color: 'var(--muted)' }}>{hh}</th>
+                  <th key={hh} className="px-4 py-3 text-[11px] font-bold uppercase tracking-wide whitespace-nowrap text-muted">{hh}</th>
                 ))}
               </tr>
             </thead>
@@ -8421,7 +8396,7 @@ const schools = (await sb('GET', 'schools', 'select=id,name,type&actif=not.is.fa
               {withData.map((r, i) => (
                 <tr key={r.id} style={{ borderBottom: '1px solid var(--line)', background: r.id === activeSchoolId ? 'var(--green-l)' : 'transparent' }}>
                   <td className="px-4 py-3 font-bold flex items-center gap-1" style={{ color: 'var(--gold)' }}>{i === 0 && <Trophy size={13} />} {i + 1}</td>
-                  <td className="px-4 py-3 font-semibold flex items-center gap-1.5" style={{ color: 'var(--ink)' }}>
+                  <td className="px-4 py-3 font-semibold flex items-center gap-1.5 text-ink">
                     <Building2 size={13} style={{ color: 'var(--muted)', flexShrink: 0 }} />
                     {r.name}{r.id === activeSchoolId ? <span style={{ color: 'var(--green-d)' }}> (votre école)</span> : ''}
                   </td>
@@ -8468,47 +8443,47 @@ function ExpenseModal({ expense, personnel = [], onSave, onClose, defaultDate = 
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
       <form onSubmit={submit} className="sygenop-card p-6 max-w-md w-full sygenop-fade max-h-[90vh] overflow-auto">
         <div className="flex items-center justify-between mb-4">
-          <div className="font-bold" style={{ color: 'var(--ink)' }}>
+          <div className="font-bold text-ink">
             {isEdit ? 'Modifier la dépense' : 'Nouvelle dépense'}
           </div>
           <button type="button" onClick={onClose} style={{ color: 'var(--muted)' }}><X size={18} /></button>
         </div>
         <div className="space-y-3">
           <div>
-            <label className="text-xs font-semibold block mb-1" style={{ color: 'var(--muted)' }}>Objet / Libellé de la dépense *</label>
+            <label className="text-xs font-semibold block mb-1 text-muted">Objet / Libellé de la dépense *</label>
             <input autoFocus value={form.libelle} onChange={(e) => set('libelle', e.target.value)} className="w-full px-3 py-2.5 rounded-lg border text-sm" style={fieldStyle} placeholder="Ex : Achat de craies et cahiers" />
           </div>
           <div className="grid grid-cols-2 gap-3">
             <div>
-              <label className="text-xs font-semibold block mb-1" style={{ color: 'var(--muted)' }}>Montant (FCFA) *</label>
+              <label className="text-xs font-semibold block mb-1 text-muted">Montant (FCFA) *</label>
               <input type="number" min="0" step="any" inputMode="decimal" value={form.montant} onChange={(e) => set('montant', e.target.value)} className="w-full px-3 py-2.5 rounded-lg border text-sm" style={fieldStyle} placeholder="0" />
             </div>
             <div>
-              <label className="text-xs font-semibold block mb-1" style={{ color: 'var(--muted)' }}>Date</label>
+              <label className="text-xs font-semibold block mb-1 text-muted">Date</label>
               <input type="date" value={form.date} onChange={(e) => set('date', e.target.value)} className="w-full px-3 py-2.5 rounded-lg border text-sm" style={fieldStyle} />
             </div>
           </div>
-          {form.categorie === 'Salaires & indemnités' && <div className="rounded-lg border p-3 space-y-2" style={{ borderColor: 'var(--line)', background: 'var(--bg)' }}><div className="text-xs font-bold" style={{ color: 'var(--muted)' }}>Personnel à payer</div>{personnel.filter((p) => p.statut === 'Actif').map((p) => <label key={p.id} className="flex items-center justify-between gap-2 text-sm"><span><input type="checkbox" checked={form.personnelIds.includes(p.id)} onChange={(e) => set('personnelIds', e.target.checked ? [...form.personnelIds, p.id] : form.personnelIds.filter((id) => id !== p.id))} className="mr-2" />{personFullName(p)} <span style={{ color: 'var(--muted)' }}>({displayStaffRole(p.role)})</span></span><b>{fmtFCFA(p.salaireBase)}</b></label>)}<div className="pt-2 font-bold text-sm" style={{ borderTop: '1px solid var(--line)' }}>Total salaires : {fmtFCFA(personnel.filter((p) => form.personnelIds.includes(p.id)).reduce((sum, p) => sum + (Number(p.salaireBase) || 0), 0))}</div></div>}
+          {form.categorie === 'Salaires & indemnités' && <div className="rounded-lg border p-3 space-y-2" style={{ borderColor: 'var(--line)', background: 'var(--bg)' }}><div className="text-xs font-bold text-muted">Personnel à payer</div>{personnel.filter((p) => p.statut === 'Actif').map((p) => <label key={p.id} className="flex items-center justify-between gap-2 text-sm"><span><input type="checkbox" checked={form.personnelIds.includes(p.id)} onChange={(e) => set('personnelIds', e.target.checked ? [...form.personnelIds, p.id] : form.personnelIds.filter((id) => id !== p.id))} className="mr-2" />{personFullName(p)} <span className="text-muted">({displayStaffRole(p.role)})</span></span><b>{fmtFCFA(p.salaireBase)}</b></label>)}<div className="pt-2 font-bold text-sm" style={{ borderTop: '1px solid var(--line)' }}>Total salaires : {fmtFCFA(personnel.filter((p) => form.personnelIds.includes(p.id)).reduce((sum, p) => sum + (Number(p.salaireBase) || 0), 0))}</div></div>}
           <div className="grid grid-cols-2 gap-3">
             <div>
-              <label className="text-xs font-semibold block mb-1" style={{ color: 'var(--muted)' }}>Catégorie</label>
+              <label className="text-xs font-semibold block mb-1 text-muted">Catégorie</label>
               <select value={form.categorie} onChange={(e) => set('categorie', e.target.value)} className="w-full px-3 py-2.5 rounded-lg border text-sm" style={fieldStyle}>
                 {DEPENSE_CATEGORIES.map((c) => <option key={c} value={c}>{c}</option>)}
               </select>
             </div>
             <div>
-              <label className="text-xs font-semibold block mb-1" style={{ color: 'var(--muted)' }}>Mode de paiement</label>
+              <label className="text-xs font-semibold block mb-1 text-muted">Mode de paiement</label>
               <select value={form.mode} onChange={(e) => set('mode', e.target.value)} className="w-full px-3 py-2.5 rounded-lg border text-sm" style={fieldStyle}>
                 {Object.entries(MODES_PAIEMENT).map(([k, v]) => <option key={k} value={k}>{v}</option>)}
               </select>
             </div>
           </div>
           <div>
-            <label className="text-xs font-semibold block mb-1" style={{ color: 'var(--muted)' }}>Bénéficiaire (fournisseur, prestataire…) <span className="font-normal">(facultatif)</span></label>
+            <label className="text-xs font-semibold block mb-1 text-muted">Bénéficiaire (fournisseur, prestataire…) <span className="font-normal">(facultatif)</span></label>
             <input value={form.beneficiaire} onChange={(e) => set('beneficiaire', e.target.value)} className="w-full px-3 py-2.5 rounded-lg border text-sm" style={fieldStyle} placeholder="Ex : Librairie du Plateau" />
           </div>
           <div>
-            <label className="text-xs font-semibold block mb-1" style={{ color: 'var(--muted)' }}>Note <span className="font-normal">(facultatif)</span></label>
+            <label className="text-xs font-semibold block mb-1 text-muted">Note <span className="font-normal">(facultatif)</span></label>
             <input value={form.note} onChange={(e) => set('note', e.target.value)} className="w-full px-3 py-2.5 rounded-lg border text-sm" style={fieldStyle} placeholder="Détails complémentaires…" />
           </div>
         </div>
@@ -8571,9 +8546,9 @@ function DepensesTab({ depenses, onAdd, onEdit, onDelete, onPrint, readOnly, onE
         <StatCard icon={AlertTriangle} label="Plus grosse dépense" tone="red" value={maxDep ? fmtFCFA(maxDep.montant) : '—'} sub={maxDep ? maxDep.libelle : 'Aucune dépense'} />
       </div>
       {!showAllYear && !!depenses.length && (
-        <div className="text-xs px-1 flex flex-wrap gap-x-4 gap-y-1 items-center" style={{ color: 'var(--muted)' }}>
-          <span>Récap <b style={{ color: 'var(--ink)' }}>{monthLabel(activeMonth)}</b> : <b style={{ color: 'var(--ink)' }}>{fmtFCFA(scopedTotal)}</b> en {scoped.length} opération(s)</span>
-          {Object.entries(byCategory).map(([cat, amount]) => <span key={cat}>{cat} : <b style={{ color: 'var(--ink)' }}>{fmtFCFA(amount)}</b></span>)}
+        <div className="text-xs px-1 flex flex-wrap gap-x-4 gap-y-1 items-center text-muted">
+          <span>Récap <b className="text-ink">{monthLabel(activeMonth)}</b> : <b className="text-ink">{fmtFCFA(scopedTotal)}</b> en {scoped.length} opération(s)</span>
+          {Object.entries(byCategory).map(([cat, amount]) => <span key={cat}>{cat} : <b className="text-ink">{fmtFCFA(amount)}</b></span>)}
         </div>
       )}
       <div className="sygenop-card p-4 flex flex-col sm:flex-row items-stretch sm:items-center gap-3">
@@ -8584,11 +8559,11 @@ function DepensesTab({ depenses, onAdd, onEdit, onDelete, onPrint, readOnly, onE
           {showAllYear ? 'Année entière' : 'Mois sélectionné'}
         </button>
         <div className="relative flex-1">
-          <Search size={15} className="absolute left-3 top-1/2 -translate-y-1/2" style={{ color: 'var(--muted)' }} />
+          <Search size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-muted" />
           <input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Rechercher une dépense (libellé, catégorie, bénéficiaire)…" className="w-full pl-9 pr-3 py-2.5 rounded-lg border text-sm" style={{ borderColor: 'var(--line)', background: 'var(--bg)', color: 'var(--ink)' }} />
         </div>
         <div className="flex gap-2">
-          <button onClick={onExport} className="px-3.5 py-2.5 rounded-lg text-sm font-semibold flex items-center justify-center gap-1.5 whitespace-nowrap" style={{ background: 'var(--bg)', color: 'var(--ink)', border: '1px solid var(--line)' }}>
+          <button onClick={onExport} className="px-3.5 py-2.5 rounded-lg text-sm font-semibold flex items-center justify-center gap-1.5 whitespace-nowrap sygenop-btn sygenop-btn--ghost">
             <Download size={15} /> Exporter CSV
           </button>
           {!readOnly && (
@@ -8599,11 +8574,11 @@ function DepensesTab({ depenses, onAdd, onEdit, onDelete, onPrint, readOnly, onE
         </div>
       </div>
       {!depenses.length ? (
-        <div className="sygenop-card p-10 text-center text-sm" style={{ color: 'var(--muted)' }}>
+        <div className="sygenop-card p-10 text-center text-sm text-muted">
           Aucune dépense enregistrée pour le moment. Ajoutez la première dépense (sortie d'argent) de l'école.
         </div>
       ) : !filtered.length ? (
-        <div className="sygenop-card p-10 text-center text-sm" style={{ color: 'var(--muted)' }}>
+        <div className="sygenop-card p-10 text-center text-sm text-muted">
           {showAllYear ? 'Aucun résultat pour cette recherche.' : `Aucune dépense enregistrée en ${monthLabel(activeMonth)}.`}
         </div>
       ) : (
@@ -8612,25 +8587,25 @@ function DepensesTab({ depenses, onAdd, onEdit, onDelete, onPrint, readOnly, onE
             <thead>
               <tr className="text-left" style={{ borderBottom: '1px solid var(--line)' }}>
                 {['Date', 'Libellé', 'Catégorie', 'Mode', 'Bénéficiaire', 'Montant', 'Actions'].map((h) => (
-                  <th key={h} className="px-4 py-3 text-[11px] font-bold uppercase tracking-wide whitespace-nowrap" style={{ color: 'var(--muted)' }}>{h}</th>
+                  <th key={h} className="px-4 py-3 text-[11px] font-bold uppercase tracking-wide whitespace-nowrap text-muted">{h}</th>
                 ))}
               </tr>
             </thead>
             <tbody>
               {filtered.map((d) => (
                 <tr key={d.id} style={{ borderBottom: '1px solid var(--line)' }}>
-                  <td className="px-4 py-3 whitespace-nowrap" style={{ color: 'var(--muted)' }}>{fmtDateFr(d.date)}</td>
-                  <td className="px-4 py-3 font-semibold" style={{ color: 'var(--ink)' }}>{d.libelle}</td>
+                  <td className="px-4 py-3 whitespace-nowrap text-muted">{fmtDateFr(d.date)}</td>
+                  <td className="px-4 py-3 font-semibold text-ink">{d.libelle}</td>
                   <td className="px-4 py-3"><Pill tone="gold">{d.categorie}</Pill></td>
-                  <td className="px-4 py-3" style={{ color: 'var(--muted)' }}>{MODES_PAIEMENT[d.mode] || d.mode || '—'}</td>
-                  <td className="px-4 py-3" style={{ color: 'var(--muted)' }}>{d.beneficiaire || '—'}</td>
+                  <td className="px-4 py-3 text-muted">{MODES_PAIEMENT[d.mode] || d.mode || '—'}</td>
+                  <td className="px-4 py-3 text-muted">{d.beneficiaire || '—'}</td>
                   <td className="px-4 py-3 font-bold whitespace-nowrap" style={{ color: 'var(--red)' }}>− {fmtFCFA(d.montant)}</td>
                   <td className="px-4 py-3">
                     <div className="flex items-center justify-end gap-1.5">
                       <button onClick={() => onPrint(d)} className="p-1.5 rounded-lg hover:bg-black/5" style={{ color: 'var(--gold)' }} title="Voir le reçu"><Printer size={15} /></button>
                       {!readOnly && (
                         <>
-                        <button onClick={() => onEdit(d)} className="p-1.5 rounded-lg hover:bg-black/5" style={{ color: 'var(--muted)' }} title="Modifier"><Pencil size={15} /></button>
+                        <button onClick={() => onEdit(d)} className="p-1.5 rounded-lg hover:bg-black/5 text-muted" title="Modifier"><Pencil size={15} /></button>
                         <button onClick={() => onDelete(d)} className="p-1.5 rounded-lg hover:bg-black/5" style={{ color: 'var(--red)' }} title="Supprimer"><Trash2 size={15} /></button>
                         </>
                       )}
@@ -8658,7 +8633,7 @@ function ExpenseReceipt({ state, expense }) {
   const code = expense.recu || expense.id;
   const editStamp = new Date().toLocaleString('fr-FR', { dateStyle: 'medium', timeStyle: 'short' });
   return <div className="recu-sheet sygenop-card">
-    <div className="flex items-start justify-between"><div className="flex items-center gap-2"><SchoolLogoMark state={state} width={48} /><div><div className="font-bold text-lg">{state.header?.ecole || 'EduLink Pro'}</div><div className="text-xs" style={{ color: 'var(--muted)' }}>Gestion scolaire</div></div></div><QRBadge value={`EduLink Pro|Sortie|${code}`} /></div>
+    <div className="flex items-start justify-between"><div className="flex items-center gap-2"><SchoolLogoMark state={state} width={48} /><div><div className="font-bold text-lg">{state.header?.ecole || 'EduLink Pro'}</div><div className="text-xs text-muted">Gestion scolaire</div></div></div><QRBadge value={`EduLink Pro|Sortie|${code}`} /></div>
     <h2 className="text-center font-bold py-2 mt-3" style={{ background: '#7f1d1d', color: '#fff' }}>REÇU DE SORTIE / DÉPENSE</h2>
     <div className="space-y-2 mt-4 text-sm"><div><b>Code :</b> {code}</div><div><b>Date :</b> {fmtDateFr(expense.date)}</div><div><b>Rubrique :</b> {expense.categorie}</div><div><b>Libellé :</b> {expense.libelle}</div><div><b>Bénéficiaire :</b> {expense.beneficiaire || '—'}</div><div><b>Mode :</b> {MODES_PAIEMENT[expense.mode] || expense.mode || '—'}</div><div><b>Montant sorti :</b> {fmtFCFA(expense.montant)}</div>{expense.note && <div><b>Note :</b> {expense.note}</div>}</div>
     <p className="recu-stub">Document vérifiable par QR code · édité le {editStamp}</p>
@@ -8744,22 +8719,22 @@ function RecapTab({ state, notify, session, updateState }) {
     <div className="space-y-4">
       <div className="no-print sygenop-card p-4 flex flex-wrap items-end gap-4">
         <div>
-          <label className="text-xs font-semibold block mb-1" style={{ color: 'var(--muted)' }}>Mois</label>
-          <select value={activeMonth} onChange={(event) => setMonth(event.target.value)} className="px-3 py-2 rounded-lg border text-sm font-semibold" style={{ borderColor: 'var(--line)', background: 'var(--panel)', color: 'var(--ink)' }}>
+          <label className="text-xs font-semibold block mb-1 text-muted">Mois</label>
+          <select value={activeMonth} onChange={(event) => setMonth(event.target.value)} className="px-3 py-2 rounded-lg border text-sm font-semibold sygenop-input">
             {months.map((m) => <option key={m} value={m}>{monthLabel(m)}</option>)}
           </select>
         </div>
         <button onClick={() => setShowAllYear((v) => !v)} className="px-3 py-2 rounded-lg text-xs font-semibold" style={{ background: 'var(--bg)', color: showAllYear ? 'var(--green-d)' : 'var(--muted)', border: '1px solid var(--line)' }}>
           {showAllYear ? 'Année entière' : 'Mois sélectionné'}
         </button>
-        <span className="text-xs ml-auto" style={{ color: 'var(--muted)' }}>Période affichée : <b style={{ color: 'var(--ink)' }}>{periodLabel}</b></span>
+        <span className="text-xs ml-auto text-muted">Période affichée : <b className="text-ink">{periodLabel}</b></span>
       </div>
       <div className="flex items-center gap-3 pb-3 mb-1" style={{ borderBottom: '2px solid var(--green-d)' }}>
         <SchoolLogoMark state={state} width={52} style={{ margin: '0 auto' }} />
         <div className="flex-1 text-center">
           <div className="text-sm font-bold" style={{ color: 'var(--green-d)' }}>{(state.header && state.header.ecole) || 'Établissement scolaire'}</div>
-          <div className="text-base font-extrabold" style={{ color: 'var(--ink)' }}>RÉCAPITULATIF ENTRÉES / SORTIES</div>
-          <div className="text-xs" style={{ color: 'var(--muted)' }}>Période : {periodLabel}{showAllYear ? ' · Année entière' : ' · Mois'} · Année {state.header?.annee || ''}</div>
+          <div className="text-base font-extrabold text-ink">RÉCAPITULATIF ENTRÉES / SORTIES</div>
+          <div className="text-xs text-muted">Période : {periodLabel}{showAllYear ? ' · Année entière' : ' · Mois'} · Année {state.header?.annee || ''}</div>
         </div>
       </div>
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
@@ -8774,7 +8749,7 @@ function RecapTab({ state, notify, session, updateState }) {
       </div>
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
         <div className="sygenop-card p-5 space-y-3">
-          <div className="text-xs font-bold uppercase tracking-wide flex items-center gap-1.5" style={{ color: 'var(--muted)' }}>
+          <div className="text-xs font-bold uppercase tracking-wide flex items-center gap-1.5 text-muted">
             <ArrowUpCircle size={13} /> {showAllYear ? 'Détail des entrées (année)' : `Entrées — ${monthLabel(activeMonth)}`}
           </div>
           <div className="space-y-2 text-sm">
@@ -8792,13 +8767,13 @@ function RecapTab({ state, notify, session, updateState }) {
                   <span style={{ color: 'var(--red)' }}>Reliquat annuel (école)</span>
                   <b style={{ color: 'var(--red)' }}>{fmtFCFA(reliquatAnnuel)}</b>
                 </div>
-                <div className="flex items-center justify-between px-3 py-2 rounded-lg" style={{ background: 'var(--bg)' }}>
-                  <span style={{ color: 'var(--muted)' }}>Taux de recouvrement</span>
-                  <b style={{ color: 'var(--ink)' }}>{Math.round(yearTaux * 100)}%</b>
+                <div className="flex items-center justify-between px-3 py-2 rounded-lg bg-bg">
+                  <span className="text-muted">Taux de recouvrement</span>
+                  <b className="text-ink">{Math.round(yearTaux * 100)}%</b>
                 </div>
-                <div className="flex items-center justify-between px-3 py-2 rounded-lg" style={{ background: 'var(--bg)' }}>
-                  <span style={{ color: 'var(--muted)' }}>Élèves à jour</span>
-                  <b style={{ color: 'var(--ink)' }}>{incoming.aJour} / {incoming.effectif}</b>
+                <div className="flex items-center justify-between px-3 py-2 rounded-lg bg-bg">
+                  <span className="text-muted">Élèves à jour</span>
+                  <b className="text-ink">{incoming.aJour} / {incoming.effectif}</b>
                 </div>
               </>
             ) : (
@@ -8807,9 +8782,9 @@ function RecapTab({ state, notify, session, updateState }) {
                   <span style={{ color: 'var(--green-d)' }}>Encaissé — {monthLabel(activeMonth)}</span>
                   <b style={{ color: 'var(--green-d)' }}>{fmtFCFA(monthIn)}</b>
                 </div>
-                <div className="flex items-center justify-between px-3 py-2 rounded-lg" style={{ background: 'var(--bg)' }}>
-                  <span style={{ color: 'var(--muted)' }}>Versements du mois</span>
-                  <b style={{ color: 'var(--ink)' }}>{monthInRows.length}</b>
+                <div className="flex items-center justify-between px-3 py-2 rounded-lg bg-bg">
+                  <span className="text-muted">Versements du mois</span>
+                  <b className="text-ink">{monthInRows.length}</b>
                 </div>
                 <div className="flex items-center justify-between px-3 py-2 rounded-lg" style={{ background: 'var(--gold-l)' }}>
                   <span style={{ color: '#92710c' }}>Mensualités attendues (mois)</span>
@@ -8824,11 +8799,11 @@ function RecapTab({ state, notify, session, updateState }) {
           </div>
         </div>
         <div className="sygenop-card p-5 space-y-3">
-          <div className="text-xs font-bold uppercase tracking-wide flex items-center gap-1.5" style={{ color: 'var(--muted)' }}>
+          <div className="text-xs font-bold uppercase tracking-wide flex items-center gap-1.5 text-muted">
             <ArrowDownCircle size={13} /> {showAllYear ? 'Sorties par catégorie (année)' : `Sorties — ${monthLabel(activeMonth)}`}
           </div>
           {!catRows.length ? (
-            <div className="text-sm py-6 text-center" style={{ color: 'var(--muted)' }}>{showAllYear ? 'Aucune dépense enregistrée.' : `Aucune dépense en ${monthLabel(activeMonth)}.`}</div>
+            <div className="text-sm py-6 text-center text-muted">{showAllYear ? 'Aucune dépense enregistrée.' : `Aucune dépense en ${monthLabel(activeMonth)}.`}</div>
           ) : (
             <div className="space-y-2 text-sm">
               {catRows.map(([cat, mont]) => {
@@ -8836,10 +8811,10 @@ function RecapTab({ state, notify, session, updateState }) {
                 return (
                   <div key={cat}>
                     <div className="flex items-center justify-between mb-1">
-                      <span style={{ color: 'var(--ink)' }}>{cat}</span>
-                      <b style={{ color: 'var(--red)' }}>{fmtFCFA(mont)} <span className="text-xs font-normal" style={{ color: 'var(--muted)' }}>({Math.round(pct)}%)</span></b>
+                      <span className="text-ink">{cat}</span>
+                      <b style={{ color: 'var(--red)' }}>{fmtFCFA(mont)} <span className="text-xs font-normal text-muted">({Math.round(pct)}%)</span></b>
                     </div>
-                    <div className="h-1.5 rounded-full overflow-hidden" style={{ background: 'var(--bg)' }}>
+                    <div className="h-1.5 rounded-full overflow-hidden bg-bg">
                       <div className="h-full rounded-full" style={{ width: `${pct}%`, background: 'linear-gradient(90deg,#dc2626,#e07a63)' }} />
                     </div>
                   </div>
@@ -8850,12 +8825,12 @@ function RecapTab({ state, notify, session, updateState }) {
         </div>
       </div>
       <div className="sygenop-card overflow-x-auto">
-        <div className="px-4 py-3 text-xs font-bold uppercase tracking-wide" style={{ color: 'var(--muted)' }}>Tableau mensuel — Entrées / Sorties / Solde</div>
+        <div className="px-4 py-3 text-xs font-bold uppercase tracking-wide text-muted">Tableau mensuel — Entrées / Sorties / Solde</div>
         <table className="w-full text-sm">
           <thead>
             <tr className="text-left" style={{ borderBottom: '1px solid var(--line)' }}>
               {['Mois', 'Entrées (encaissées)', 'Nb', 'Sorties (dépenses)', 'Nb', 'Solde du mois'].map((hh) => (
-                <th key={hh} className="px-4 py-3 text-[11px] font-bold uppercase tracking-wide whitespace-nowrap" style={{ color: 'var(--muted)' }}>{hh}</th>
+                <th key={hh} className="px-4 py-3 text-[11px] font-bold uppercase tracking-wide whitespace-nowrap text-muted">{hh}</th>
               ))}
             </tr>
           </thead>
@@ -8864,30 +8839,30 @@ function RecapTab({ state, notify, session, updateState }) {
               <tr key={row.month} onClick={() => { setMonth(row.month); setShowAllYear(false); }} className="cursor-pointer" style={{ borderBottom: '1px solid var(--line)' }}>
                 <td className="px-4 py-3 font-semibold whitespace-nowrap" style={{ color: row.month === activeMonth ? 'var(--green-d)' : 'var(--ink)' }}>{monthLabel(row.month)}</td>
                 <td className="px-4 py-3 whitespace-nowrap" style={{ color: 'var(--green-d)' }}>{row.ent > 0 ? fmtFCFA(row.ent) : '—'}</td>
-                <td className="px-4 py-3 whitespace-nowrap text-xs" style={{ color: 'var(--muted)' }}>{row.nbIn || ''}</td>
+                <td className="px-4 py-3 whitespace-nowrap text-xs text-muted">{row.nbIn || ''}</td>
                 <td className="px-4 py-3 whitespace-nowrap" style={{ color: 'var(--red)' }}>{row.sort > 0 ? fmtFCFA(row.sort) : '—'}</td>
-                <td className="px-4 py-3 whitespace-nowrap text-xs" style={{ color: 'var(--muted)' }}>{row.nbOut || ''}</td>
+                <td className="px-4 py-3 whitespace-nowrap text-xs text-muted">{row.nbOut || ''}</td>
                 <td className="px-4 py-3 font-bold whitespace-nowrap" style={{ color: row.solde >= 0 ? 'var(--green-d)' : 'var(--red)' }}>{fmtFCFA(row.solde)}</td>
               </tr>
             ))}
           </tbody>
           <tfoot>
             <tr style={{ borderTop: '2px solid var(--line)' }}>
-              <td className="px-4 py-3 text-[11px] font-bold uppercase tracking-wide" style={{ color: 'var(--muted)' }}>Totaux</td>
+              <td className="px-4 py-3 text-[11px] font-bold uppercase tracking-wide text-muted">Totaux</td>
               <td className="px-4 py-3 font-bold whitespace-nowrap" style={{ color: 'var(--green-d)' }}>{fmtFCFA(monthlyTotals.ent)}</td>
-              <td className="px-4 py-3 whitespace-nowrap text-xs" style={{ color: 'var(--muted)' }}>{monthlyTotals.nbIn}</td>
+              <td className="px-4 py-3 whitespace-nowrap text-xs text-muted">{monthlyTotals.nbIn}</td>
               <td className="px-4 py-3 font-bold whitespace-nowrap" style={{ color: 'var(--red)' }}>{fmtFCFA(monthlyTotals.sort)}</td>
-              <td className="px-4 py-3 whitespace-nowrap text-xs" style={{ color: 'var(--muted)' }}>{monthlyTotals.nbOut}</td>
+              <td className="px-4 py-3 whitespace-nowrap text-xs text-muted">{monthlyTotals.nbOut}</td>
               <td className="px-4 py-3 font-bold whitespace-nowrap" style={{ color: monthlyTotals.solde >= 0 ? 'var(--green-d)' : 'var(--red)' }}>{fmtFCFA(monthlyTotals.solde)}</td>
             </tr>
           </tfoot>
         </table>
       </div>
       <div className="no-print flex flex-wrap items-center gap-2">
-        <button onClick={exportRecap} className="px-3.5 py-2 rounded-lg text-sm font-semibold flex items-center gap-1.5" style={{ background: 'var(--bg)', color: 'var(--ink)', border: '1px solid var(--line)' }}>
+        <button onClick={exportRecap} className="px-3.5 py-2 rounded-lg text-sm font-semibold flex items-center gap-1.5 sygenop-btn sygenop-btn--ghost">
           <Download size={15} /> Exporter le récapitulatif (CSV)
         </button>
-        <button onClick={() => { log('Export récapitulatif', `Entrées ${fmtFCFA(incoming.totalPaid)} · Sorties ${fmtFCFA(totalOut)} · Solde ${fmtFCFA(solde)}`); notify('Récapitulatif exporté'); }} className="px-3.5 py-2 rounded-lg text-sm font-semibold flex items-center gap-1.5" style={{ background: 'var(--bg)', color: 'var(--ink)', border: '1px solid var(--line)' }}>
+        <button onClick={() => { log('Export récapitulatif', `Entrées ${fmtFCFA(incoming.totalPaid)} · Sorties ${fmtFCFA(totalOut)} · Solde ${fmtFCFA(solde)}`); notify('Récapitulatif exporté'); }} className="px-3.5 py-2 rounded-lg text-sm font-semibold flex items-center gap-1.5 sygenop-btn sygenop-btn--ghost">
           <History size={15} /> Journaliser dans l'audit
         </button>
       </div>
@@ -8935,8 +8910,8 @@ function MaterielTab({ items, classes = {}, affectations = [], onAdd, onAssign, 
       <StatCard icon={AlertTriangle} label="Hors service" value={horsService} tone="red" />
     </div>
     <div className="sygenop-card p-4">
-    <div className="flex flex-wrap items-center gap-3"><div><h3 className="font-bold">Matériel de l’école</h3><p className="text-xs" style={{ color: 'var(--muted)' }}>Inventaire du mobilier, des fournitures et des équipements.</p></div>{!readOnly && <><button onClick={onAssign} className="ml-auto px-3.5 py-2 rounded-lg text-sm font-semibold flex items-center gap-1.5" style={{ background: 'var(--gold-l)', color: 'var(--gold)' }}><Package size={15} /> Affecter à une classe</button><button onClick={onAdd} className="px-3.5 py-2 rounded-lg text-sm font-semibold text-white flex items-center gap-1.5" style={{ background: 'var(--green-d)' }}><Plus size={15} /> Ajouter</button></>}</div>
-    {!items.length ? <div className="py-8 text-center text-sm" style={{ color: 'var(--muted)' }}>Aucun matériel enregistré.</div> : <div className="overflow-x-auto"><table className="w-full text-sm"><thead><tr style={{ borderBottom: '1px solid var(--line)' }}>{['Désignation', 'Catégorie', 'Quantité', 'État', 'Classe affectée', 'Note', ''].map((h) => <th key={h} className="px-3 py-2 text-left text-[11px] font-bold uppercase" style={{ color: 'var(--muted)' }}>{h}</th>)}</tr></thead><tbody>{items.map((item) => { const destinations = affectations.filter((a) => a.materielId === item.id).map((a) => `${classes[a.classId]?.name || 'Classe'} (${a.quantite})`).join(', '); return <tr key={item.id} style={{ borderBottom: '1px solid var(--line)' }}><td className="px-3 py-3 font-semibold">{item.nom}</td><td className="px-3 py-3">{item.categorie || '—'}</td><td className="px-3 py-3">{item.quantite}</td><td className="px-3 py-3"><Pill tone={item.etat === 'Bon état' ? 'green' : item.etat === 'À réparer' ? 'gold' : 'red'}>{item.etat}</Pill></td><td className="px-3 py-3">{destinations || 'Non affecté'}</td><td className="px-3 py-3" style={{ color: 'var(--muted)' }}>{item.note || '—'}</td><td className="px-3 py-3 whitespace-nowrap">{!readOnly && <><button onClick={() => onEdit(item)} className="p-1.5" title="Modifier"><Pencil size={14} /></button><button onClick={() => onDelete(item)} className="p-1.5" style={{ color: 'var(--red)' }} title="Supprimer"><Trash2 size={14} /></button></>}</td></tr>})}</tbody></table></div>}
+    <div className="flex flex-wrap items-center gap-3"><div><h3 className="font-bold">Matériel de l’école</h3><p className="text-xs text-muted">Inventaire du mobilier, des fournitures et des équipements.</p></div>{!readOnly && <><button onClick={onAssign} className="ml-auto px-3.5 py-2 rounded-lg text-sm font-semibold flex items-center gap-1.5" style={{ background: 'var(--gold-l)', color: 'var(--gold)' }}><Package size={15} /> Affecter à une classe</button><button onClick={onAdd} className="px-3.5 py-2 rounded-lg text-sm font-semibold text-white flex items-center gap-1.5" style={{ background: 'var(--green-d)' }}><Plus size={15} /> Ajouter</button></>}</div>
+    {!items.length ? <div className="py-8 text-center text-sm text-muted">Aucun matériel enregistré.</div> : <div className="overflow-x-auto"><table className="w-full text-sm"><thead><tr style={{ borderBottom: '1px solid var(--line)' }}>{['Désignation', 'Catégorie', 'Quantité', 'État', 'Classe affectée', 'Note', ''].map((h) => <th key={h} className="px-3 py-2 text-left text-[11px] font-bold uppercase text-muted">{h}</th>)}</tr></thead><tbody>{items.map((item) => { const destinations = affectations.filter((a) => a.materielId === item.id).map((a) => `${classes[a.classId]?.name || 'Classe'} (${a.quantite})`).join(', '); return <tr key={item.id} style={{ borderBottom: '1px solid var(--line)' }}><td className="px-3 py-3 font-semibold">{item.nom}</td><td className="px-3 py-3">{item.categorie || '—'}</td><td className="px-3 py-3">{item.quantite}</td><td className="px-3 py-3"><Pill tone={item.etat === 'Bon état' ? 'green' : item.etat === 'À réparer' ? 'gold' : 'red'}>{item.etat}</Pill></td><td className="px-3 py-3">{destinations || 'Non affecté'}</td><td className="px-3 py-3 text-muted">{item.note || '—'}</td><td className="px-3 py-3 whitespace-nowrap">{!readOnly && <><button onClick={() => onEdit(item)} className="p-1.5" title="Modifier"><Pencil size={14} /></button><button onClick={() => onDelete(item)} className="p-1.5" style={{ color: 'var(--red)' }} title="Supprimer"><Trash2 size={14} /></button></>}</td></tr>})}</tbody></table></div>}
     </div>
   </div>;
 }
@@ -8947,15 +8922,15 @@ function MaterielJournal({ items, affectations, classes, onEdit, onDelete, readO
   const selectedItems = type === '__ALL__' ? items : items.filter((item) => (item.categorie || 'Sans rubrique') === type);
   const assignedFor = (id) => affectations.filter((a) => a.materielId === id).reduce((sum, a) => sum + (Number(a.quantite) || 0), 0);
   return <div className="space-y-4">
-    <div className="sygenop-card p-4 flex flex-wrap items-center gap-3"><div><h3 className="font-bold">Journal des affectations</h3><p className="text-xs" style={{ color: 'var(--muted)' }}>Stock total, matériel affecté et quantité disponible par type.</p></div><label className="ml-auto text-sm font-semibold">Type de matériel<select value={type} onChange={(e) => setType(e.target.value)} className="ml-2 px-3 py-2 border rounded-lg" style={{ borderColor: 'var(--line)', background: 'var(--panel)' }}><option value="__ALL__">Tous les types</option>{types.map((t) => <option key={t} value={t}>{t}</option>)}</select></label></div>
-    <div className="sygenop-card overflow-x-auto"><table className="w-full text-sm"><thead><tr style={{ borderBottom: '1px solid var(--line)' }}>{['Matériel', 'Rubrique', 'Stock total', 'Affecté', 'Disponible', 'Détail des affectations', 'Actions'].map((h) => <th key={h} className="px-3 py-2 text-left text-[11px] font-bold uppercase" style={{ color: 'var(--muted)' }}>{h}</th>)}</tr></thead><tbody>{selectedItems.map((item) => { const rows = affectations.filter((a) => a.materielId === item.id); const affected = assignedFor(item.id); const available = Number(item.quantite) || 0; return <tr key={item.id} style={{ borderBottom: '1px solid var(--line)' }}><td className="px-3 py-3 font-semibold">{item.nom}</td><td className="px-3 py-3">{item.categorie || 'Sans rubrique'}</td><td className="px-3 py-3">{available + affected}</td><td className="px-3 py-3">{affected}</td><td className="px-3 py-3 font-bold" style={{ color: available ? 'var(--green-d)' : 'var(--red)' }}>{available}</td><td className="px-3 py-3">{rows.length ? rows.map((a) => <div key={a.id} className="flex items-center gap-1 mb-1">{classes[a.classId]?.name || 'Classe'} : {a.quantite} {!readOnly && <><button onClick={() => onEdit(a)} title="Modifier l'affectation"><Pencil size={13} /></button><button onClick={() => onDelete(a)} title="Supprimer l'affectation" style={{ color: 'var(--red)' }}><Trash2 size={13} /></button></>}</div>) : <span style={{ color: 'var(--muted)' }}>Aucune</span>}</td><td className="px-3 py-3">{rows.length ? `${rows.length} mouvement(s)` : '—'}</td></tr>; })}</tbody></table></div>
+    <div className="sygenop-card p-4 flex flex-wrap items-center gap-3"><div><h3 className="font-bold">Journal des affectations</h3><p className="text-xs text-muted">Stock total, matériel affecté et quantité disponible par type.</p></div><label className="ml-auto text-sm font-semibold">Type de matériel<select value={type} onChange={(e) => setType(e.target.value)} className="ml-2 px-3 py-2 border rounded-lg sygenop-input"><option value="__ALL__">Tous les types</option>{types.map((t) => <option key={t} value={t}>{t}</option>)}</select></label></div>
+    <div className="sygenop-card overflow-x-auto"><table className="w-full text-sm"><thead><tr style={{ borderBottom: '1px solid var(--line)' }}>{['Matériel', 'Rubrique', 'Stock total', 'Affecté', 'Disponible', 'Détail des affectations', 'Actions'].map((h) => <th key={h} className="px-3 py-2 text-left text-[11px] font-bold uppercase text-muted">{h}</th>)}</tr></thead><tbody>{selectedItems.map((item) => { const rows = affectations.filter((a) => a.materielId === item.id); const affected = assignedFor(item.id); const available = Number(item.quantite) || 0; return <tr key={item.id} style={{ borderBottom: '1px solid var(--line)' }}><td className="px-3 py-3 font-semibold">{item.nom}</td><td className="px-3 py-3">{item.categorie || 'Sans rubrique'}</td><td className="px-3 py-3">{available + affected}</td><td className="px-3 py-3">{affected}</td><td className="px-3 py-3 font-bold" style={{ color: available ? 'var(--green-d)' : 'var(--red)' }}>{available}</td><td className="px-3 py-3">{rows.length ? rows.map((a) => <div key={a.id} className="flex items-center gap-1 mb-1">{classes[a.classId]?.name || 'Classe'} : {a.quantite} {!readOnly && <><button onClick={() => onEdit(a)} title="Modifier l'affectation"><Pencil size={13} /></button><button onClick={() => onDelete(a)} title="Supprimer l'affectation" style={{ color: 'var(--red)' }}><Trash2 size={13} /></button></>}</div>) : <span className="text-muted">Aucune</span>}</td><td className="px-3 py-3">{rows.length ? `${rows.length} mouvement(s)` : '—'}</td></tr>; })}</tbody></table></div>
   </div>;
 }
 
 function MaterielAffectationReceipt({ state, affectation, item, cls }) {
   const code = affectation.code || affectation.id;
   const qr = `https://api.qrserver.com/v1/create-qr-code/?size=110x110&data=${encodeURIComponent(`EduLink Pro|${code}`)}`;
-  return <div className="recu-sheet sygenop-card p-6"><div className="flex justify-between items-start"><div className="flex items-center gap-2"><SchoolLogoMark state={state} width={48} /><div><h2 className="font-bold">{state?.header?.ecole || 'EduLink Pro'}</h2><p className="text-xs">La plateforme intelligente de gestion scolaire</p></div></div><img src={qr} alt="QR code du reçu" width="80" height="80" /></div><h3 className="text-center font-bold py-2 mt-3" style={{ background: '#020617', color: '#fff' }}>REÇU D’AFFECTATION DE MATÉRIEL</h3><div className="space-y-2 mt-4 text-sm"><div><b>Code :</b> {code}</div><div><b>Date :</b> {fmtDateFr(affectation.date)}</div><div><b>Classe :</b> {cls?.name} — {cls?.level}</div><div><b>Matériel :</b> {item?.nom}</div><div><b>Catégorie :</b> {item?.categorie || '—'}</div><div><b>Quantité affectée :</b> {affectation.quantite}</div></div><p className="text-xs mt-6" style={{ color: 'var(--muted)' }}>Document vérifiable avec le QR code.</p></div>;
+  return <div className="recu-sheet sygenop-card p-6"><div className="flex justify-between items-start"><div className="flex items-center gap-2"><SchoolLogoMark state={state} width={48} /><div><h2 className="font-bold">{state?.header?.ecole || 'EduLink Pro'}</h2><p className="text-xs">La plateforme intelligente de gestion scolaire</p></div></div><img src={qr} alt="QR code du reçu" width="80" height="80" /></div><h3 className="text-center font-bold py-2 mt-3" style={{ background: '#020617', color: '#fff' }}>REÇU D’AFFECTATION DE MATÉRIEL</h3><div className="space-y-2 mt-4 text-sm"><div><b>Code :</b> {code}</div><div><b>Date :</b> {fmtDateFr(affectation.date)}</div><div><b>Classe :</b> {cls?.name} — {cls?.level}</div><div><b>Matériel :</b> {item?.nom}</div><div><b>Catégorie :</b> {item?.categorie || '—'}</div><div><b>Quantité affectée :</b> {affectation.quantite}</div></div><p className="text-xs mt-6 text-muted">Document vérifiable avec le QR code.</p></div>;
 }
 
 function PaiementsView({ state, loading, updateState, notify, activeSchoolId, role, readOnly, session }) {
@@ -9004,7 +8979,7 @@ function PaiementsView({ state, loading, updateState, notify, activeSchoolId, ro
 
   if (loading || !state) {
     return (
-      <div className="flex items-center justify-center py-24" style={{ color: 'var(--muted)' }}>
+      <div className="flex items-center justify-center py-24 text-muted">
         <Loader2 className="animate-spin mr-2" size={18} /> Chargement des données…
       </div>
     );
@@ -9279,8 +9254,7 @@ function PaiementsView({ state, loading, updateState, notify, activeSchoolId, ro
           {student && payment && (
             <button
               onClick={() => { setPrinting(null); setEditingPayment({ student, payment }); }}
-              className="px-3.5 py-2 rounded-lg text-sm font-semibold flex items-center gap-1.5"
-              style={{ background: 'var(--bg)', color: 'var(--ink)', border: '1px solid var(--line)' }}
+              className="px-3.5 py-2 rounded-lg text-sm font-semibold flex items-center gap-1.5 sygenop-btn sygenop-btn--ghost"
             >
               <Pencil size={15} /> Modifier ce reçu (erreur ?)
             </button>
@@ -9298,7 +9272,7 @@ function PaiementsView({ state, loading, updateState, notify, activeSchoolId, ro
         {student && payment ? (
           <ReceiptSheet state={state} cls={cls} student={student} payment={payment} />
         ) : (
-          <div className="sygenop-card p-10 text-center text-sm" style={{ color: 'var(--muted)' }}>Reçu introuvable.</div>
+          <div className="sygenop-card p-10 text-center text-sm text-muted">Reçu introuvable.</div>
         )}
       </div>
     );
@@ -9335,7 +9309,7 @@ function PaiementsView({ state, loading, updateState, notify, activeSchoolId, ro
 
       {viewMode !== 'materiel' && !canSeeRanking && (
         <div className="sygenop-card p-4">
-          <div className="text-xs font-bold uppercase tracking-wide mb-3 flex items-center gap-1.5" style={{ color: 'var(--muted)' }}>
+          <div className="text-xs font-bold uppercase tracking-wide mb-3 flex items-center gap-1.5 text-muted">
             <Building2 size={13} /> Récapitulatif de l'école
           </div>
           {(() => {
@@ -9445,15 +9419,13 @@ function PaiementsView({ state, loading, updateState, notify, activeSchoolId, ro
             <div className="ml-auto flex flex-wrap gap-2">
               <button
                 onClick={exportCSVClasse} disabled={!currentClass}
-                className="px-3.5 py-2 rounded-lg text-sm font-semibold flex items-center gap-1.5 disabled:opacity-40"
-                style={{ background: 'var(--bg)', color: 'var(--ink)', border: '1px solid var(--line)' }}
+                className="px-3.5 py-2 rounded-lg text-sm font-semibold flex items-center gap-1.5 disabled:opacity-40 sygenop-btn sygenop-btn--ghost"
               >
                 <Download size={15} /> CSV (classe)
               </button>
               <button
                 onClick={exportCSVTransactions}
-                className="px-3.5 py-2 rounded-lg text-sm font-semibold flex items-center gap-1.5"
-                style={{ background: 'var(--bg)', color: 'var(--ink)', border: '1px solid var(--line)' }}
+                className="px-3.5 py-2 rounded-lg text-sm font-semibold flex items-center gap-1.5 sygenop-btn sygenop-btn--ghost"
               >
                 <FileSpreadsheet size={15} /> CSV (historique complet)
               </button>
@@ -9492,11 +9464,11 @@ function PaiementsView({ state, loading, updateState, notify, activeSchoolId, ro
           </div>
 
           {!currentClass ? (
-            <div className="sygenop-card p-10 text-center text-sm" style={{ color: 'var(--muted)' }}>
+            <div className="sygenop-card p-10 text-center text-sm text-muted">
               Aucune classe de {level} pour le moment. Créez-en une dans « Évaluation → Saisie des notes ».
             </div>
           ) : !filteredStudents.length ? (
-            <div className="sygenop-card p-10 text-center text-sm" style={{ color: 'var(--muted)' }}>
+            <div className="sygenop-card p-10 text-center text-sm text-muted">
               Aucun élève {q ? 'ne correspond à la recherche' : `dans ${currentClass.name}`}.
             </div>
           ) : payView === 'mois' ? (
@@ -9507,8 +9479,8 @@ function PaiementsView({ state, loading, updateState, notify, activeSchoolId, ro
                 <StatCard icon={AlertTriangle} label={`Reliquat mensuel — ${monthLabel(effectiveMonth)}`} value={fmtFCFA(monthStats.reste)} sub={`${monthStats.couvert} à jour · ${monthStats.partiel} partiel(s) · ${monthStats.sans} pas à jour`} tone="red" />
               </div>
               <div className="no-print sygenop-card p-4 flex flex-col sm:flex-row items-stretch sm:items-center gap-3">
-                <label className="text-xs font-semibold whitespace-nowrap" style={{ color: 'var(--muted)' }}>Mois</label>
-                <select value={effectiveMonth} onChange={(event) => setSelectedMonth(event.target.value)} className="px-3 py-2.5 rounded-lg border text-sm font-semibold" style={{ borderColor: 'var(--line)', background: 'var(--panel)', color: 'var(--ink)' }}>
+                <label className="text-xs font-semibold whitespace-nowrap text-muted">Mois</label>
+                <select value={effectiveMonth} onChange={(event) => setSelectedMonth(event.target.value)} className="px-3 py-2.5 rounded-lg border text-sm font-semibold sygenop-input">
                   {allMonths.map((month) => <option key={month} value={month}>{monthLabel(month)}</option>)}
                 </select>
                 <div className="flex-1"></div>
@@ -9517,8 +9489,8 @@ function PaiementsView({ state, loading, updateState, notify, activeSchoolId, ro
                 </button>
               </div>
               {Object.keys(monthModes).length > 0 && (
-                <div className="no-print text-xs px-1 flex flex-wrap gap-x-4 gap-y-1" style={{ color: 'var(--muted)' }}>
-                  {Object.entries(monthModes).map(([label, amount]) => <span key={label}>{label} : <b style={{ color: 'var(--ink)' }}>{fmtFCFA(amount)}</b></span>)}
+                <div className="no-print text-xs px-1 flex flex-wrap gap-x-4 gap-y-1 text-muted">
+                  {Object.entries(monthModes).map(([label, amount]) => <span key={label}>{label} : <b className="text-ink">{fmtFCFA(amount)}</b></span>)}
                 </div>
               )}
               <div className="sygenop-card overflow-x-auto">
@@ -9526,7 +9498,7 @@ function PaiementsView({ state, loading, updateState, notify, activeSchoolId, ro
                   <thead>
                     <tr className="text-left" style={{ borderBottom: '1px solid var(--line)' }}>
                       {['Élève', 'Rel. Inscription', `Versement — ${monthLabel(effectiveMonth)}`, 'Situation du mois', `Reliquat — ${monthLabel(effectiveMonth)}`, 'Actions'].map((hh) => (
-                        <th key={hh} className="px-4 py-3 text-[11px] font-bold uppercase tracking-wide whitespace-nowrap" style={{ color: 'var(--muted)' }}>{hh}</th>
+                        <th key={hh} className="px-4 py-3 text-[11px] font-bold uppercase tracking-wide whitespace-nowrap text-muted">{hh}</th>
                       ))}
                     </tr>
                   </thead>
@@ -9543,7 +9515,7 @@ function PaiementsView({ state, loading, updateState, notify, activeSchoolId, ro
                       const sCas = Number(s.casSocial) > 0;
                       return (
                         <tr key={s.id} style={{ borderBottom: '1px solid var(--line)' }}>
-                          <td className="px-4 py-3 font-semibold whitespace-nowrap" style={{ color: 'var(--ink)' }}>{s.prenom || ''} {s.nom || ''}{sCas && <span className="ml-1.5 px-1.5 py-0.5 rounded-full text-[9px] font-bold uppercase align-middle" style={{ background: 'var(--gold-l)', color: 'var(--gold)' }}>Cas social −{s.casSocial}%</span>}</td>
+                          <td className="px-4 py-3 font-semibold whitespace-nowrap text-ink">{s.prenom || ''} {s.nom || ''}{sCas && <span className="ml-1.5 px-1.5 py-0.5 rounded-full text-[9px] font-bold uppercase align-middle" style={{ background: 'var(--gold-l)', color: 'var(--gold)' }}>Cas social −{s.casSocial}%</span>}</td>
                           <td className="px-4 py-3 whitespace-nowrap font-semibold" style={{ color: reliquatInscription > 0 ? 'var(--gold)' : 'var(--muted)' }}>{reliquatInscription > 0 ? fmtFCFA(reliquatInscription) : '—'}</td>
                           <td className="px-4 py-3 whitespace-nowrap font-semibold" style={{ color: paidMonth > 0 ? 'var(--green-d)' : 'var(--muted)' }}>{paidMonth > 0 ? fmtFCFA(paidMonth) : '—'}</td>
                           <td className="px-4 py-3"><Pill tone={status.tone}>{status.label}</Pill></td>
@@ -9577,7 +9549,7 @@ function PaiementsView({ state, loading, updateState, notify, activeSchoolId, ro
                   </tbody>
                   <tfoot>
                     <tr style={{ borderTop: '2px solid var(--line)' }}>
-                      <td className="px-4 py-3 text-[11px] font-bold uppercase tracking-wide" style={{ color: 'var(--muted)' }}>Totaux — {monthLabel(effectiveMonth)}</td>
+                      <td className="px-4 py-3 text-[11px] font-bold uppercase tracking-wide text-muted">Totaux — {monthLabel(effectiveMonth)}</td>
                       <td className="px-4 py-3 font-bold whitespace-nowrap" style={{ color: filteredStudents.reduce((s, st) => s + studentReliquatByType(state, level, st).inscription, 0) > 0 ? 'var(--gold)' : 'var(--muted)' }}>{fmtFCFA(filteredStudents.reduce((s, st) => s + studentReliquatByType(state, level, st).inscription, 0))}</td>
                       <td className="px-4 py-3 font-bold whitespace-nowrap" style={{ color: 'var(--green-d)' }}>{fmtFCFA(monthTotal)}</td>
                       <td></td>
@@ -9594,7 +9566,7 @@ function PaiementsView({ state, loading, updateState, notify, activeSchoolId, ro
                 <thead>
                   <tr className="text-left" style={{ borderBottom: '1px solid var(--line)' }}>
                     {['Élève', 'Téléphone tuteur', 'Rel. Inscription', 'Rel. Scolarité', 'Reliquat total', 'Statut', 'Actions'].map((hh) => (
-                      <th key={hh} className="px-4 py-3 text-[11px] font-bold uppercase tracking-wide whitespace-nowrap" style={{ color: 'var(--muted)' }}>{hh}</th>
+                      <th key={hh} className="px-4 py-3 text-[11px] font-bold uppercase tracking-wide whitespace-nowrap text-muted">{hh}</th>
                     ))}
                   </tr>
                 </thead>
@@ -9607,15 +9579,14 @@ function PaiementsView({ state, loading, updateState, notify, activeSchoolId, ro
                     const status = paymentStatus(studentTotalDue(state, level, s), paid);
                     return (
                       <tr key={s.id} style={{ borderBottom: '1px solid var(--line)' }}>
-                        <td className="px-4 py-3 font-semibold whitespace-nowrap" style={{ color: 'var(--ink)' }}>{s.prenom || ''} {s.nom || ''}{sCas && <span className="ml-1.5 px-1.5 py-0.5 rounded-full text-[9px] font-bold uppercase align-middle" style={{ background: 'var(--gold-l)', color: 'var(--gold)' }}>Cas social −{s.casSocial}%</span>}</td>
+                        <td className="px-4 py-3 font-semibold whitespace-nowrap text-ink">{s.prenom || ''} {s.nom || ''}{sCas && <span className="ml-1.5 px-1.5 py-0.5 rounded-full text-[9px] font-bold uppercase align-middle" style={{ background: 'var(--gold-l)', color: 'var(--gold)' }}>Cas social −{s.casSocial}%</span>}</td>
                         <td className="px-4 py-3">
                           <input
                             defaultValue={s.tuteurTel || ''}
                             onBlur={(e) => { if (!readOnly && e.target.value !== (s.tuteurTel || '')) updateStudent(s.id, { tuteurTel: e.target.value }); }}
                             placeholder="77 000 00 00"
                             disabled={readOnly}
-                            className="w-32 px-2 py-1 rounded border text-xs disabled:opacity-60"
-                            style={{ borderColor: 'var(--line)', background: 'var(--panel)', color: 'var(--ink)' }}
+                            className="w-32 px-2 py-1 rounded border text-xs disabled:opacity-60 sygenop-input"
                           />
                         </td>
                         <td className="px-4 py-3 whitespace-nowrap font-semibold" style={{ color: reliquat.inscription > 0 ? 'var(--gold)' : 'var(--muted)' }}>{fmtFCFA(reliquat.inscription)}</td>
@@ -9653,7 +9624,7 @@ function PaiementsView({ state, loading, updateState, notify, activeSchoolId, ro
             </div>
           )}
           {payView === 'mois' && currentClass && !!filteredStudents.length && (
-            <div className="text-xs px-1" style={{ color: 'var(--muted)' }}>
+            <div className="text-xs px-1 text-muted">
               Mensualité de référence ({level}) : <b>{fmtFCFA(monthlyDue)}</b>. Le bouton « Encaisser » crée un paiement avec le mois sélectionné déjà renseigné.
             </div>
           )}
@@ -9729,10 +9700,10 @@ function PaiementsView({ state, loading, updateState, notify, activeSchoolId, ro
       )}
       {toDeleteAffectation && <ConfirmModal title="Supprimer cette affectation ?" message={`Les ${toDeleteAffectation.quantite} unité(s) seront remises dans le stock disponible.`} danger onConfirm={deleteAffectationMateriel} onCancel={() => setToDeleteAffectation(null)} />}
       {printingAffectation && (
-        <div className="fixed inset-0 z-50 overflow-auto p-4"><div className="max-w-lg mx-auto mt-4"><div className="flex justify-end gap-2 mb-2"><button onClick={() => window.print()} className="px-3 py-2 rounded-lg text-white" style={{ background: 'var(--green-d)' }}><Printer size={14} /> Imprimer</button><button onClick={() => setPrintingAffectation(null)} className="px-3 py-2 rounded-lg" style={{ background: 'var(--panel)' }}>Fermer</button></div><MaterielAffectationReceipt state={state} affectation={printingAffectation} item={(state.materiel || []).find((item) => item.id === printingAffectation.materielId)} cls={(state.classes || {})[printingAffectation.classId]} /></div></div>
+        <div className="fixed inset-0 z-50 overflow-auto p-4"><div className="max-w-lg mx-auto mt-4"><div className="flex justify-end gap-2 mb-2"><button onClick={() => window.print()} className="px-3 py-2 rounded-lg text-white" style={{ background: 'var(--green-d)' }}><Printer size={14} /> Imprimer</button><button onClick={() => setPrintingAffectation(null)} className="px-3 py-2 rounded-lg bg-panel">Fermer</button></div><MaterielAffectationReceipt state={state} affectation={printingAffectation} item={(state.materiel || []).find((item) => item.id === printingAffectation.materielId)} cls={(state.classes || {})[printingAffectation.classId]} /></div></div>
       )}
       {printingExpense && (
-        <div className="fixed inset-0 z-50 overflow-auto p-4"><div className="max-w-lg mx-auto mt-4"><div className="flex justify-end gap-2 mb-2"><button onClick={() => window.print()} className="px-3 py-2 rounded-lg text-white flex items-center gap-1" style={{ background: 'var(--red)' }}><Printer size={14} /> Imprimer</button><button onClick={() => setPrintingExpense(null)} className="px-3 py-2 rounded-lg" style={{ background: 'var(--panel)' }}>Fermer</button></div><ExpenseReceipt state={state} expense={printingExpense} /></div></div>
+        <div className="fixed inset-0 z-50 overflow-auto p-4"><div className="max-w-lg mx-auto mt-4"><div className="flex justify-end gap-2 mb-2"><button onClick={() => window.print()} className="px-3 py-2 rounded-lg text-white flex items-center gap-1" style={{ background: 'var(--red)' }}><Printer size={14} /> Imprimer</button><button onClick={() => setPrintingExpense(null)} className="px-3 py-2 rounded-lg bg-panel">Fermer</button></div><ExpenseReceipt state={state} expense={printingExpense} /></div></div>
       )}
     </div>
   );
@@ -9925,7 +9896,7 @@ const cleanDomains = domains
                       placeholder="Nom de la matière"
                     />
                     <div className="flex items-center gap-1">
-                      <span className="text-xs" style={{ color: 'var(--muted)' }}>Barème /</span>
+                      <span className="text-xs text-muted">Barème /</span>
                       <input
                         type="number" min="0" step="1"
                         value={x.max}
@@ -9936,20 +9907,20 @@ const cleanDomains = domains
                       />
                     </div>
                     {supportsWeightedAssessments(state) && (
-                      <label className="flex items-center gap-1 text-xs" style={{ color: 'var(--muted)' }}>
+                      <label className="flex items-center gap-1 text-xs text-muted">
                         Coef.
                         <input type="number" min="1" step="1" value={x.coefficient || 1} disabled={readOnly} onChange={(e) => setDiscField(di, xi, 'coefficient', e.target.value)} className="w-16 px-2 py-2 rounded-lg border text-sm text-center" style={fieldStyle} />
                       </label>
                     )}
                     {!readOnly && (
-                      <button onClick={() => removeDiscipline(di, xi)} className="p-2 rounded-lg" style={{ color: 'var(--muted)' }} title="Supprimer cette matière">
+                      <button onClick={() => removeDiscipline(di, xi)} className="p-2 rounded-lg text-muted" title="Supprimer cette matière">
                         <X size={15} />
                       </button>
                     )}
                   </div>
                 ))}
                 {!(d.disciplines || []).length && (
-                  <div className="text-xs italic" style={{ color: 'var(--muted)' }}>Aucune matière dans ce domaine.</div>
+                  <div className="text-xs italic text-muted">Aucune matière dans ce domaine.</div>
                 )}
               </div>
               {!readOnly && (
@@ -9970,8 +9941,7 @@ const cleanDomains = domains
         <div className="flex flex-wrap items-center gap-2">
           <button
             onClick={addDomain}
-            className="px-3.5 py-2.5 rounded-lg text-sm font-semibold flex items-center gap-1.5"
-            style={{ background: 'var(--bg)', color: 'var(--ink)', border: '1px solid var(--line)' }}
+            className="px-3.5 py-2.5 rounded-lg text-sm font-semibold flex items-center gap-1.5 sygenop-btn sygenop-btn--ghost"
           >
             <Plus size={15} /> Ajouter un domaine
           </button>
@@ -9992,7 +9962,7 @@ const cleanDomains = domains
           </button>
         </div>
       )}
-      <div className="sygenop-card px-4 py-3 text-xs flex items-start gap-2" style={{ color: 'var(--muted)' }}>
+      <div className="sygenop-card px-4 py-3 text-xs flex items-start gap-2 text-muted">
         <AlertCircle size={15} className="flex-shrink-0 mt-0.5" style={{ color: 'var(--gold)' }} />
         Modifier le barème s'applique à toutes les classes de ce niveau. Renommer ou changer le barème (/max) d'une
         matière existante n'efface pas les notes déjà saisies ; supprimer une matière rend ses notes invisibles
@@ -10020,14 +9990,13 @@ const cleanDomains = domains
 function EtabField({ label, value, onChange, placeholder, type = 'text', disabled }) {
   return (
     <div>
-      <label className="text-xs font-semibold block mb-1" style={{ color: 'var(--muted)' }}>{label}</label>
+      <label className="text-xs font-semibold block mb-1 text-muted">{label}</label>
       <input
         type={type}
         value={value}
         disabled={disabled}
         onChange={(e) => onChange(e.target.value)}
-        className="w-full px-3 py-2.5 rounded-lg border text-sm"
-        style={{ borderColor: 'var(--line)', background: 'var(--panel)', color: 'var(--ink)' }}
+        className="w-full px-3 py-2.5 rounded-lg border text-sm sygenop-input"
         placeholder={placeholder}
       />
     </div>
@@ -10100,8 +10069,8 @@ function HorairesJoursOuvresCard({ state, updateState, notify, readOnly, session
       <div className="flex items-center gap-2">
         <Clock size={18} style={{ color: 'var(--green-d)' }} />
         <div>
-          <div className="font-bold text-sm" style={{ color: 'var(--ink)' }}>Horaires et jours ouvrés</div>
-          <div className="text-xs" style={{ color: 'var(--muted)' }}>
+          <div className="font-bold text-sm text-ink">Horaires et jours ouvrés</div>
+          <div className="text-xs text-muted">
             Semaine type de l'établissement — utilisée par le pointage, la paie et les objectifs horaires.
           </div>
         </div>
@@ -10112,7 +10081,7 @@ function HorairesJoursOuvresCard({ state, updateState, notify, readOnly, session
         </div>
       )}
       <div>
-        <div className="text-xs font-semibold mb-2" style={{ color: 'var(--muted)' }}>Jours ouvrés de la semaine</div>
+        <div className="text-xs font-semibold mb-2 text-muted">Jours ouvrés de la semaine</div>
         <div className="flex flex-wrap gap-2">
           {JOURS_SEMAINE.map(({ key, label }) => {
             const actif = jours.includes(key);
@@ -10134,10 +10103,10 @@ function HorairesJoursOuvresCard({ state, updateState, notify, readOnly, session
         </div>
       </div>
       <div>
-        <div className="text-xs font-semibold mb-2" style={{ color: 'var(--muted)' }}>Heures à servir par jour ouvert</div>
+        <div className="text-xs font-semibold mb-2 text-muted">Heures à servir par jour ouvert</div>
         <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
           {JOURS_SEMAINE.filter(({ key }) => jours.includes(key)).map(({ key, label }) => (
-            <label key={key} className="text-xs font-semibold" style={{ color: 'var(--ink)' }}>
+            <label key={key} className="text-xs font-semibold text-ink">
               {label}
               <input
                 type="number"
@@ -10154,7 +10123,7 @@ function HorairesJoursOuvresCard({ state, updateState, notify, readOnly, session
           ))}
         </div>
       </div>
-      <div className="text-xs" style={{ color: 'var(--muted)' }}>
+      <div className="text-xs text-muted">
         Semaine actuelle : {jours.length} jour(s) ouvré(s) ({libelleJoursOuvres(jours)}) · {totalHeuresSemaine} h attendues par agent.
         Les jours fériés ponctuels se gèrent dans Pointage (jours non ouvrés).
       </div>
@@ -10199,21 +10168,20 @@ function PresenceElevesCard({ state, updateState, notify, readOnly, session }) {
       <div className="flex items-center gap-2">
         <ScanLine size={18} style={{ color: 'var(--green-d)' }} />
         <div>
-          <div className="font-bold text-sm" style={{ color: 'var(--ink)' }}>Présence des élèves (carte QR)</div>
-          <div className="text-xs" style={{ color: 'var(--muted)' }}>
+          <div className="font-bold text-sm text-ink">Présence des élèves (carte QR)</div>
+          <div className="text-xs text-muted">
             Un élève non scanné après cette heure est considéré absent — uniquement pour les classes sans emploi du temps renseigné (sinon l'appel se fait séance par séance).
           </div>
         </div>
       </div>
-      <label className="text-xs font-semibold block" style={{ color: 'var(--ink)' }}>
+      <label className="text-xs font-semibold block text-ink">
         Heure limite
         <input
           type="time"
           disabled={!canEdit}
           value={heureLimite}
           onChange={(e) => { setHeureLimite(e.target.value); setDirty(true); }}
-          className="mt-1 block px-3 py-2 rounded-lg border text-sm"
-          style={{ borderColor: 'var(--line)', background: 'var(--panel)', color: 'var(--ink)' }}
+          className="mt-1 block px-3 py-2 rounded-lg border text-sm sygenop-input"
         />
       </label>
       {canEdit && (
@@ -10278,7 +10246,7 @@ function PresenceElevesCard({ state, updateState, notify, readOnly, session }) {
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
           <EtabField label="Nom de l'école *" value={form.ecole} onChange={(v) => set('ecole', v)} disabled={readOnly} placeholder="Ex : École Élémentaire Liberté 6" />
           <div>
-            <label className="text-xs font-semibold block mb-1" style={{ color: 'var(--muted)' }}>Type</label>
+            <label className="text-xs font-semibold block mb-1 text-muted">Type</label>
             <select value={form.type} disabled={readOnly} onChange={(e) => set('type', e.target.value)} className="w-full px-3 py-2.5 rounded-lg border text-sm" style={fieldStyle}>
               {SCHOOL_TYPES.map((t) => <option key={t.value} value={t.label}>{t.label}</option>)}
             </select>
@@ -10290,10 +10258,10 @@ function PresenceElevesCard({ state, updateState, notify, readOnly, session }) {
           <EtabField label="Année scolaire" value={form.annee} onChange={(v) => set('annee', v)} disabled={readOnly} placeholder="Ex : 2026/2027" />
         </div>
         <div className="pt-2" style={{ borderTop: '1px solid var(--line)' }}>
-          <label className="text-xs font-semibold block mb-1" style={{ color: 'var(--muted)' }}>Logo de l’école (affiché sur les bulletins, cartes, certificats, reçus et PDF)</label>
+          <label className="text-xs font-semibold block mb-1 text-muted">Logo de l’école (affiché sur les bulletins, cartes, certificats, reçus et PDF)</label>
           <div className="flex items-center gap-3">
             <div className="w-16 h-16 rounded-lg border overflow-hidden flex items-center justify-center" style={{ borderColor: 'var(--line)', background: 'var(--bg)' }}>
-              {form.logo ? <img src={form.logo} alt="Aperçu du logo" className="w-full h-full object-contain" /> : <span className="text-[10px] text-center px-1" style={{ color: 'var(--muted)' }}>Aucun logo</span>}
+              {form.logo ? <img src={form.logo} alt="Aperçu du logo" className="w-full h-full object-contain" /> : <span className="text-[10px] text-center px-1 text-muted">Aucun logo</span>}
             </div>
             {!readOnly && <>
               <label className="px-3 py-2 rounded-lg text-sm font-semibold cursor-pointer text-white" style={{ background: 'var(--green-d)' }}>
@@ -10302,11 +10270,11 @@ function PresenceElevesCard({ state, updateState, notify, readOnly, session }) {
               </label>
               {form.logo && <button type="button" onClick={() => set('logo', '')} className="px-3 py-2 rounded-lg text-sm font-semibold" style={{ background: 'var(--bg)', color: 'var(--red)' }}>Retirer le logo</button>}
             </>}
-            {readOnly && form.logo && <span className="text-xs" style={{ color: 'var(--muted)' }}>Logo actuel affiché sur les documents.</span>}
+            {readOnly && form.logo && <span className="text-xs text-muted">Logo actuel affiché sur les documents.</span>}
           </div>
         </div>
         <div className="pt-2" style={{ borderTop: '1px solid var(--line)' }}>
-          <label className="flex items-start gap-2.5 text-sm cursor-pointer" style={{ color: 'var(--ink)' }}>
+          <label className="flex items-start gap-2.5 text-sm cursor-pointer text-ink">
             <input
               type="checkbox"
               checked={mohebs}
@@ -10316,7 +10284,7 @@ function PresenceElevesCard({ state, updateState, notify, readOnly, session }) {
             />
             <span>
               <span className="font-semibold">École MOHEBS (Langues nationales)</span>
-              <span className="block text-xs mt-0.5" style={{ color: 'var(--muted)' }}>
+              <span className="block text-xs mt-0.5 text-muted">
                 À cocher si cette école enseigne des matières spécifiques en langue nationale. Un domaine
                 « Langue Nationale » s'ajoute alors au barème de chaque niveau (visible et modifiable dans
                 Administration → Barème par niveau) et la saisie des notes s'y calibre automatiquement.
@@ -10350,7 +10318,7 @@ function AdminView({ state, loading, updateState, notify, readOnly, session }) {
   const [tab, setTab] = useState('bareme');
   if (loading || !state) {
     return (
-      <div className="flex items-center justify-center py-24" style={{ color: 'var(--muted)' }}>
+      <div className="flex items-center justify-center py-24 text-muted">
         <Loader2 className="animate-spin mr-2" size={18} /> Chargement des données…
       </div>
     );
@@ -10457,8 +10425,8 @@ function ExportCard({ icon: Icon, title, desc, onClick, tone = 'green' }) {
         <Icon size={18} />
       </div>
       <div>
-        <div className="font-bold text-sm" style={{ color: 'var(--ink)' }}>{title}</div>
-        <p className="text-xs mt-1" style={{ color: 'var(--muted)' }}>{desc}</p>
+        <div className="font-bold text-sm text-ink">{title}</div>
+        <p className="text-xs mt-1 text-muted">{desc}</p>
       </div>
       <button onClick={onClick} className="mt-auto px-3.5 py-2 rounded-lg text-sm font-semibold text-white flex items-center justify-center gap-1.5" style={{ background: 'var(--green-d)' }}>
         <Download size={15} /> Télécharger
@@ -10554,15 +10522,14 @@ function ImportJSONPanel({ state, updateState, notify, session }) {
           <Upload size={18} />
         </div>
         <div>
-          <div className="font-bold text-sm" style={{ color: 'var(--ink)' }}>Restaurer une sauvegarde (JSON)</div>
-          <p className="text-xs" style={{ color: 'var(--muted)' }}>Remplace <strong>toutes</strong> les données actuelles de l'école par le contenu du fichier.</p>
+          <div className="font-bold text-sm text-ink">Restaurer une sauvegarde (JSON)</div>
+          <p className="text-xs text-muted">Remplace <strong>toutes</strong> les données actuelles de l'école par le contenu du fichier.</p>
         </div>
       </div>
       <input ref={inputRef} type="file" accept="application/json,.json" onChange={onFile} className="hidden" />
       <button
         onClick={() => inputRef.current && inputRef.current.click()}
-        className="px-3.5 py-2 rounded-lg text-sm font-semibold flex items-center gap-1.5"
-        style={{ background: 'var(--bg)', color: 'var(--ink)', border: '1px solid var(--line)' }}
+        className="px-3.5 py-2 rounded-lg text-sm font-semibold flex items-center gap-1.5 sygenop-btn sygenop-btn--ghost"
       >
         <Upload size={15} /> Choisir un fichier .json
       </button>
@@ -10571,8 +10538,8 @@ function ImportJSONPanel({ state, updateState, notify, session }) {
       )}
       {counts && (
         <div className="rounded-lg p-3 text-xs space-y-1" style={{ background: 'var(--bg)', border: '1px solid var(--line)' }}>
-          <div style={{ color: 'var(--ink)' }} className="font-semibold">Aperçu du fichier :</div>
-          <div style={{ color: 'var(--muted)' }}>{counts.classes} classe(s) · {counts.eleves} élève(s) · {counts.personnel} membre(s) du personnel</div>
+          <div className="font-semibold text-ink">Aperçu du fichier :</div>
+          <div className="text-muted">{counts.classes} classe(s) · {counts.eleves} élève(s) · {counts.personnel} membre(s) du personnel</div>
           <button
             onClick={() => setConfirmApply(true)}
             className="mt-2 px-3.5 py-2 rounded-lg text-sm font-semibold text-white flex items-center gap-1.5"
@@ -10675,22 +10642,22 @@ function ImportStudentsCSVPanel({ state, updateState, notify, session }) {
           <FileSpreadsheet size={18} />
         </div>
         <div>
-          <div className="font-bold text-sm" style={{ color: 'var(--ink)' }}>Importer des élèves (CSV)</div>
-          <p className="text-xs" style={{ color: 'var(--muted)' }}>Ajoute une liste d'élèves à une classe existante, sans notes (à saisir ensuite).</p>
+          <div className="font-bold text-sm text-ink">Importer des élèves (CSV)</div>
+          <p className="text-xs text-muted">Ajoute une liste d'élèves à une classe existante, sans notes (à saisir ensuite).</p>
         </div>
-        <button onClick={downloadTemplate} className="ml-auto text-xs font-semibold flex items-center gap-1.5 px-3 py-1.5 rounded-lg whitespace-nowrap" style={{ background: 'var(--bg)', color: 'var(--ink)', border: '1px solid var(--line)' }}>
+        <button onClick={downloadTemplate} className="ml-auto text-xs font-semibold flex items-center gap-1.5 px-3 py-1.5 rounded-lg whitespace-nowrap sygenop-btn sygenop-btn--ghost">
           <FileSpreadsheet size={13} /> Modèle CSV
         </button>
       </div>
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
         <div>
-          <label className="text-xs font-semibold block mb-1" style={{ color: 'var(--muted)' }}>Niveau</label>
+          <label className="text-xs font-semibold block mb-1 text-muted">Niveau</label>
           <select value={level} onChange={(e) => setLevel(e.target.value)} className="w-full px-3 py-2.5 rounded-lg border text-sm" style={fieldStyle}>
             {levelsForSchool(state).map((l) => <option key={l} value={l}>{l}</option>)}
           </select>
         </div>
         <div>
-          <label className="text-xs font-semibold block mb-1" style={{ color: 'var(--muted)' }}>Classe de destination</label>
+          <label className="text-xs font-semibold block mb-1 text-muted">Classe de destination</label>
           <select value={classId} onChange={(e) => setClassId(e.target.value)} disabled={!classes.length} className="w-full px-3 py-2.5 rounded-lg border text-sm disabled:opacity-50" style={fieldStyle}>
             {!classes.length && <option value="">Aucune classe pour ce niveau</option>}
             {classes.map(([id, c]) => <option key={id} value={id}>{c.name} ({(c.students || []).length} élève(s))</option>)}
@@ -10701,20 +10668,19 @@ function ImportStudentsCSVPanel({ state, updateState, notify, session }) {
       <button
         onClick={() => classId && inputRef.current && inputRef.current.click()}
         disabled={!classId}
-        className="px-3.5 py-2 rounded-lg text-sm font-semibold flex items-center gap-1.5 disabled:opacity-50"
-        style={{ background: 'var(--bg)', color: 'var(--ink)', border: '1px solid var(--line)' }}
+        className="px-3.5 py-2 rounded-lg text-sm font-semibold flex items-center gap-1.5 disabled:opacity-50 sygenop-btn sygenop-btn--ghost"
       >
         <Upload size={15} /> Choisir un fichier .csv
       </button>
       {error && <div className="text-xs flex items-center gap-1.5" style={{ color: 'var(--red)' }}><AlertCircle size={13} /> {error}</div>}
       {rows && (
         <div className="rounded-lg p-3 text-xs space-y-2" style={{ background: 'var(--bg)', border: '1px solid var(--line)' }}>
-          <div className="font-semibold" style={{ color: 'var(--ink)' }}>{rows.length} élève(s) prêt(s) à importer :</div>
+          <div className="font-semibold text-ink">{rows.length} élève(s) prêt(s) à importer :</div>
           <div className="max-h-40 overflow-y-auto space-y-1">
             {rows.slice(0, 8).map((r, i) => (
               <div key={i} style={{ color: 'var(--muted)' }}>{r.nom} {r.prenom} {r.age ? `· ${r.age} ans` : ''} {r.genre ? `· ${r.genre}` : ''}</div>
             ))}
-            {rows.length > 8 && <div style={{ color: 'var(--muted)' }}>… et {rows.length - 8} autre(s)</div>}
+            {rows.length > 8 && <div className="text-muted">… et {rows.length - 8} autre(s)</div>}
           </div>
           <button onClick={apply} className="px-3.5 py-2 rounded-lg text-sm font-semibold text-white flex items-center gap-1.5" style={{ background: 'var(--green-d)' }}>
             <CheckCircle2 size={14} /> Importer dans {classes.find(([id]) => id === classId)?.[1]?.name || 'la classe'}
@@ -10761,7 +10727,7 @@ function AuditLogTab({ state, updateState, notify, readOnly, session }) {
           className="flex-1 px-3 py-2 rounded-lg border text-sm"
           style={{ borderColor: 'var(--line)', background: 'var(--bg)', color: 'var(--ink)' }}
         />
-        <span className="text-xs font-semibold whitespace-nowrap" style={{ color: 'var(--muted)' }}>{filtered.length} / {log.length} entrée(s)</span>
+        <span className="text-xs font-semibold whitespace-nowrap text-muted">{filtered.length} / {log.length} entrée(s)</span>
         {!readOnly && log.length > 0 && (
           <button onClick={() => setConfirmClear(true)} className="px-3 py-2 rounded-lg text-xs font-semibold flex items-center gap-1.5 whitespace-nowrap" style={{ background: 'var(--red-l)', color: 'var(--red)' }}>
             <Trash2 size={13} /> Vider le journal
@@ -10769,7 +10735,7 @@ function AuditLogTab({ state, updateState, notify, readOnly, session }) {
         )}
       </div>
       {!filtered.length ? (
-        <div className="sygenop-card p-10 text-center text-sm" style={{ color: 'var(--muted)' }}>
+        <div className="sygenop-card p-10 text-center text-sm text-muted">
           {log.length ? 'Aucune entrée ne correspond à la recherche.' : 'Aucune action enregistrée pour le moment.'}
         </div>
       ) : (
@@ -10892,13 +10858,13 @@ function ImportPaymentsCSVPanel({ state, updateState, notify, session }) {
     });
     notify(`${pending.length} paiement(s) importé(s)`); setPending(null);
   };
-  return <div className="sygenop-card p-5 space-y-3"><div className="flex items-center gap-2"><div className="w-10 h-10 rounded-xl flex items-center justify-center" style={{ background: 'var(--green-l)', color: 'var(--green-d)' }}><CreditCard size={18} /></div><div><div className="font-bold text-sm" style={{ color: 'var(--ink)' }}>Importer des paiements (CSV)</div><p className="text-xs" style={{ color: 'var(--muted)' }}>Rubriques reconnues : inscription, scolarité, cantine, car/transport, tenue, bibliothèque et informatique.</p></div></div><input ref={inputRef} type="file" accept=".csv,text/csv" onChange={onFile} className="hidden" /><div className="flex flex-wrap gap-2"><button type="button" onClick={downloadPaymentTemplate} className="px-3.5 py-2 rounded-lg text-sm font-semibold" style={{ background: 'var(--bg)', color: 'var(--ink)', border: '1px solid var(--line)' }}><FileSpreadsheet size={14} className="inline mr-1" /> Modèle CSV</button><button onClick={() => inputRef.current?.click()} className="px-3.5 py-2 rounded-lg text-sm font-semibold text-white" style={{ background: 'var(--green-d)' }}><Upload size={14} className="inline mr-1" /> Choisir un CSV</button></div><div className="rounded-lg p-3 text-xs overflow-x-auto" style={{ background: 'var(--bg)', border: '1px solid var(--line)' }}><div className="font-semibold mb-1" style={{ color: 'var(--ink)' }}>Colonnes du modèle CSV</div><div style={{ color: 'var(--muted)' }}>Niveau · Classe · Élève · Frais d'inscription · Scolarité · Cantine · Car / transport scolaire · Tenue scolaire · Bibliothèque · Informatique · Date · Mode · Mois · N° Reçu · Note</div></div>{error && <div className="text-xs" style={{ color: 'var(--red)' }}><AlertCircle size={13} className="inline mr-1" />{error}</div>}{pending && <div className="rounded-lg p-3 text-xs" style={{ background: 'var(--bg)', border: '1px solid var(--line)' }}><div className="font-semibold">{pending.length} paiement(s) prêt(s) à importer.</div><button onClick={apply} className="mt-2 px-3.5 py-2 rounded-lg text-sm font-semibold text-white" style={{ background: 'var(--green-d)' }}><Save size={14} className="inline mr-1" /> Confirmer l’import</button></div>}</div>;
+  return <div className="sygenop-card p-5 space-y-3"><div className="flex items-center gap-2"><div className="w-10 h-10 rounded-xl flex items-center justify-center" style={{ background: 'var(--green-l)', color: 'var(--green-d)' }}><CreditCard size={18} /></div><div><div className="font-bold text-sm text-ink">Importer des paiements (CSV)</div><p className="text-xs text-muted">Rubriques reconnues : inscription, scolarité, cantine, car/transport, tenue, bibliothèque et informatique.</p></div></div><input ref={inputRef} type="file" accept=".csv,text/csv" onChange={onFile} className="hidden" /><div className="flex flex-wrap gap-2"><button type="button" onClick={downloadPaymentTemplate} className="px-3.5 py-2 rounded-lg text-sm font-semibold sygenop-btn sygenop-btn--ghost"><FileSpreadsheet size={14} className="inline mr-1" /> Modèle CSV</button><button onClick={() => inputRef.current?.click()} className="px-3.5 py-2 rounded-lg text-sm font-semibold text-white" style={{ background: 'var(--green-d)' }}><Upload size={14} className="inline mr-1" /> Choisir un CSV</button></div><div className="rounded-lg p-3 text-xs overflow-x-auto" style={{ background: 'var(--bg)', border: '1px solid var(--line)' }}><div className="font-semibold mb-1 text-ink">Colonnes du modèle CSV</div><div className="text-muted">Niveau · Classe · Élève · Frais d'inscription · Scolarité · Cantine · Car / transport scolaire · Tenue scolaire · Bibliothèque · Informatique · Date · Mode · Mois · N° Reçu · Note</div></div>{error && <div className="text-xs" style={{ color: 'var(--red)' }}><AlertCircle size={13} className="inline mr-1" />{error}</div>}{pending && <div className="rounded-lg p-3 text-xs" style={{ background: 'var(--bg)', border: '1px solid var(--line)' }}><div className="font-semibold">{pending.length} paiement(s) prêt(s) à importer.</div><button onClick={apply} className="mt-2 px-3.5 py-2 rounded-lg text-sm font-semibold text-white" style={{ background: 'var(--green-d)' }}><Save size={14} className="inline mr-1" /> Confirmer l’import</button></div>}</div>;
 }
 function DataView({ state, loading, updateState, notify, readOnly, session, activeSchoolName }) {
   const [tab, setTab] = useState('export');
   if (loading || !state) {
     return (
-      <div className="flex items-center justify-center py-24" style={{ color: 'var(--muted)' }}>
+      <div className="flex items-center justify-center py-24 text-muted">
         <Loader2 className="animate-spin mr-2" size={18} /> Chargement des données…
       </div>
     );
@@ -10930,7 +10896,7 @@ function DataView({ state, loading, updateState, notify, readOnly, session, acti
       {tab === 'export' && <ExportTab state={state} activeSchoolName={activeSchoolName} updateState={updateState} notify={notify} session={session} />}
       {tab === 'import' && (
         readOnly ? (
-          <div className="sygenop-card p-10 text-center text-sm" style={{ color: 'var(--muted)' }}>
+          <div className="sygenop-card p-10 text-center text-sm text-muted">
             L'import de données n'est pas disponible en mode consultation (IEF).
           </div>
         ) : (
@@ -10956,8 +10922,8 @@ function ComingSoonView({ view }) {
       <div className="w-14 h-14 rounded-2xl flex items-center justify-center mb-4" style={{ background: 'var(--gold-l)', color: 'var(--gold)' }}>
         <Wrench size={24} />
       </div>
-      <div className="font-bold mb-1" style={{ color: 'var(--ink)' }}>{label} — module en cours de portage</div>
-      <p className="text-sm max-w-sm" style={{ color: 'var(--muted)' }}>
+      <div className="font-bold mb-1 text-ink">{label} — module en cours de portage</div>
+      <p className="text-sm max-w-sm text-muted">
         Ce module (moteur de barème, saisie, bulletins, pointage, paiements avec reçus…) fait partie
         des prochaines phases du portage. La structure et la connexion Supabase sont déjà en place.
       </p>
@@ -11187,7 +11153,7 @@ const barData = cycleSchoolStats
       <div className="sygenop-card px-4 py-3 flex flex-wrap items-center gap-3">
         <div className="flex items-center gap-2">
           <Building2 size={16} style={{ color: 'var(--green-d)' }} />
-          <span className="text-xs font-bold uppercase tracking-wide" style={{ color: 'var(--muted)' }}>Groupe scolaire</span>
+          <span className="text-xs font-bold uppercase tracking-wide text-muted">Groupe scolaire</span>
         </div>
         {isLocked ? (
           <span className="text-sm font-bold px-3 py-1.5 rounded-lg" style={{ background: 'var(--green-l)', color: 'var(--green-d)' }}>
@@ -11205,10 +11171,10 @@ const barData = cycleSchoolStats
             {!hasRealGrandDakar && <option value={GRAND_DAKAR_FAKE_ID}>IEF GRAND DAKAR</option>}
           </select>
         )}
-        <div className="text-xs font-semibold ml-auto" style={{ color: 'var(--muted)' }}>
+        <div className="text-xs font-semibold ml-auto text-muted">
           Vue d'ensemble — <span style={{ color: 'var(--green-d)' }}>{selectedIefName}</span>
         </div>
-        <select value={selectedCycle} onChange={(e) => setSelectedCycle(e.target.value)} className="px-3 py-2 rounded-lg border text-sm font-semibold" style={{ borderColor: 'var(--line)', background: 'var(--panel)', color: 'var(--ink)' }}>
+        <select value={selectedCycle} onChange={(e) => setSelectedCycle(e.target.value)} className="px-3 py-2 rounded-lg border text-sm font-semibold sygenop-input">
           {CYCLE_OPTIONS.map((cycle) => <option key={cycle.value} value={cycle.value}>{cycle.label}</option>)}
         </select>
       </div>
@@ -11223,24 +11189,23 @@ const barData = cycleSchoolStats
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
         <div className="sygenop-card p-5 space-y-3">
           <div className="flex flex-wrap items-center justify-between gap-2">
-            <div className="font-bold text-sm flex items-center gap-2" style={{ color: 'var(--ink)' }}>
+            <div className="font-bold text-sm flex items-center gap-2 text-ink">
               <Clock size={16} /> Présences du personnel — tout le groupe scolaire
             </div>
             <input
               type="month"
               value={presMois}
               onChange={(e) => setPresMois(e.target.value)}
-              className="px-2.5 py-1.5 rounded-lg border text-xs"
-              style={{ borderColor: 'var(--line)', background: 'var(--panel)', color: 'var(--ink)' }}
+              className="px-2.5 py-1.5 rounded-lg border text-xs sygenop-input"
             />
           </div>
           {presenceIEF.personnelTotal > 0 ? (
             <>
               <div className="flex items-end gap-2">
                 <span className="text-3xl font-extrabold" style={{ color: 'var(--green-d)' }}>{presenceIEF.tauxExecution == null ? '—' : `${Math.round(presenceIEF.tauxExecution * 100)}%`}</span>
-                <span className="text-xs mb-1" style={{ color: 'var(--muted)' }}>score d’exécution des heures du groupe scolaire — {monthLabelFr(presMois)}</span>
+                <span className="text-xs mb-1 text-muted">score d’exécution des heures du groupe scolaire — {monthLabelFr(presMois)}</span>
               </div>
-              <div className="flex flex-wrap gap-x-4 gap-y-1 text-xs" style={{ color: 'var(--muted)' }}>
+              <div className="flex flex-wrap gap-x-4 gap-y-1 text-xs text-muted">
                 <span>{presenceIEF.personnelTotal} agent(s) sur le groupe scolaire</span>
                 <span>{presenceIEF.schoolsWithData} école(s) avec pointage renseigné</span>
                 <span>Score moyen : {presenceIEF.moyenneHeures.toFixed(1)} h / agent</span>
@@ -11261,16 +11226,16 @@ const barData = cycleSchoolStats
               )}
             </>
           ) : (
-            <div className="text-sm py-4" style={{ color: 'var(--muted)' }}>Aucun pointage enregistré ce mois-ci dans le groupe scolaire.</div>
+            <div className="text-sm py-4 text-muted">Aucun pointage enregistré ce mois-ci dans le groupe scolaire.</div>
           )}
         </div>
 
         <div className="sygenop-card p-5 space-y-3">
           <div className="flex flex-wrap items-center justify-between gap-2">
-            <div className="font-bold text-sm flex items-center gap-2" style={{ color: 'var(--ink)' }}>
+            <div className="font-bold text-sm flex items-center gap-2 text-ink">
               <Trophy size={16} /> Score du trimestre — tout le groupe scolaire
             </div>
-            <div className="flex gap-1 p-1 rounded-lg" style={{ background: 'var(--bg)' }}>
+            <div className="flex gap-1 p-1 rounded-lg bg-bg">
               {TRIMESTRES.map((t) => (
                 <button
                   key={t.key}
@@ -11287,9 +11252,9 @@ const barData = cycleSchoolStats
             <>
               <div className="flex items-end gap-2">
                 <span className="text-3xl font-extrabold" style={{ color: 'var(--gold)' }}>{fmtNote(academicIEF.moyenne)}/10</span>
-                <span className="text-xs mb-1" style={{ color: 'var(--muted)' }}>moyenne générale — {TRIMESTRES.find((t) => t.key === notePeriod)?.label}</span>
+                <span className="text-xs mb-1 text-muted">moyenne générale — {TRIMESTRES.find((t) => t.key === notePeriod)?.label}</span>
               </div>
-              <div className="flex flex-wrap gap-x-4 gap-y-1 text-xs" style={{ color: 'var(--muted)' }}>
+              <div className="flex flex-wrap gap-x-4 gap-y-1 text-xs text-muted">
                 <span>{fmtPctVal(academicIEF.tauxReussite)} de taux de réussite</span>
                 <span>{academicIEF.effectifNote} élève(s) noté(s) sur le groupe scolaire</span>
               </div>
@@ -11306,7 +11271,7 @@ const barData = cycleSchoolStats
               )}
             </>
           ) : (
-            <div className="text-sm py-4" style={{ color: 'var(--muted)' }}>Aucune note saisie pour ce trimestre dans le groupe scolaire.</div>
+            <div className="text-sm py-4 text-muted">Aucune note saisie pour ce trimestre dans le groupe scolaire.</div>
           )}
         </div>
       </div>
@@ -11321,7 +11286,7 @@ const barData = cycleSchoolStats
         <>
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
             <div className="sygenop-card p-5 lg:col-span-2">
-            <div className="font-bold text-sm mb-4" style={{ color: 'var(--ink)' }}>Effectifs par école (top {barData.length})</div>
+            <div className="font-bold text-sm mb-4 text-ink">Effectifs par école (top {barData.length})</div>
             <ResponsiveContainer width="100%" height={260}>
               <BarChart data={barData}>
                 <CartesianGrid strokeDasharray="3 3" stroke="var(--line)" />
@@ -11333,7 +11298,7 @@ const barData = cycleSchoolStats
             </ResponsiveContainer>
             </div>
             <div className="sygenop-card p-5">
-            <div className="font-bold text-sm mb-4" style={{ color: 'var(--ink)' }}>Répartition par genre</div>
+            <div className="font-bold text-sm mb-4 text-ink">Répartition par genre</div>
             <ResponsiveContainer width="100%" height={220}>
               <PieChart>
                 <Pie data={genderData} dataKey="value" nameKey="name" innerRadius={55} outerRadius={80} paddingAngle={2}>
@@ -11350,7 +11315,7 @@ const barData = cycleSchoolStats
           </div>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-4">
             <div className="sygenop-card p-5">
-              <div className="font-bold text-sm mb-4" style={{ color: 'var(--ink)' }}>Personnel — Répartition Homme / Femme</div>
+              <div className="font-bold text-sm mb-4 text-ink">Personnel — Répartition Homme / Femme</div>
               <ResponsiveContainer width="100%" height={220}>
                 <BarChart data={personnelGenderData} layout="vertical" margin={{ top: 4, right: 25, left: 5, bottom: 4 }}>
                   <CartesianGrid strokeDasharray="3 3" stroke="var(--line)" horizontal={false} />
@@ -11365,7 +11330,7 @@ const barData = cycleSchoolStats
                 <span className="flex items-center gap-1.5"><i className="w-2.5 h-2.5 rounded-full inline-block" style={{ background: PERSONNEL_GENDER_COLORS[1] }} /> Femmes</span>
                 {totals.personnelUnknown > 0 && <span className="flex items-center gap-1.5"><i className="w-2.5 h-2.5 rounded-full inline-block" style={{ background: PERSONNEL_GENDER_COLORS[2] }} /> Non renseigné</span>}
               </div>
-              <div className="text-xs text-center mt-2" style={{ color: 'var(--muted)' }}>Hommes : {totals.personnelMale} · Femmes : {totals.personnelFemale}{totals.personnelUnknown ? ` · Non renseigné : ${totals.personnelUnknown}` : ''}</div>
+              <div className="text-xs text-center mt-2 text-muted">Hommes : {totals.personnelMale} · Femmes : {totals.personnelFemale}{totals.personnelUnknown ? ` · Non renseigné : ${totals.personnelUnknown}` : ''}</div>
             </div>
           </div>
         </>
@@ -11379,16 +11344,16 @@ const barData = cycleSchoolStats
           className="flex-1 px-3 py-2 rounded-lg border text-sm"
           style={{ borderColor: 'var(--line)', background: 'var(--bg)', color: 'var(--ink)' }}
         />
-        <span className="text-xs font-semibold whitespace-nowrap" style={{ color: 'var(--muted)' }}>
+        <span className="text-xs font-semibold whitespace-nowrap text-muted">
           {filtered.length} / {cycleSchoolStats.length} école(s) · {cycleLabel(selectedCycle)}
         </span>
       </div>
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
         {filtered.map((s) => (
 <button key={s.id} onClick={() => onOpenSchool(s.id, s.name, s.actif)} className="sygenop-card p-4 text-left">
-            <div className="font-bold text-sm" style={{ color: 'var(--ink)' }}>{s.name}</div>
-            <div className="text-xs mt-1" style={{ color: 'var(--muted)' }}>{schoolTypeLabel(s.type)}</div>
-            <div className="flex flex-wrap gap-x-3 gap-y-1 mt-2.5 text-xs" style={{ color: 'var(--muted)' }}>
+            <div className="font-bold text-sm text-ink">{s.name}</div>
+            <div className="text-xs mt-1 text-muted">{schoolTypeLabel(s.type)}</div>
+            <div className="flex flex-wrap gap-x-3 gap-y-1 mt-2.5 text-xs text-muted">
               <span className="flex items-center gap-1"><GraduationCap size={12} /> {s.effectif} élève(s)</span>
               <span className="flex items-center gap-1"><Users size={12} /> {s.personnelTotal} agent(s)</span>
               <span className="flex items-center gap-1"><School size={12} /> {s.classesActives}/{s.totalClasses} classe(s)</span>
@@ -11430,7 +11395,7 @@ function RestrictionsModal({ school, onSave, onClose }) {
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
       <form onSubmit={submit} className="sygenop-card p-6 max-w-md w-full sygenop-fade">
         <div className="flex items-center justify-between mb-4">
-          <div className="font-bold" style={{ color: 'var(--ink)' }}>Restrictions d'école — {school.name}</div>
+          <div className="font-bold text-ink">Restrictions d'école — {school.name}</div>
           <button type="button" onClick={onClose} style={{ color: 'var(--muted)' }}><X size={18} /></button>
         </div>
         {!isPrivate && (
@@ -11446,7 +11411,7 @@ function RestrictionsModal({ school, onSave, onClose }) {
         )}
         <div className="space-y-4">
           <div>
-            <label className="text-xs font-semibold block mb-2" style={{ color: 'var(--muted)' }}>Nombre maximum de classes par niveau</label>
+            <label className="text-xs font-semibold block mb-2 text-muted">Nombre maximum de classes par niveau</label>
             <div className="flex items-center gap-2">
               <input
                 type="number"
@@ -11461,13 +11426,12 @@ function RestrictionsModal({ school, onSave, onClose }) {
               <button
                 type="button"
                 onClick={() => set('max_classes_per_level', '')}
-                className="px-3 py-2 rounded-lg text-xs font-semibold"
-                style={{ background: 'var(--bg)', color: 'var(--ink)', border: '1px solid var(--line)' }}
+                className="px-3 py-2 rounded-lg text-xs font-semibold sygenop-btn sygenop-btn--ghost"
               >
                 Enlever
               </button>
             </div>
-            <p className="text-[11px] mt-1" style={{ color: 'var(--muted)' }}>
+            <p className="text-[11px] mt-1 text-muted">
               {form.max_classes_per_level ? (
                 <>Limité à <b>{form.max_classes_per_level}</b> classe(s) par niveau</>
               ) : (
@@ -11476,7 +11440,7 @@ function RestrictionsModal({ school, onSave, onClose }) {
             </p>
           </div>
           <div>
-            <label className="text-xs font-semibold block mb-2" style={{ color: 'var(--muted)' }}>Nombre maximum d'élèves par classe</label>
+            <label className="text-xs font-semibold block mb-2 text-muted">Nombre maximum d'élèves par classe</label>
             <div className="flex items-center gap-2">
               <input
                 type="number"
@@ -11491,13 +11455,12 @@ function RestrictionsModal({ school, onSave, onClose }) {
               <button
                 type="button"
                 onClick={() => set('max_students_per_class', '')}
-                className="px-3 py-2 rounded-lg text-xs font-semibold"
-                style={{ background: 'var(--bg)', color: 'var(--ink)', border: '1px solid var(--line)' }}
+                className="px-3 py-2 rounded-lg text-xs font-semibold sygenop-btn sygenop-btn--ghost"
               >
                 Enlever
               </button>
             </div>
-            <p className="text-[11px] mt-1" style={{ color: 'var(--muted)' }}>
+            <p className="text-[11px] mt-1 text-muted">
               {form.max_students_per_class ? (
                 <>Limité à <b>{form.max_students_per_class}</b> élève(s) par classe</>
               ) : (
@@ -11552,12 +11515,12 @@ const [form, setForm] = useState(() => ({
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
       <form onSubmit={submit} className="sygenop-card p-6 max-w-md w-full sygenop-fade max-h-[90vh] overflow-auto">
         <div className="flex items-center justify-between mb-4">
-          <div className="font-bold" style={{ color: 'var(--ink)' }}>{isEdit ? 'Modifier l\u2019école' : 'Nouvelle école'}</div>
+          <div className="font-bold text-ink">{isEdit ? 'Modifier l\u2019école' : 'Nouvelle école'}</div>
           <button type="button" onClick={onClose} style={{ color: 'var(--muted)' }}><X size={18} /></button>
         </div>
         <div className="space-y-3">
           <div>
-            <label className="text-xs font-semibold block mb-1" style={{ color: 'var(--muted)' }}>Nom de l'école *</label>
+            <label className="text-xs font-semibold block mb-1 text-muted">Nom de l'école *</label>
             <input
               autoFocus
               value={form.name}
@@ -11568,23 +11531,23 @@ const [form, setForm] = useState(() => ({
             />
           </div>
           <div>
-            <label className="text-xs font-semibold block mb-1" style={{ color: 'var(--muted)' }}>Type</label>
+            <label className="text-xs font-semibold block mb-1 text-muted">Type</label>
             <select value={form.type} onChange={(e) => set('type', e.target.value)} className="w-full px-3 py-2.5 rounded-lg border text-sm" style={fieldStyle}>
               {SCHOOL_TYPES.map((t) => <option key={t.value} value={t.value}>{t.label}</option>)}
             </select>
           </div>
           <div>
-            <label className="text-xs font-semibold block mb-1" style={{ color: 'var(--muted)' }}>Cycle scolaire *</label>
+            <label className="text-xs font-semibold block mb-1 text-muted">Cycle scolaire *</label>
             <select value={form.cycle} onChange={(e) => set('cycle', e.target.value)} required className="w-full px-3 py-2.5 rounded-lg border text-sm" style={fieldStyle}>
               <option value="">Sélectionner un cycle</option>
               {CYCLE_OPTIONS.map((cycle) => <option key={cycle.value} value={cycle.value}>{cycle.label}</option>)}
             </select>
-            <p className="text-[11px] mt-1" style={{ color: 'var(--muted)' }}>
+            <p className="text-[11px] mt-1 text-muted">
               Seuls les niveaux et matières de ce cycle seront visibles dans l'école.
             </p>
           </div>
           <div>
-<label className="text-xs font-semibold block mb-1" style={{ color: 'var(--muted)' }}>{cycleTerminology(form.cycle).head}</label>
+<label className="text-xs font-semibold block mb-1 text-muted">{cycleTerminology(form.cycle).head}</label>
             <input
               value={form.directeur}
               onChange={(e) => set('directeur', e.target.value)}
@@ -11595,7 +11558,7 @@ const [form, setForm] = useState(() => ({
           </div>
           {iefOptions ? (
             <div>
-              <label className="text-xs font-semibold block mb-1" style={{ color: 'var(--muted)' }}>Groupe scolaire de rattachement</label>
+              <label className="text-xs font-semibold block mb-1 text-muted">Groupe scolaire de rattachement</label>
               <select value={form.ief_id} onChange={(e) => set('ief_id', e.target.value)} className="w-full px-3 py-2.5 rounded-lg border text-sm" style={fieldStyle}>
                 <option value="">— Aucune (visible uniquement du Super Admin global) —</option>
                 {iefOptions.map((i) => <option key={i.id} value={i.id}>{i.nom}</option>)}
@@ -11607,10 +11570,10 @@ const [form, setForm] = useState(() => ({
             </div>
           ) : null}
           <div>
-            <label className="text-xs font-semibold block mb-1" style={{ color: 'var(--muted)' }}>Code d'accès (École) *</label>
+            <label className="text-xs font-semibold block mb-1 text-muted">Code d'accès (École) *</label>
             <div className="flex gap-2">
               <div className="relative flex-1">
-                <KeyRound size={15} className="absolute left-3 top-1/2 -translate-y-1/2" style={{ color: 'var(--muted)' }} />
+                <KeyRound size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-muted" />
                 <input
                   type={showCode ? 'text' : 'password'}
                   value={form.code}
@@ -11618,26 +11581,25 @@ const [form, setForm] = useState(() => ({
                   className="w-full pl-9 pr-3 py-2.5 rounded-lg border text-sm font-mono tracking-widest"
                   style={fieldStyle}
                 />
-                <button type="button" onClick={() => setShowCode((s) => !s)} className="absolute right-3 top-1/2 -translate-y-1/2" style={{ color: 'var(--muted)' }}>
+                <button type="button" onClick={() => setShowCode((s) => !s)} className="absolute right-3 top-1/2 -translate-y-1/2 text-muted">
                   {showCode ? <EyeOff size={15} /> : <Eye size={15} />}
                 </button>
               </div>
               <button
                 type="button"
                 onClick={() => set('code', generateAccessCode())}
-                className="px-3 py-2 rounded-lg text-xs font-semibold whitespace-nowrap"
-                style={{ background: 'var(--bg)', color: 'var(--ink)', border: '1px solid var(--line)' }}
+                className="px-3 py-2 rounded-lg text-xs font-semibold whitespace-nowrap sygenop-btn sygenop-btn--ghost"
               >
                 Générer
               </button>
             </div>
-<p className="text-[11px] mt-1" style={{ color: 'var(--muted)' }}>
+<p className="text-[11px] mt-1 text-muted">
               Ce code sera demandé à l'école pour se connecter (onglet « École » de l'écran de connexion).
             </p>
           </div>
           {isEdit && (
             <div>
-              <label className="text-xs font-semibold block mb-1" style={{ color: 'var(--muted)' }}>Statut de l'école</label>
+              <label className="text-xs font-semibold block mb-1 text-muted">Statut de l'école</label>
               <div className="grid grid-cols-2 gap-2">
                 <button
                   type="button"
@@ -11656,7 +11618,7 @@ const [form, setForm] = useState(() => ({
                   Désactivée
                 </button>
               </div>
-              <p className="text-[11px] mt-1" style={{ color: 'var(--muted)' }}>
+              <p className="text-[11px] mt-1 text-muted">
                 Une école désactivée est inaccessible à tous (directeur, enseignants, lecteur IEF).
               </p>
             </div>
@@ -11932,7 +11894,7 @@ const st = await loadSchoolData(modal.id);
       </div>
 
       {loading && (
-        <div className="flex items-center justify-center py-16" style={{ color: 'var(--muted)' }}>
+        <div className="flex items-center justify-center py-16 text-muted">
           <Loader2 className="animate-spin mr-2" size={18} /> Chargement des écoles…
         </div>
       )}
@@ -11947,22 +11909,22 @@ const st = await loadSchoolData(modal.id);
           <table className="w-full text-sm">
             <thead>
               <tr style={{ borderBottom: '1px solid var(--line)' }}>
-                <th className="text-left px-4 py-3 font-semibold" style={{ color: 'var(--muted)' }}>École</th>
-                <th className="text-left px-4 py-3 font-semibold" style={{ color: 'var(--muted)' }}>Type</th>
-                <th className="text-left px-4 py-3 font-semibold" style={{ color: 'var(--muted)' }}>Cycle</th>
-<th className="text-left px-4 py-3 font-semibold" style={{ color: 'var(--muted)' }}>Directeur</th>
-                <th className="text-left px-4 py-3 font-semibold" style={{ color: 'var(--muted)' }}>Statut</th>
-                <th className="text-left px-4 py-3 font-semibold" style={{ color: 'var(--muted)' }}>Code d'accès</th>
-                <th className="text-right px-4 py-3 font-semibold" style={{ color: 'var(--muted)' }}>Actions</th>
+                <th className="text-left px-4 py-3 font-semibold text-muted">École</th>
+                <th className="text-left px-4 py-3 font-semibold text-muted">Type</th>
+                <th className="text-left px-4 py-3 font-semibold text-muted">Cycle</th>
+<th className="text-left px-4 py-3 font-semibold text-muted">Directeur</th>
+                <th className="text-left px-4 py-3 font-semibold text-muted">Statut</th>
+                <th className="text-left px-4 py-3 font-semibold text-muted">Code d'accès</th>
+                <th className="text-right px-4 py-3 font-semibold text-muted">Actions</th>
               </tr>
             </thead>
             <tbody>
               {filtered.map((s) => (
                 <tr key={s.id} style={{ borderBottom: '1px solid var(--line)' }}>
-                  <td className="px-4 py-3 font-semibold" style={{ color: 'var(--ink)' }}>{s.name}</td>
-                  <td className="px-4 py-3" style={{ color: 'var(--muted)' }}>{schoolTypeLabel(s.type)}</td>
-                  <td className="px-4 py-3" style={{ color: 'var(--muted)' }}>{cycleLabel(s.cycle)}</td>
-<td className="px-4 py-3" style={{ color: 'var(--muted)' }}>{s.directeur || <span className="italic opacity-60">Non renseigné</span>}</td>
+                  <td className="px-4 py-3 font-semibold text-ink">{s.name}</td>
+                  <td className="px-4 py-3 text-muted">{schoolTypeLabel(s.type)}</td>
+                  <td className="px-4 py-3 text-muted">{cycleLabel(s.cycle)}</td>
+<td className="px-4 py-3 text-muted">{s.directeur || <span className="italic opacity-60">Non renseigné</span>}</td>
                   <td className="px-4 py-3">
                     <Pill tone={s.actif === false ? 'red' : 'green'}>
                       {s.actif === false ? 'Désactivée' : 'Active'}
@@ -11970,7 +11932,7 @@ const st = await loadSchoolData(modal.id);
                   </td>
                   <td className="px-4 py-3">
                     <div className="flex items-center gap-2">
-                      <span className="font-mono font-semibold tracking-widest" style={{ color: 'var(--ink)' }}>
+                      <span className="font-mono font-semibold tracking-widest text-ink">
                         {revealed[s.id] ? (s.code || '—') : '••••••'}
                       </span>
                       <button onClick={() => setRevealed((r) => ({ ...r, [s.id]: !r[s.id] }))} style={{ color: 'var(--muted)' }} title="Afficher / masquer">
@@ -12025,7 +11987,7 @@ const st = await loadSchoolData(modal.id);
                 </tr>
               ))}
 {!filtered.length && (
-                <tr><td colSpan={7} className="px-4 py-8 text-center text-sm" style={{ color: 'var(--muted)' }}>Aucune école trouvée.</td></tr>
+                <tr><td colSpan={7} className="px-4 py-8 text-center text-sm text-muted">Aucune école trouvée.</td></tr>
               )}
             </tbody>
           </table>
@@ -12100,10 +12062,10 @@ function IEFAccountModal({ admin, onSave, onClose, allowRoleAdmin }) {
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
       <form onSubmit={submit} className="sygenop-card p-6 max-w-md w-full sygenop-fade">
         <div className="flex items-center justify-between mb-4">
-          <div className="font-bold" style={{ color: 'var(--ink)' }}>{isEdit ? 'Modifier le compte' : 'Nouveau compte Groupe scolaire'}</div>
+          <div className="font-bold text-ink">{isEdit ? 'Modifier le compte' : 'Nouveau compte Groupe scolaire'}</div>
           <button type="button" onClick={onClose} style={{ color: 'var(--muted)' }}><X size={18} /></button>
         </div>
-        <p className="text-xs mb-4" style={{ color: 'var(--muted)' }}>
+        <p className="text-xs mb-4 text-muted">
           {form.role === 'admin'
             ? "Ce compte pourra créer et modifier des écoles, mais uniquement au sein de son propre groupe scolaire."
             : "Ce compte pourra consulter tous les cycles de son groupe scolaire (lecture seule) via l'onglet « Groupe scolaire » de l'écran de connexion, sans pouvoir rien modifier."}
@@ -12111,7 +12073,7 @@ function IEFAccountModal({ admin, onSave, onClose, allowRoleAdmin }) {
         <div className="space-y-3">
           {allowRoleAdmin && (
             <div>
-              <label className="text-xs font-semibold block mb-1" style={{ color: 'var(--muted)' }}>Type de compte</label>
+              <label className="text-xs font-semibold block mb-1 text-muted">Type de compte</label>
               <div className="grid grid-cols-2 gap-2">
                 <button type="button" onClick={() => set('role', 'ief')} className="px-3 py-2 rounded-lg text-xs font-semibold" style={form.role === 'ief' ? { background: 'var(--green-d)', color: '#fff' } : { background: 'var(--bg)', color: 'var(--ink)', border: '1px solid var(--line)' }}>Lecture seule</button>
                 <button type="button" onClick={() => set('role', 'admin')} className="px-3 py-2 rounded-lg text-xs font-semibold" style={form.role === 'admin' ? { background: 'var(--green-d)', color: '#fff' } : { background: 'var(--bg)', color: 'var(--ink)', border: '1px solid var(--line)' }}>Administrateur Groupe</button>
@@ -12119,14 +12081,14 @@ function IEFAccountModal({ admin, onSave, onClose, allowRoleAdmin }) {
             </div>
           )}
           <div>
-            <label className="text-xs font-semibold block mb-1" style={{ color: 'var(--muted)' }}>Nom *</label>
+            <label className="text-xs font-semibold block mb-1 text-muted">Nom *</label>
             <input autoFocus value={form.nom} onChange={(e) => set('nom', e.target.value)} className="w-full px-3 py-2.5 rounded-lg border text-sm" style={fieldStyle} placeholder="Ex : M. Ndiaye" />
           </div>
           <div>
-            <label className="text-xs font-semibold block mb-1" style={{ color: 'var(--muted)' }}>Code d'accès *</label>
+            <label className="text-xs font-semibold block mb-1 text-muted">Code d'accès *</label>
             <div className="flex gap-2">
               <div className="relative flex-1">
-                <KeyRound size={15} className="absolute left-3 top-1/2 -translate-y-1/2" style={{ color: 'var(--muted)' }} />
+                <KeyRound size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-muted" />
                 <input
                   type={showCode ? 'text' : 'password'}
                   value={form.code}
@@ -12134,11 +12096,11 @@ function IEFAccountModal({ admin, onSave, onClose, allowRoleAdmin }) {
                   className="w-full pl-9 pr-3 py-2.5 rounded-lg border text-sm font-mono tracking-widest"
                   style={fieldStyle}
                 />
-                <button type="button" onClick={() => setShowCode((s) => !s)} className="absolute right-3 top-1/2 -translate-y-1/2" style={{ color: 'var(--muted)' }}>
+                <button type="button" onClick={() => setShowCode((s) => !s)} className="absolute right-3 top-1/2 -translate-y-1/2 text-muted">
                   {showCode ? <EyeOff size={15} /> : <Eye size={15} />}
                 </button>
               </div>
-              <button type="button" onClick={() => set('code', generateAccessCode())} className="px-3 py-2 rounded-lg text-xs font-semibold whitespace-nowrap" style={{ background: 'var(--bg)', color: 'var(--ink)', border: '1px solid var(--line)' }}>
+              <button type="button" onClick={() => set('code', generateAccessCode())} className="px-3 py-2 rounded-lg text-xs font-semibold whitespace-nowrap sygenop-btn sygenop-btn--ghost">
                 Générer
               </button>
             </div>
@@ -12352,13 +12314,13 @@ function IEFAccountsTab({ notify, session, iefIdOverride, iefList }) {
 
       {isGlobalAdmin && (
         <div className="sygenop-card p-5 space-y-2">
-          <div className="font-bold text-sm" style={{ color: 'var(--ink)' }}>Votre code Super Administrateur (racine)</div>
-          <p className="text-xs" style={{ color: 'var(--muted)' }}>
+          <div className="font-bold text-sm text-ink">Votre code Super Administrateur (racine)</div>
+          <p className="text-xs text-muted">
             C'est votre propre code, celui qui donne un accès complet à toutes les IEF. Vous pouvez le changer ici.
           </p>
           <div className="flex gap-2 max-w-md">
             <div className="relative flex-1">
-              <KeyRound size={15} className="absolute left-3 top-1/2 -translate-y-1/2" style={{ color: 'var(--muted)' }} />
+              <KeyRound size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-muted" />
               <input
                 type={showMaster ? 'text' : 'password'}
                 value={masterInput}
@@ -12366,11 +12328,11 @@ function IEFAccountsTab({ notify, session, iefIdOverride, iefList }) {
                 className="w-full pl-9 pr-3 py-2.5 rounded-lg border text-sm font-mono tracking-widest"
                 style={fieldStyle}
               />
-              <button type="button" onClick={() => setShowMaster((s) => !s)} className="absolute right-3 top-1/2 -translate-y-1/2" style={{ color: 'var(--muted)' }}>
+              <button type="button" onClick={() => setShowMaster((s) => !s)} className="absolute right-3 top-1/2 -translate-y-1/2 text-muted">
                 {showMaster ? <EyeOff size={15} /> : <Eye size={15} />}
               </button>
             </div>
-            <button onClick={() => setMasterInput(generateAccessCode())} className="px-3 py-2 rounded-lg text-xs font-semibold whitespace-nowrap" style={{ background: 'var(--bg)', color: 'var(--ink)', border: '1px solid var(--line)' }}>Générer</button>
+            <button onClick={() => setMasterInput(generateAccessCode())} className="px-3 py-2 rounded-lg text-xs font-semibold whitespace-nowrap sygenop-btn sygenop-btn--ghost">Générer</button>
             <button onClick={saveMasterCode} disabled={savingMaster || masterInput === masterCode} className="px-3.5 py-2 rounded-lg text-sm font-semibold text-white disabled:opacity-50" style={{ background: 'var(--green-d)' }}>
               <Save size={14} className="inline -mt-0.5 mr-1" /> Enregistrer
             </button>
@@ -12380,8 +12342,8 @@ function IEFAccountsTab({ notify, session, iefIdOverride, iefList }) {
 
       <div className="flex items-center justify-between">
         <div>
-          <div className="font-bold text-sm" style={{ color: 'var(--ink)' }}>Comptes IEF {iefId ? `— ${session.iefName || ''}` : '(périmètre global)'}</div>
-          <p className="text-xs" style={{ color: 'var(--muted)' }}>Chacun se connecte via l'onglet « Groupe scolaire » ou « Super Admin » de l'écran de connexion, avec son propre code.</p>
+          <div className="font-bold text-sm text-ink">Comptes IEF {iefId ? `— ${session.iefName || ''}` : '(périmètre global)'}</div>
+          <p className="text-xs text-muted">Chacun se connecte via l'onglet « Groupe scolaire » ou « Super Admin » de l'écran de connexion, avec son propre code.</p>
         </div>
         {!missingTable && (
           <button onClick={() => setModal('new')} className="px-3.5 py-2 rounded-lg text-sm font-semibold text-white flex items-center gap-1.5 whitespace-nowrap" style={{ background: 'var(--green-d)' }}>
@@ -12391,7 +12353,7 @@ function IEFAccountsTab({ notify, session, iefIdOverride, iefList }) {
       </div>
 
       {loading && (
-        <div className="flex items-center justify-center py-10" style={{ color: 'var(--muted)' }}>
+        <div className="flex items-center justify-center py-10 text-muted">
           <Loader2 className="animate-spin mr-2" size={18} /> Chargement…
         </div>
       )}
@@ -12401,11 +12363,11 @@ function IEFAccountsTab({ notify, session, iefIdOverride, iefList }) {
           <div className="text-sm font-semibold flex items-center gap-2" style={{ color: 'var(--gold-d, #92710c)' }}>
             <AlertTriangle size={16} /> Fonctionnalité non activée
           </div>
-          <p className="text-xs" style={{ color: 'var(--muted)' }}>
+          <p className="text-xs text-muted">
             Pour pouvoir ajouter des comptes Groupe scolaire (chacun avec son propre code), exécutez une fois ce script dans l'éditeur SQL de Supabase, puis rechargez cette page :
           </p>
           <pre className="text-[11px] p-3 rounded-lg overflow-auto" style={{ background: 'var(--bg)', color: 'var(--ink)' }}>{ADMINS_TABLE_SQL}</pre>
-          <button onClick={() => copyToClipboard(ADMINS_TABLE_SQL, notify)} className="px-3 py-2 rounded-lg text-xs font-semibold" style={{ background: 'var(--bg)', color: 'var(--ink)', border: '1px solid var(--line)' }}>
+          <button onClick={() => copyToClipboard(ADMINS_TABLE_SQL, notify)} className="px-3 py-2 rounded-lg text-xs font-semibold sygenop-btn sygenop-btn--ghost">
             Copier le script SQL
           </button>
         </div>
@@ -12420,19 +12382,19 @@ function IEFAccountsTab({ notify, session, iefIdOverride, iefList }) {
           <table className="w-full text-sm">
             <thead>
               <tr style={{ borderBottom: '1px solid var(--line)' }}>
-                <th className="text-left px-4 py-3 font-semibold" style={{ color: 'var(--muted)' }}>Nom</th>
-                <th className="text-left px-4 py-3 font-semibold" style={{ color: 'var(--muted)' }}>Code d'accès</th>
-                <th className="text-left px-4 py-3 font-semibold" style={{ color: 'var(--muted)' }}>Rôle</th>
-                <th className="text-right px-4 py-3 font-semibold" style={{ color: 'var(--muted)' }}>Actions</th>
+                <th className="text-left px-4 py-3 font-semibold text-muted">Nom</th>
+                <th className="text-left px-4 py-3 font-semibold text-muted">Code d'accès</th>
+                <th className="text-left px-4 py-3 font-semibold text-muted">Rôle</th>
+                <th className="text-right px-4 py-3 font-semibold text-muted">Actions</th>
               </tr>
             </thead>
             <tbody>
               {admins.map((a) => (
                 <tr key={a.id} style={{ borderBottom: '1px solid var(--line)' }}>
-                  <td className="px-4 py-3 font-semibold" style={{ color: 'var(--ink)' }}>{a.nom}</td>
+                  <td className="px-4 py-3 font-semibold text-ink">{a.nom}</td>
                   <td className="px-4 py-3">
                     <div className="flex items-center gap-2">
-                      <span className="font-mono font-semibold tracking-widest" style={{ color: 'var(--ink)' }}>{revealed[a.id] ? a.code : '••••••'}</span>
+                      <span className="font-mono font-semibold tracking-widest text-ink">{revealed[a.id] ? a.code : '••••••'}</span>
                       <button onClick={() => setRevealed((r) => ({ ...r, [a.id]: !r[a.id] }))} style={{ color: 'var(--muted)' }}>
                         {revealed[a.id] ? <EyeOff size={14} /> : <Eye size={14} />}
                       </button>
@@ -12453,7 +12415,7 @@ function IEFAccountsTab({ notify, session, iefIdOverride, iefList }) {
                 </tr>
               ))}
               {!admins.length && (
-                <tr><td colSpan={4} className="px-4 py-8 text-center text-sm" style={{ color: 'var(--muted)' }}>Aucun compte pour le moment.</td></tr>
+                <tr><td colSpan={4} className="px-4 py-8 text-center text-sm text-muted">Aucun compte pour le moment.</td></tr>
               )}
             </tbody>
           </table>
@@ -12502,40 +12464,40 @@ function IEFModal({ ief, onSave, onClose }) {
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
       <form onSubmit={submit} className="sygenop-card p-6 max-w-md w-full sygenop-fade max-h-[90vh] overflow-auto">
         <div className="flex items-center justify-between mb-4">
-          <div className="font-bold" style={{ color: 'var(--ink)' }}>{isEdit ? 'Modifier le groupe scolaire' : 'Nouveau groupe scolaire'}</div>
+          <div className="font-bold text-ink">{isEdit ? 'Modifier le groupe scolaire' : 'Nouveau groupe scolaire'}</div>
           <button type="button" onClick={onClose} style={{ color: 'var(--muted)' }}><X size={18} /></button>
         </div>
-        <p className="text-xs mb-4" style={{ color: 'var(--muted)' }}>
+        <p className="text-xs mb-4 text-muted">
           Une IEF décentralisée fonctionne comme une antenne indépendante : ses écoles, son administrateur et son compte de consultation sont séparés des autres IEF.
         </p>
         <div className="space-y-3">
           <div>
-            <label className="text-xs font-semibold block mb-1" style={{ color: 'var(--muted)' }}>Nom du groupe scolaire *</label>
+            <label className="text-xs font-semibold block mb-1 text-muted">Nom du groupe scolaire *</label>
             <input autoFocus value={form.nom} onChange={(e) => set('nom', e.target.value)} className="w-full px-3 py-2.5 rounded-lg border text-sm" style={fieldStyle} placeholder="Ex : IEF THIÈS" />
           </div>
           <div>
-            <label className="text-xs font-semibold block mb-1" style={{ color: 'var(--muted)' }}>Code « Groupe scolaire (lecture seule) »</label>
+            <label className="text-xs font-semibold block mb-1 text-muted">Code « Groupe scolaire (lecture seule) »</label>
             <div className="flex gap-2">
               <div className="relative flex-1">
-                <KeyRound size={15} className="absolute left-3 top-1/2 -translate-y-1/2" style={{ color: 'var(--muted)' }} />
+                <KeyRound size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-muted" />
                 <input type={showLecture ? 'text' : 'password'} value={form.code_lecture} onChange={(e) => set('code_lecture', e.target.value.toUpperCase())} className="w-full pl-9 pr-3 py-2.5 rounded-lg border text-sm font-mono tracking-widest" style={fieldStyle} />
-                <button type="button" onClick={() => setShowLecture((s) => !s)} className="absolute right-3 top-1/2 -translate-y-1/2" style={{ color: 'var(--muted)' }}>{showLecture ? <EyeOff size={15} /> : <Eye size={15} />}</button>
+                <button type="button" onClick={() => setShowLecture((s) => !s)} className="absolute right-3 top-1/2 -translate-y-1/2 text-muted">{showLecture ? <EyeOff size={15} /> : <Eye size={15} />}</button>
               </div>
-              <button type="button" onClick={() => set('code_lecture', generateAccessCode())} className="px-3 py-2 rounded-lg text-xs font-semibold whitespace-nowrap" style={{ background: 'var(--bg)', color: 'var(--ink)', border: '1px solid var(--line)' }}>Générer</button>
+              <button type="button" onClick={() => set('code_lecture', generateAccessCode())} className="px-3 py-2 rounded-lg text-xs font-semibold whitespace-nowrap sygenop-btn sygenop-btn--ghost">Générer</button>
             </div>
-            <p className="text-[11px] mt-1" style={{ color: 'var(--muted)' }}>Permet de consulter (sans modifier) toutes les écoles de cette IEF.</p>
+            <p className="text-[11px] mt-1 text-muted">Permet de consulter (sans modifier) toutes les écoles de cette IEF.</p>
           </div>
           <div>
-            <label className="text-xs font-semibold block mb-1" style={{ color: 'var(--muted)' }}>Code « Administrateur Groupe »</label>
+            <label className="text-xs font-semibold block mb-1 text-muted">Code « Administrateur Groupe »</label>
             <div className="flex gap-2">
               <div className="relative flex-1">
-                <KeyRound size={15} className="absolute left-3 top-1/2 -translate-y-1/2" style={{ color: 'var(--muted)' }} />
+                <KeyRound size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-muted" />
                 <input type={showAdmin ? 'text' : 'password'} value={form.code_admin} onChange={(e) => set('code_admin', e.target.value.toUpperCase())} className="w-full pl-9 pr-3 py-2.5 rounded-lg border text-sm font-mono tracking-widest" style={fieldStyle} />
-                <button type="button" onClick={() => setShowAdmin((s) => !s)} className="absolute right-3 top-1/2 -translate-y-1/2" style={{ color: 'var(--muted)' }}>{showAdmin ? <EyeOff size={15} /> : <Eye size={15} />}</button>
+                <button type="button" onClick={() => setShowAdmin((s) => !s)} className="absolute right-3 top-1/2 -translate-y-1/2 text-muted">{showAdmin ? <EyeOff size={15} /> : <Eye size={15} />}</button>
               </div>
-              <button type="button" onClick={() => set('code_admin', generateAccessCode())} className="px-3 py-2 rounded-lg text-xs font-semibold whitespace-nowrap" style={{ background: 'var(--bg)', color: 'var(--ink)', border: '1px solid var(--line)' }}>Générer</button>
+              <button type="button" onClick={() => set('code_admin', generateAccessCode())} className="px-3 py-2 rounded-lg text-xs font-semibold whitespace-nowrap sygenop-btn sygenop-btn--ghost">Générer</button>
             </div>
-            <p className="text-[11px] mt-1" style={{ color: 'var(--muted)' }}>Donne un accès complet (créer/modifier des écoles, comptes) mais limité à cette seule IEF.</p>
+            <p className="text-[11px] mt-1 text-muted">Donne un accès complet (créer/modifier des écoles, comptes) mais limité à cette seule IEF.</p>
           </div>
         </div>
         <div className="flex justify-end gap-2 mt-6">
@@ -12663,17 +12625,17 @@ function IEFsAdminTab({ notify, iefId }) {
   if (missingTable) {
     return (
       <div className="sygenop-card p-5 space-y-3">
-        <div className="font-bold text-sm flex items-center gap-2" style={{ color: 'var(--ink)' }}><AlertTriangle size={16} /> Migration requise</div>
-        <p className="text-xs" style={{ color: 'var(--muted)' }}>
+        <div className="font-bold text-sm flex items-center gap-2 text-ink"><AlertTriangle size={16} /> Migration requise</div>
+        <p className="text-xs text-muted">
           La table <code>iefs</code> n'existe pas encore dans votre base Supabase. Pour activer la gestion des IEF décentralisées, exécutez une fois ce script dans l'éditeur SQL de Supabase, puis rechargez cette page :
         </p>
         <pre className="text-[11px] p-3 rounded-lg overflow-auto max-h-72" style={{ background: 'var(--bg)', color: 'var(--ink)', whiteSpace: 'pre-wrap', wordBreak: 'break-word' }}>{IEFS_TABLE_SQL}</pre>
         <div className="flex flex-wrap gap-2">
-          <button onClick={() => copyToClipboard(IEFS_TABLE_SQL, notify)} className="px-3 py-2 rounded-lg text-xs font-semibold flex items-center gap-1.5" style={{ background: 'var(--bg)', color: 'var(--ink)', border: '1px solid var(--line)' }}>
+          <button onClick={() => copyToClipboard(IEFS_TABLE_SQL, notify)} className="px-3 py-2 rounded-lg text-xs font-semibold flex items-center gap-1.5 sygenop-btn sygenop-btn--ghost">
             <FileSpreadsheet size={13} /> Copier le script SQL
           </button>
         </div>
-        <p className="text-xs" style={{ color: 'var(--muted)' }}>
+        <p className="text-xs text-muted">
           Le script est également disponible dans le fichier <code>sql/migration_multi_ief.sql</code> fourni avec le projet.
         </p>
       </div>
@@ -12689,7 +12651,7 @@ function IEFsAdminTab({ notify, iefId }) {
           : <>Vous consultez le groupe scolaire <b>{iefs[0]?.nom || ''}</b> — ses codes d'accès sont affichés ci-dessous. La création/suppression n'est possible qu'en mode global.</>}
       </div>
       <div className="flex items-center justify-between">
-        <div className="font-bold text-sm" style={{ color: 'var(--ink)' }}>Groupes scolaires — l'ensemble des cycles d'une même école</div>
+        <div className="font-bold text-sm text-ink">Groupes scolaires — l'ensemble des cycles d'une même école</div>
         {isGlobal && (
           <button onClick={() => setModal('new')} className="px-3.5 py-2.5 rounded-lg text-sm font-semibold text-white flex items-center gap-1.5 justify-center" style={{ background: 'var(--green-d)' }}>
             <Plus size={15} /> Nouveau groupe scolaire
@@ -12697,19 +12659,19 @@ function IEFsAdminTab({ notify, iefId }) {
         )}
       </div>
       {loading ? (
-        <div className="text-sm py-6 text-center" style={{ color: 'var(--muted)' }}>Chargement…</div>
+        <div className="text-sm py-6 text-center text-muted">Chargement…</div>
       ) : error ? (
         <div className="text-sm py-6 text-center" style={{ color: '#c0392b' }}>{error}</div>
       ) : iefs.length === 0 ? (
-        <div className="sygenop-card p-6 text-sm text-center" style={{ color: 'var(--muted)' }}>Aucune IEF pour ce périmètre.</div>
+        <div className="sygenop-card p-6 text-sm text-center text-muted">Aucune IEF pour ce périmètre.</div>
       ) : (
         <div className="grid gap-3 sm:grid-cols-2">
           {iefs.map((ief) => (
             <div key={ief.id} className="sygenop-card p-4 space-y-2">
               <div className="flex items-start justify-between">
                 <div>
-                  <div className="font-bold text-sm" style={{ color: 'var(--ink)' }}>{ief.nom}</div>
-                  <div className="text-[11px]" style={{ color: 'var(--muted)' }}>{schoolCounts[ief.id] || 0} école(s) rattachée(s)</div>
+                  <div className="font-bold text-sm text-ink">{ief.nom}</div>
+                  <div className="text-[11px] text-muted">{schoolCounts[ief.id] || 0} école(s) rattachée(s)</div>
                 </div>
                 {isGlobal && !ief.__sentinel && (
                   <button onClick={() => handleToggleActif(ief)} className="text-[11px] font-semibold px-2 py-1 rounded-full" style={ief.actif ? { background: 'var(--green-l)', color: 'var(--green-d)' } : { background: '#fdecea', color: '#8a2f24' }}>
@@ -12720,7 +12682,7 @@ function IEFsAdminTab({ notify, iefId }) {
                   <span className="text-[11px] font-semibold px-2 py-1 rounded-full" style={{ background: 'var(--green-l)', color: 'var(--green-d)' }}>Active</span>
                 )}
               </div>
-              <div className="text-[11px] space-y-1 font-mono" style={{ color: 'var(--muted)' }}>
+              <div className="text-[11px] space-y-1 font-mono text-muted">
                 <div className="flex items-center justify-between">
                   <span>Code lecture : {revealed[ief.id + '_l'] ? ief.code_lecture : '••••••'}</span>
                   <button onClick={() => setRevealed((r) => ({ ...r, [ief.id + '_l']: !r[ief.id + '_l'] }))} style={{ color: 'var(--green-d)' }}>{revealed[ief.id + '_l'] ? <EyeOff size={13} /> : <Eye size={13} />}</button>
@@ -13438,10 +13400,10 @@ function openSchool(id, name, actif) {
   }
   if (['school', 'teacher', 'guard', 'accountant', 'secretary'].includes(session.role) && !schoolState && !loadingState) {
     body = (
-      <div className="sygenop-card p-8 max-w-xl mx-auto mt-10 text-center" style={{ color: 'var(--ink)' }}>
+      <div className="sygenop-card p-8 max-w-xl mx-auto mt-10 text-center text-ink">
         <AlertCircle size={34} className="mx-auto mb-3" style={{ color: 'var(--red)' }} />
         <h2 className="font-bold mb-2">Les données de l’école ne sont pas disponibles</h2>
-        <p className="text-sm mb-4" style={{ color: 'var(--muted)' }}>{schoolLoadError || 'La réponse du serveur est vide ou la session ne permet pas d’accéder à cette école.'}</p>
+        <p className="text-sm mb-4 text-muted">{schoolLoadError || 'La réponse du serveur est vide ou la session ne permet pas d’accéder à cette école.'}</p>
         <button type="button" onClick={() => setLoadNonce((n) => n + 1)} className="px-4 py-2 rounded-lg text-sm font-semibold text-white" style={{ background: 'var(--green-d)' }}>Réessayer le chargement</button>
       </div>
     );
