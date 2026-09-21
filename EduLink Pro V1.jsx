@@ -824,7 +824,10 @@ function studentMonthlyDue(state, level, student, month) {
 function studentAnnualDue(state, level, student) {
   if (!student) return feeForLevel(state, level).rubriques.filter((r) => r.nature !== 'entree').reduce((sum, r) => sum + r.montant, 0);
   const fe = studentFeesFor(state, level, student);
-  return fe.yearMonths.reduce((sum, M) => sum + studentMonthlyDue(state, level, student, M), 0);
+  // Somme les montants bruts des rubriques actives (hors « À l'entrée »).
+  // NE PAS sommer studentMonthlyDue sur les mois — cela diviserait par
+  // mensualites puis re-multiplierait par 12, gonflant le dû de 12/mensualites.
+  return fe.rubriques.filter((r) => r.nature !== 'entree' && r.activeMonths.length > 0).reduce((sum, r) => sum + r.montant, 0);
 }
 function studentTotalDue(state, level, student) {
   if (student) return studentInscriptionDue(state, level, student) + studentAnnualDue(state, level, student);
@@ -7939,7 +7942,9 @@ function StudentFeesModal({ level, fees, months, student, onSave, onClose }) {
     onSave({ casSocial: Math.max(0, Math.min(100, Number(casSocial) || 0)), rubriquesMois });
   }
   const coef = casSocial > 0 ? (100 - casSocial) / 100 : 1;
-  const anneeDue = months.reduce((sum, M) => sum + rubriques.filter((r) => r.nature !== 'entree' && (rubriquesMois[r.id] || []).includes(M)).reduce((s2, r2) => s2 + Math.round((Number(r2.montant) * coef) / mensualites), 0), 0);
+  // Même logique que studentAnnualDue : somme les montants bruts des rubriques
+  // actives sans diviser par mensualites (sinon gonfle de 12/mensualites).
+  const anneeDue = rubriques.filter((r) => r.nature !== 'entree' && (rubriquesMois[r.id] || []).length > 0).reduce((sum, r) => sum + Math.round(Number(r.montant) * coef), 0);
   const inscriptionDue = rubriques.filter((r) => r.nature === 'entree' && (rubriquesMois[r.id] || []).length > 0).reduce((s, r) => s + Math.round(Number(r.montant) * coef), 0);
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
