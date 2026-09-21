@@ -1391,24 +1391,29 @@ async function saveSchoolData(id, state, access) {
 // enregistrée dans school_data.header, ce qui préserve le fonctionnement en
 // attendant l'exécution de la migration SQL.
 async function upsertSchoolRow(method, params, body) {
-  try {
-    const data = await sb(method, 'schools', params, body);
-    return { data, directeurSaved: true, cycleSaved: true };
-  } catch (e) {
-    const msg = sbErrMsg(e);
-    const missingColumn = /does not exist|could not find|schema cache/i.test(msg);
-    const rest = { ...body };
-    const directeurSaved = !(/directeur/i.test(msg) && missingColumn && 'directeur' in rest);
-    const cycleSaved = !(/cycle/i.test(msg) && missingColumn && 'cycle' in rest);
-    if (!directeurSaved) delete rest.directeur;
-    if (!cycleSaved) delete rest.cycle;
-    if (!directeurSaved || !cycleSaved) {
-      const data = await sb(method, 'schools', params, rest);
-      return { data, directeurSaved, cycleSaved };
-    }
-    throw e;
-  }
-}
+   try {
+     const data = await sb(method, 'schools', params, body);
+     return { data, directeurSaved: true, cycleSaved: true, cyclesSaved: true };
+   } catch (e) {
+     const msg = sbErrMsg(e);
+     const missingColumn = /does not exist|could not find|schema cache/i.test(msg);
+     const rest = { ...body };
+     const hasCyclesError = /\bcycles\b/i.test(msg) && missingColumn;
+     const hasCycleError = !hasCyclesError && /\bcycle\b/i.test(msg) && missingColumn;
+     const hasDirecteurError = !hasCyclesError && !hasCycleError && /directeur/i.test(msg) && missingColumn;
+     const directeurSaved = !(hasDirecteurError && 'directeur' in rest);
+     const cycleSaved = !(hasCycleError && 'cycle' in rest);
+     const cyclesSaved = !(hasCyclesError && 'cycles' in rest);
+     if (!directeurSaved) delete rest.directeur;
+     if (!cycleSaved) delete rest.cycle;
+     if (!cyclesSaved) delete rest.cycles;
+     if (!directeurSaved || !cycleSaved || !cyclesSaved) {
+       const data = await sb(method, 'schools', params, rest);
+       return { data, directeurSaved, cycleSaved, cyclesSaved };
+     }
+     throw e;
+   }
+ }
 
 /* ============================================================
    UTILITAIRES — dates, identifiants, formatage FCFA
@@ -1659,8 +1664,8 @@ function JoursFeriesGlobauxModal({ isRacine, nbEcoles, applying, onApply, onClos
       <div className="flex items-center justify-between"><div className="font-bold text-ink">Jours non ouvrés et fériés — toutes les écoles</div><button type="button" onClick={onClose}><X size={18} /></button></div>
       <p className="text-xs text-muted">
         {isRacine
-          ? <>Applique la même liste à <b>toutes les écoles actives du système</b>, tous types et cycles confondus, même si un groupe scolaire est sélectionné dans le filtre.</>
-          : <>Applique la même liste aux <b>{nbEcoles} école(s) active(s)</b> de votre groupe scolaire, tous types confondus.</>}
+          ? <>Applique la même liste à <b>toutes les écoles actives du système</b>, tous types et cycles confondus, même si une IEF est sélectionnée dans le filtre.</>
+          : <>Applique la même liste aux <b>{nbEcoles} école(s) active(s)</b> de votre IEF, tous types confondus.</>}
         {' '}Les horaires hebdomadaires propres à chaque école sont conservés ; sa liste de jours non ouvrés est remplacée par celle-ci.
       </p>
       <label className="block text-sm font-semibold">Jours non ouvrés et fériés<textarea value={jours} onChange={(e) => setJours(e.target.value)} placeholder={'2026-12-25\n2027-01-01'} className="mt-1 w-full px-3 py-2 rounded-lg border min-h-28" /><span className="text-xs font-normal text-muted">Une date par ligne, au format AAAA-MM-JJ. Laisser vide efface les listes existantes de toutes les écoles.</span></label>
@@ -2555,9 +2560,9 @@ const entered = String(code).trim();
           {tab === 'ief' && (
             <form onSubmit={submitIEF} className="space-y-4">
               <p className="text-xs leading-relaxed text-muted">
-                Un <b style={{ color: 'var(--green-d)' }}>groupe scolaire</b> regroupe les
-                différents cycles d'une même école (petite enfance, élémentaire, moyen,
-                secondaire). Saisissez son code pour consulter l'ensemble de ses cycles.
+                Saisissez votre code <b style={{ color: 'var(--green-d)' }}>Groupe scolaire</b>{' '}
+                (lecture seule) pour consulter les écoles de votre circonscription (IEF) :
+                écoles simples et groupes scolaires.
               </p>
               <CodeField code={code} setCode={setCode} show={showCode} setShow={setShowCode} label="Code Groupe scolaire (lecture seule)" />
               <SubmitBtn busy={busy}>Se connecter</SubmitBtn>
@@ -10309,7 +10314,7 @@ function PresenceElevesCard({ state, updateState, notify, readOnly, session }) {
             </select>
           </div>
           <EtabField label="Inspection d'Académie (IA)" value={form.ia} onChange={(v) => set('ia', v)} disabled={readOnly} placeholder="Ex : DAKAR" />
-          <EtabField label="Groupe scolaire de rattachement" value={form.ief} onChange={(v) => set('ief', v)} disabled={readOnly} placeholder="Ex : GRAND DAKAR" />
+          <EtabField label="IEF de rattachement" value={form.ief} onChange={(v) => set('ief', v)} disabled={readOnly} placeholder="Ex : GRAND DAKAR" />
           <EtabField label={cycleTerminology(form.cycle || state.header?.cycle).head} value={form.directeur} onChange={(v) => set('directeur', v)} disabled={readOnly} placeholder={`Nom du/de la ${cycleTerminology(form.cycle || state.header?.cycle).head.toLowerCase()}`} />
           <EtabField label="Téléphone" value={form.tel} onChange={(v) => set('tel', v)} disabled={readOnly} placeholder="Ex : 77 000 00 00" />
           <EtabField label="Année scolaire" value={form.annee} onChange={(v) => set('annee', v)} disabled={readOnly} placeholder="Ex : 2026/2027" />
@@ -11547,10 +11552,14 @@ function RestrictionsModal({ school, onSave, onClose }) {
    ============================================================ */
 function SchoolModal({ school, onSave, onClose, iefOptions, fixedIefName }) {
   const isEdit = !!school;
-const [form, setForm] = useState(() => ({
+const initialCycles = (() => {
+    const base = school?.cycles && Array.isArray(school.cycles) && school.cycles.length ? school.cycles : (school?.cycle ? [school.cycle] : []);
+    return base.filter((c) => CYCLE_OPTIONS.some((o) => o.value === c));
+  })();
+  const [form, setForm] = useState(() => ({
     name: school?.name || '',
     type: school?.type ? normalizeSchoolType(school.type) : SCHOOL_TYPES[0].value,
-    cycle: school?.cycle || '',
+    cycles: initialCycles,
     directeur: school?.directeur || '',
     code: school?.code || generateAccessCode(),
     ief_id: school?.ief_id || (iefOptions && iefOptions[0] ? iefOptions[0].id : ''),
@@ -11560,24 +11569,34 @@ const [form, setForm] = useState(() => ({
   const [busy, setBusy] = useState(false);
 
   function set(k, v) { setForm((f) => ({ ...f, [k]: v })); }
+  function toggleCycle(cycleId) {
+    setForm((f) => {
+      const current = f.cycles || [];
+      const next = current.includes(cycleId) ? current.filter((c) => c !== cycleId) : [...current, cycleId];
+      return { ...f, cycles: next };
+    });
+  }
 
   async function submit(e) {
     e.preventDefault();
     if (!form.name.trim()) return;
-    if (!form.cycle) return;
+    if (!form.cycles || form.cycles.length === 0) return;
     if (!String(form.code).trim()) return;
     setBusy(true);
-    await onSave({ ...form, name: form.name.trim(), code: String(form.code).trim() });
+    await onSave({ ...form, name: form.name.trim(), code: String(form.code).trim(), cycle: form.cycles[0] || '' });
     setBusy(false);
   }
 
+  const primaryCycle = form.cycles[0] || '';
+  const cyclesValid = form.cycles && form.cycles.length > 0;
+  const isGroupeScolaire = (form.cycles || []).length >= 2;
   const fieldStyle = { borderColor: 'var(--line)', background: 'var(--panel)', color: 'var(--ink)' };
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
       <form onSubmit={submit} className="sygenop-card p-6 max-w-md w-full sygenop-fade max-h-[90vh] overflow-auto">
         <div className="flex items-center justify-between mb-4">
-          <div className="font-bold text-ink">{isEdit ? 'Modifier l\u2019école' : 'Nouvelle école'}</div>
+          <div className="font-bold text-ink">{isEdit ? (isGroupeScolaire ? 'Modifier le groupe scolaire' : 'Modifier l\u2019école') : (isGroupeScolaire ? 'Nouveau groupe scolaire' : 'Nouvelle école')}</div>
           <button type="button" onClick={onClose} style={{ color: 'var(--muted)' }}><X size={18} /></button>
         </div>
         <div className="space-y-3">
@@ -11599,28 +11618,45 @@ const [form, setForm] = useState(() => ({
             </select>
           </div>
           <div>
-            <label className="text-xs font-semibold block mb-1 text-muted">Cycle scolaire *</label>
-            <select value={form.cycle} onChange={(e) => set('cycle', e.target.value)} required className="w-full px-3 py-2.5 rounded-lg border text-sm" style={fieldStyle}>
-              <option value="">Sélectionner un cycle</option>
-              {CYCLE_OPTIONS.map((cycle) => <option key={cycle.value} value={cycle.value}>{cycle.label}</option>)}
-            </select>
-            <p className="text-[11px] mt-1 text-muted">
-              Seuls les niveaux et matières de ce cycle seront visibles dans l'école.
-            </p>
+            <label className="text-xs font-semibold block mb-1 text-muted">Cycles couverts * <span className="font-normal">({form.cycles.length}/5 — 1 cycle = école simple, 2 à 5 = groupe scolaire)</span></label>
+            <div className="grid grid-cols-1 gap-1.5">
+              {CYCLE_OPTIONS.map((cycle) => {
+                const checked = (form.cycles || []).includes(cycle.value);
+                return (
+                  <button
+                    key={cycle.value}
+                    type="button"
+                    onClick={() => toggleCycle(cycle.value)}
+                    className="flex items-center gap-2 px-3 py-2 rounded-lg text-xs font-semibold text-left transition-colors"
+                    style={checked
+                      ? { background: 'var(--green-l)', color: 'var(--green-d)', border: '1.5px solid var(--green-d)' }
+                      : { background: 'var(--bg)', color: 'var(--muted)', border: '1.5px solid var(--line)' }}
+                  >
+                    <span className="w-4 h-4 rounded flex items-center justify-center" style={checked ? { background: 'var(--green-d)', color: '#fff' } : { border: '1.5px solid var(--line)' }}>
+                      {checked && '✓'}
+                    </span>
+                    {cycle.label}
+                  </button>
+                );
+              })}
+            </div>
+            {!cyclesValid && form.cycles.length === 0 && (
+              <p className="text-[11px] mt-1 text-muted">Sélectionnez au moins 1 cycle pour créer l'école.</p>
+            )}
           </div>
           <div>
-<label className="text-xs font-semibold block mb-1 text-muted">{cycleTerminology(form.cycle).head}</label>
+<label className="text-xs font-semibold block mb-1 text-muted">{cycleTerminology(primaryCycle).head}</label>
             <input
               value={form.directeur}
               onChange={(e) => set('directeur', e.target.value)}
               className="w-full px-3 py-2.5 rounded-lg border text-sm"
               style={fieldStyle}
-              placeholder={`Nom du/de la ${cycleTerminology(form.cycle).head.toLowerCase()}`}
+              placeholder={`Nom du/de la ${cycleTerminology(primaryCycle).head.toLowerCase()}`}
             />
           </div>
           {iefOptions ? (
             <div>
-              <label className="text-xs font-semibold block mb-1 text-muted">Groupe scolaire de rattachement</label>
+              <label className="text-xs font-semibold block mb-1 text-muted">IEF de rattachement</label>
               <select value={form.ief_id} onChange={(e) => set('ief_id', e.target.value)} className="w-full px-3 py-2.5 rounded-lg border text-sm" style={fieldStyle}>
                 <option value="">— Aucune (visible uniquement du Super Admin global) —</option>
                 {iefOptions.map((i) => <option key={i.id} value={i.id}>{i.nom}</option>)}
@@ -11628,7 +11664,7 @@ const [form, setForm] = useState(() => ({
             </div>
           ) : fixedIefName ? (
             <div className="text-[11px] px-3 py-2 rounded-lg" style={{ background: 'var(--green-l)', color: 'var(--green-d)' }}>
-              Cette école sera rattachée au groupe scolaire <b>{fixedIefName}</b>.
+              Cette école sera rattachée à l'IEF <b>{fixedIefName}</b>.
             </div>
           ) : null}
           <div>
@@ -11740,20 +11776,39 @@ async function refresh() {
       const params = iefId
         ? (isGrandDakar ? 'order=name.asc&ief_id=is.null' : `order=name.asc&ief_id=eq.${iefId}`)
         : 'order=name.asc';
-      // Sélectionne les colonnes de base + tente d'inclure `actif`. Si la colonne
-      // `actif` n'existe pas encore (migration SQL non exécutée), on se rabat sur
-      // une lecture sans `actif` et on considère toutes les écoles comme actives.
+      // Sélectionne les colonnes de base + tente d'inclure `actif` et `cycles`.
+      // Si `actif` n'existe pas encore (migration SQL non exécutée), on se rabat
+      // sur une lecture sans `actif` et on considère toutes les écoles comme actives.
       let rows = null;
+      let keepActif = true;
+      let keepCycles = true;
+      let doSelect = async () => {
+        const cols = `id,name,type,cycle${keepCycles ? ',cycles' : ''},directeur,code${keepActif ? ',actif' : ''}`;
+        rows = (await sb('GET', 'schools', `select=${cols}${params ? '&' + params : ''}`)) || [];
+      };
       try {
-        rows = (await sb('GET', 'schools', `select=id,name,type,cycle,directeur,code,actif${params ? '&' + params : ''}`)) || [];
+        await doSelect();
       } catch (e) {
-        if (/actif|schema cache/gi.test(sbErrMsg(e))) {
-          rows = (await sb('GET', 'schools', `select=id,name,type,directeur,code${params ? '&' + params : ''}`)) || [];
-          rows.forEach((r) => { r.actif = true; });
+        const msg = sbErrMsg(e);
+        if (/cycles/gi.test(msg) && keepCycles) {
+          keepCycles = false;
+          try { await doSelect(); }
+          catch (e2) {
+            if (/actif|schema cache/gi.test(sbErrMsg(e2)) && keepActif) { keepActif = false; await doSelect(); }
+            else throw e2;
+          }
+        } else if (/actif|schema cache/gi.test(msg) && keepActif) {
+          keepActif = false;
+          try { await doSelect(); }
+          catch (e2) {
+            if (/cycles/gi.test(sbErrMsg(e2)) && keepCycles) { keepCycles = false; await doSelect(); }
+            else throw e2;
+          }
         } else {
           throw e;
         }
       }
+      if (!keepActif) rows.forEach((r) => { r.actif = true; });
       // Les valeurs récentes sont aussi conservées dans school_data.header,
       // ce qui garde la liste utilisable avant l'exécution de la migration.
       // PERF : on ne télécharge QUE le sous-champ payload->header (quelques
@@ -11766,13 +11821,20 @@ async function refresh() {
           datas.forEach((d) => { byId[d.school_id] = d.payload; });
           rows.forEach((s) => {
             if (!s.directeur && byId[s.id]) s.directeur = byId[s.id].directeur || '';
+            if (!Array.isArray(s.cycles) || !s.cycles.length) {
+              const hCycles = byId[s.id] && byId[s.id].cycles;
+              if (Array.isArray(hCycles) && hCycles.length) s.cycles = hCycles;
+            }
             s.cycle = resolvedSchoolCycle(s, { header: byId[s.id] });
           });
 } catch (_) {}
       }
       // Si aucune donnée associée n'existe, il s'agit aussi d'une école historique
       // et elle doit rester visible dans le cycle élémentaire.
-      rows.forEach((s) => { s.cycle = resolvedSchoolCycle(s); });
+      rows.forEach((s) => {
+        if (!Array.isArray(s.cycles) || !s.cycles.length) s.cycles = s.cycle ? [s.cycle] : [];
+        s.cycle = resolvedSchoolCycle(s);
+      });
       setSchools(rows);
     } catch (e) {
       setError(sbErrMsg(e));
@@ -11796,19 +11858,19 @@ async function refresh() {
       let directeurSaved = true;
       if (modal && modal !== 'new' && modal.id) {
         const res = await upsertSchoolRow('PATCH', `id=eq.${modal.id}`, {
-          name: form.name, type: form.type, cycle: form.cycle, directeur: form.directeur, code: form.code, actif: form.actif, ...iefField,
+          name: form.name, type: form.type, cycle: form.cycle, cycles: form.cycles, directeur: form.directeur, code: form.code, actif: form.actif, ...iefField,
         });
         directeurSaved = res.directeurSaved;
         // Répercute le nom/directeur dans les données de l'école si elle existe déjà
         try {
 const st = await loadSchoolData(modal.id);
-          st.header = { ...(st.header || {}), ecole: form.name, directeur: form.directeur, cycle: form.cycle };
+          st.header = { ...(st.header || {}), ecole: form.name, directeur: form.directeur, cycle: form.cycle, cycles: form.cycles };
           await saveSchoolData(modal.id, st);
         } catch (_) {}
         notify(directeurSaved ? 'École modifiée avec succès' : 'École modifiée (le directeur est enregistré, mais exécutez la migration SQL pour qu\u2019il apparaisse aussi dans la liste — voir instructions fournies)');
       } else {
         const res = await upsertSchoolRow('POST', '', {
-          name: form.name, type: form.type, cycle: form.cycle, directeur: form.directeur, code: form.code, actif: form.actif, ...iefField,
+          name: form.name, type: form.type, cycle: form.cycle, cycles: form.cycles, directeur: form.directeur, code: form.code, actif: form.actif, ...iefField,
         });
         directeurSaved = res.directeurSaved;
         const created = res.data || [];
@@ -11820,6 +11882,7 @@ const st = await loadSchoolData(modal.id);
             st.header.directeur = form.directeur;
             st.header.type = schoolTypeLabel(form.type);
             st.header.cycle = form.cycle;
+            st.header.cycles = form.cycles;
             await sb('POST', 'school_data', '', { school_id: newSchool.id, payload: st, version: 1 });
           } catch (_) {}
         }
@@ -11920,7 +11983,8 @@ const st = await loadSchoolData(modal.id);
     if (availableCycles.length && !availableCycles.includes(selectedCycle)) setSelectedCycle(availableCycles[0]);
   }, [schools, selectedCycle]);
   const filtered = schools.filter((s) =>
-    (s.name || '').toLowerCase().includes(q.toLowerCase()) && s.cycle === selectedCycle
+    (s.name || '').toLowerCase().includes(q.toLowerCase()) &&
+    (s.cycle === selectedCycle || (Array.isArray(s.cycles) && s.cycles.includes(selectedCycle)))
   );
 
   return (
@@ -11985,7 +12049,20 @@ const st = await loadSchoolData(modal.id);
                 <tr key={s.id} style={{ borderBottom: '1px solid var(--line)' }}>
                   <td className="px-4 py-3 font-semibold text-ink">{s.name}</td>
                   <td className="px-4 py-3 text-muted">{schoolTypeLabel(s.type)}</td>
-                  <td className="px-4 py-3 text-muted">{cycleLabel(s.cycle)}</td>
+                  <td className="px-4 py-3">
+                    <div className="flex flex-wrap gap-1">
+                      {(Array.isArray(s.cycles) && s.cycles.length ? s.cycles : (s.cycle ? [s.cycle] : [])).map((c) => (
+                        <span key={c} className="text-[10px] font-semibold px-2 py-0.5 rounded-full" style={{ background: 'var(--green-l)', color: 'var(--green-d)' }}>
+                          {cycleLabel(c)}
+                        </span>
+                      ))}
+                      {Array.isArray(s.cycles) && s.cycles.length >= 2 && (
+                        <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full" style={{ background: 'var(--gold-l)', color: '#92710c' }}>
+                          Groupe scolaire
+                        </span>
+                      )}
+                    </div>
+                  </td>
 <td className="px-4 py-3 text-muted">{s.directeur || <span className="italic opacity-60">Non renseigné</span>}</td>
                   <td className="px-4 py-3">
                     <Pill tone={s.actif === false ? 'red' : 'green'}>
@@ -12124,13 +12201,13 @@ function IEFAccountModal({ admin, onSave, onClose, allowRoleAdmin }) {
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
       <form onSubmit={submit} className="sygenop-card p-6 max-w-md w-full sygenop-fade">
         <div className="flex items-center justify-between mb-4">
-          <div className="font-bold text-ink">{isEdit ? 'Modifier le compte' : 'Nouveau compte Groupe scolaire'}</div>
+          <div className="font-bold text-ink">{isEdit ? 'Modifier le compte' : 'Nouveau compte IEF'}</div>
           <button type="button" onClick={onClose} style={{ color: 'var(--muted)' }}><X size={18} /></button>
         </div>
         <p className="text-xs mb-4 text-muted">
           {form.role === 'admin'
-            ? "Ce compte pourra créer et modifier des écoles, mais uniquement au sein de son propre groupe scolaire."
-            : "Ce compte pourra consulter tous les cycles de son groupe scolaire (lecture seule) via l'onglet « Groupe scolaire » de l'écran de connexion, sans pouvoir rien modifier."}
+            ? "Ce compte pourra créer et modifier des écoles, mais uniquement au sein de sa propre IEF."
+            : "Ce compte pourra consulter les écoles de son IEF (lecture seule) via l'onglet « Groupe scolaire » de l'écran de connexion, sans pouvoir rien modifier."}
         </p>
         <div className="space-y-3">
           {allowRoleAdmin && (
@@ -12371,14 +12448,14 @@ function IEFAccountsTab({ notify, session, iefIdOverride, iefList }) {
   return (
     <div className="space-y-4">
       <div className="sygenop-card px-4 py-2.5 text-xs font-semibold flex items-center gap-2" style={{ background: 'var(--gold-l)', color: '#92710c' }}>
-        <Eye size={14} /> Les comptes créés ci-dessous sont rattachés {iefId ? <>à <b>votre groupe scolaire uniquement</b></> : <>au périmètre <b>global</b></>} : « lecture seule » pour consulter, « Administrateur Groupe » pour créer/modifier des écoles.
+        <Eye size={14} /> Les comptes créés ci-dessous sont rattachés {iefId ? <>à <b>votre IEF uniquement</b></> : <>au périmètre <b>global</b></>} : « lecture seule » pour consulter, « Administrateur IEF » pour créer/modifier des écoles.
       </div>
 
       {isGlobalAdmin && (
         <div className="sygenop-card p-5 space-y-2">
           <div className="font-bold text-sm text-ink">Votre code Super Administrateur (racine)</div>
           <p className="text-xs text-muted">
-            C'est votre propre code, celui qui donne un accès complet à tous les groupes scolaires. Vous pouvez le changer ici.
+            C'est votre propre code, celui qui donne un accès complet à toutes les IEF. Vous pouvez le changer ici.
           </p>
           <div className="flex gap-2 max-w-md">
             <div className="relative flex-1">
@@ -12404,7 +12481,7 @@ function IEFAccountsTab({ notify, session, iefIdOverride, iefList }) {
 
       <div className="flex items-center justify-between">
         <div>
-          <div className="font-bold text-sm text-ink">Comptes Groupe scolaire {iefId ? `— ${session.iefName || ''}` : '(périmètre global)'}</div>
+          <div className="font-bold text-sm text-ink">Comptes IEF {iefId ? `— ${session.iefName || ''}` : '(périmètre global)'}</div>
           <p className="text-xs text-muted">Chacun se connecte via l'onglet « Groupe scolaire » ou « Super Admin » de l'écran de connexion, avec son propre code.</p>
         </div>
         {!missingTable && (
@@ -12426,7 +12503,7 @@ function IEFAccountsTab({ notify, session, iefIdOverride, iefList }) {
             <AlertTriangle size={16} /> Fonctionnalité non activée
           </div>
           <p className="text-xs text-muted">
-            Pour pouvoir ajouter des comptes Groupe scolaire (chacun avec son propre code), exécutez une fois ce script dans l'éditeur SQL de Supabase, puis rechargez cette page :
+            Pour pouvoir ajouter des comptes IEF (chacun avec son propre code), exécutez une fois ce script dans l'éditeur SQL de Supabase, puis rechargez cette page :
           </p>
           <pre className="text-[11px] p-3 rounded-lg overflow-auto" style={{ background: 'var(--bg)', color: 'var(--ink)' }}>{ADMINS_TABLE_SQL}</pre>
           <button onClick={() => copyToClipboard(ADMINS_TABLE_SQL, notify)} className="px-3 py-2 rounded-lg text-xs font-semibold sygenop-btn sygenop-btn--ghost">
@@ -12466,7 +12543,7 @@ function IEFAccountsTab({ notify, session, iefIdOverride, iefList }) {
                     </div>
                   </td>
                   <td className="px-4 py-3">
-                    <Pill tone="gold">{a.role === 'admin' ? 'Administrateur Groupe' : 'Groupe scolaire — lecture seule'}</Pill>
+                    <Pill tone="gold">{a.role === 'admin' ? 'Administrateur IEF' : 'IEF — lecture seule'}</Pill>
                   </td>
                   <td className="px-4 py-3">
                     <div className="flex justify-end gap-1.5">
@@ -12509,73 +12586,33 @@ function IEFModal({ ief, onSave, onClose }) {
     nom: ief?.nom || '',
     code_lecture: ief?.code_lecture || generateAccessCode(),
     code_admin: ief?.code_admin || generateAccessCode(),
-    cycles: ief?.cycles || [],
   }));
   const [showLecture, setShowLecture] = useState(true);
   const [showAdmin, setShowAdmin] = useState(false);
   const [busy, setBusy] = useState(false);
   function set(k, v) { setForm((f) => ({ ...f, [k]: v })); }
-  function toggleCycle(cycleId) {
-    setForm((f) => {
-      const current = f.cycles || [];
-      const next = current.includes(cycleId) ? current.filter((c) => c !== cycleId) : [...current, cycleId];
-      return { ...f, cycles: next };
-    });
-  }
   async function submit(e) {
     e.preventDefault();
     if (!form.nom.trim()) return;
-    if (!form.cycles || form.cycles.length < 2) return;
     setBusy(true);
     await onSave({ ...form, nom: form.nom.trim() });
     setBusy(false);
   }
   const fieldStyle = { borderColor: 'var(--line)', background: 'var(--panel)', color: 'var(--ink)' };
-  const cyclesValid = form.cycles && form.cycles.length >= 2;
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
       <form onSubmit={submit} className="sygenop-card p-6 max-w-md w-full sygenop-fade max-h-[90vh] overflow-auto">
         <div className="flex items-center justify-between mb-4">
-          <div className="font-bold text-ink">{isEdit ? 'Modifier le groupe scolaire' : 'Nouveau groupe scolaire'}</div>
+          <div className="font-bold text-ink">{isEdit ? 'Modifier l\u2019IEF' : 'Nouvelle IEF'}</div>
           <button type="button" onClick={onClose} style={{ color: 'var(--muted)' }}><X size={18} /></button>
         </div>
         <p className="text-xs mb-4 text-muted">
-          Un groupe scolaire regroupe plusieurs cycles (2 à 5) sous un même nom. Chaque cycle correspond à un niveau d'enseignement.
+          Une IEF est une circonscription qui regroupe des écoles simples et des groupes scolaires. Chaque école créée est rattachée à une IEF.
         </p>
         <div className="space-y-3">
           <div>
-            <label className="text-xs font-semibold block mb-1 text-muted">Nom du groupe scolaire *</label>
-            <input autoFocus value={form.nom} onChange={(e) => set('nom', e.target.value)} className="w-full px-3 py-2.5 rounded-lg border text-sm" style={fieldStyle} placeholder="Ex : Groupe Scolaire Liberté" />
-          </div>
-          <div>
-            <label className="text-xs font-semibold block mb-1 text-muted">Cycles couverts * <span className="font-normal">({form.cycles.length}/5 sélectionnés, min. 2)</span></label>
-            <div className="grid grid-cols-1 gap-1.5">
-              {CYCLE_OPTIONS.map((cycle) => {
-                const checked = (form.cycles || []).includes(cycle.value);
-                return (
-                  <button
-                    key={cycle.value}
-                    type="button"
-                    onClick={() => toggleCycle(cycle.value)}
-                    className="flex items-center gap-2 px-3 py-2 rounded-lg text-xs font-semibold text-left transition-colors"
-                    style={checked
-                      ? { background: 'var(--green-l)', color: 'var(--green-d)', border: '1.5px solid var(--green-d)' }
-                      : { background: 'var(--bg)', color: 'var(--muted)', border: '1.5px solid var(--line)' }}
-                  >
-                    <span className="w-4 h-4 rounded flex items-center justify-center" style={checked ? { background: 'var(--green-d)', color: '#fff' } : { border: '1.5px solid var(--line)' }}>
-                      {checked && '✓'}
-                    </span>
-                    {cycle.label}
-                  </button>
-                );
-              })}
-            </div>
-            {!cyclesValid && form.cycles.length > 0 && (
-              <p className="text-[11px] mt-1" style={{ color: 'var(--red)' }}>Sélectionnez au moins 2 cycles.</p>
-            )}
-            {form.cycles.length === 0 && (
-              <p className="text-[11px] mt-1 text-muted">Un groupe scolaire doit couvrir au moins 2 cycles.</p>
-            )}
+            <label className="text-xs font-semibold block mb-1 text-muted">Nom de l'IEF *</label>
+            <input autoFocus value={form.nom} onChange={(e) => set('nom', e.target.value)} className="w-full px-3 py-2.5 rounded-lg border text-sm" style={fieldStyle} placeholder="Ex : IEF Dakar Centre" />
           </div>
           <div>
             <label className="text-xs font-semibold block mb-1 text-muted">Code « Groupe scolaire (lecture seule) »</label>
@@ -12587,10 +12624,10 @@ function IEFModal({ ief, onSave, onClose }) {
               </div>
               <button type="button" onClick={() => set('code_lecture', generateAccessCode())} className="px-3 py-2 rounded-lg text-xs font-semibold whitespace-nowrap sygenop-btn sygenop-btn--ghost">Générer</button>
             </div>
-            <p className="text-[11px] mt-1 text-muted">Permet de consulter (sans modifier) toutes les écoles de cette groupe scolaire.</p>
+            <p className="text-[11px] mt-1 text-muted">Permet de consulter (sans modifier) toutes les écoles de cette IEF via l'onglet « Groupe scolaire ».</p>
           </div>
           <div>
-            <label className="text-xs font-semibold block mb-1 text-muted">Code « Administrateur Groupe »</label>
+            <label className="text-xs font-semibold block mb-1 text-muted">Code « Administrateur IEF »</label>
             <div className="flex gap-2">
               <div className="relative flex-1">
                 <KeyRound size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-muted" />
@@ -12599,13 +12636,13 @@ function IEFModal({ ief, onSave, onClose }) {
               </div>
               <button type="button" onClick={() => set('code_admin', generateAccessCode())} className="px-3 py-2 rounded-lg text-xs font-semibold whitespace-nowrap sygenop-btn sygenop-btn--ghost">Générer</button>
             </div>
-            <p className="text-[11px] mt-1 text-muted">Donne un accès complet (créer/modifier des écoles, comptes) mais limité à ce seul groupe scolaire.</p>
+            <p className="text-[11px] mt-1 text-muted">Donne un accès complet (créer/modifier des écoles, comptes) mais limité à cette seule IEF.</p>
           </div>
         </div>
         <div className="flex justify-end gap-2 mt-6">
           <button type="button" onClick={onClose} className="px-3.5 py-2 rounded-lg text-sm font-semibold" style={{ background: 'var(--bg)', color: 'var(--ink)' }}>Annuler</button>
-          <button type="submit" disabled={busy || !cyclesValid} className="px-3.5 py-2 rounded-lg text-sm font-semibold text-white disabled:opacity-60" style={{ background: 'var(--green-d)' }}>
-            {busy ? 'Enregistrement…' : (isEdit ? 'Enregistrer' : 'Créer le groupe scolaire')}
+          <button type="submit" disabled={busy} className="px-3.5 py-2 rounded-lg text-sm font-semibold text-white disabled:opacity-60" style={{ background: 'var(--green-d)' }}>
+            {busy ? 'Enregistrement…' : (isEdit ? 'Enregistrer' : 'Créer l\u2019IEF')}
           </button>
         </div>
       </form>
@@ -12688,7 +12725,7 @@ function IEFsAdminTab({ notify, iefId }) {
 
   async function handleSave(form) {
     if (modal && modal.id === GRAND_DAKAR_FAKE_ID) {
-      notify('Groupe scolaire historique géré automatiquement — ses accès ne peuvent pas être modifiés ici.', true);
+      notify('IEF historique gérée automatiquement — ses accès ne peuvent pas être modifiés ici.', true);
       setModal(null);
       return;
     }
@@ -12703,7 +12740,7 @@ function IEFsAdminTab({ notify, iefId }) {
             await sb('PATCH', 'iefs', `id=eq.${modal.id}`, payload);
           } else throw e;
         }
-        notify('Groupe scolaire modifié avec succès');
+        notify('IEF modifiée avec succès');
       } else {
         try {
           await sb('POST', 'iefs', '', { ...payload, actif: true });
@@ -12713,7 +12750,7 @@ function IEFsAdminTab({ notify, iefId }) {
             await sb('POST', 'iefs', '', { ...rest, actif: true });
           } else throw e;
         }
-        notify('Groupe scolaire créé avec succès — communiquez ses codes à l\u2019équipe concernée');
+        notify('IEF créée avec succès — communiquez ses codes à l\u2019équipe concernée');
       }
       setModal(null);
       refresh();
@@ -12728,10 +12765,10 @@ function IEFsAdminTab({ notify, iefId }) {
     } catch (e) { notify('Erreur : ' + sbErrMsg(e), true); }
   }
   async function handleDelete(ief) {
-      if (schoolCounts[ief.id]) { notify('Impossible : ce groupe scolaire a encore des écoles rattachées', true); return; }
+if (schoolCounts[ief.id]) { notify('Impossible : cette IEF a encore des écoles rattachées', true); return; }
     try {
       await sb('DELETE', 'iefs', `id=eq.${ief.id}`);
-      notify('Groupe scolaire supprimé');
+      notify('IEF supprimée');
       setToDelete(null);
       refresh();
     } catch (e) { notify('Erreur : ' + sbErrMsg(e), true); }
@@ -12742,7 +12779,7 @@ function IEFsAdminTab({ notify, iefId }) {
       <div className="sygenop-card p-5 space-y-3">
         <div className="font-bold text-sm flex items-center gap-2 text-ink"><AlertTriangle size={16} /> Migration requise</div>
         <p className="text-xs text-muted">
-          La table <code>iefs</code> n'existe pas encore dans votre base Supabase. Pour activer la gestion des groupes scolaires, exécutez une fois ce script dans l'éditeur SQL de Supabase, puis rechargez cette page :
+          La table <code>iefs</code> n'existe pas encore dans votre base Supabase. Pour activer la gestion des IEF (circonscriptions), exécutez une fois ce script dans l'éditeur SQL de Supabase, puis rechargez cette page :
         </p>
         <pre className="text-[11px] p-3 rounded-lg overflow-auto max-h-72" style={{ background: 'var(--bg)', color: 'var(--ink)', whiteSpace: 'pre-wrap', wordBreak: 'break-word' }}>{IEFS_TABLE_SQL}</pre>
         <div className="flex flex-wrap gap-2">
@@ -12762,14 +12799,14 @@ function IEFsAdminTab({ notify, iefId }) {
 <div className="sygenop-card px-4 py-2.5 text-xs font-semibold flex items-center gap-2" style={{ background: 'var(--gold-l)', color: '#92710c' }}>
         <Building2 size={14} />
         {isGlobal
-          ? <>Chaque groupe scolaire fonctionne de façon indépendante : ses cycles et ses comptes ne sont visibles que par son propre administrateur, jamais par les autres groupes.</>
-          : <>Vous consultez le groupe scolaire <b>{iefs[0]?.nom || ''}</b> — ses codes d'accès sont affichés ci-dessous. La création/suppression n'est possible qu'en mode global.</>}
+          ? <>Chaque IEF (circonscription) fonctionne de façon indépendante : ses écoles et ses comptes ne sont visibles que par son propre administrateur, jamais par les autres IEF.</>
+          : <>Vous consultez l'IEF <b>{iefs[0]?.nom || ''}</b> — ses codes d'accès sont affichés ci-dessous. La création/suppression n'est possible qu'en mode global.</>}
       </div>
       <div className="flex items-center justify-between">
-        <div className="font-bold text-sm text-ink">Groupes scolaires — l'ensemble des cycles d'une même école</div>
+        <div className="font-bold text-sm text-ink">IEF (circonscriptions) — chaque école créée est rattachée à une IEF</div>
         {isGlobal && (
           <button onClick={() => setModal('new')} className="px-3.5 py-2.5 rounded-lg text-sm font-semibold text-white flex items-center gap-1.5 justify-center" style={{ background: 'var(--green-d)' }}>
-            <Plus size={15} /> Nouveau groupe scolaire
+            <Plus size={15} /> Nouvelle IEF
           </button>
         )}
       </div>
@@ -12778,7 +12815,7 @@ function IEFsAdminTab({ notify, iefId }) {
       ) : error ? (
         <div className="text-sm py-6 text-center" style={{ color: '#c0392b' }}>{error}</div>
       ) : iefs.length === 0 ? (
-        <div className="sygenop-card p-6 text-sm text-center text-muted">Aucun groupe scolaire pour ce périmètre.</div>
+        <div className="sygenop-card p-6 text-sm text-center text-muted">Aucune IEF pour ce périmètre.</div>
       ) : (
         <div className="grid gap-3 sm:grid-cols-2">
           {iefs.map((ief) => (
@@ -12797,15 +12834,6 @@ function IEFsAdminTab({ notify, iefId }) {
                   <span className="text-[11px] font-semibold px-2 py-1 rounded-full" style={{ background: 'var(--green-l)', color: 'var(--green-d)' }}>Active</span>
                 )}
               </div>
-              {Array.isArray(ief.cycles) && ief.cycles.length > 0 && (
-                <div className="flex flex-wrap gap-1">
-                  {ief.cycles.map((c) => (
-                    <span key={c} className="text-[10px] font-semibold px-2 py-0.5 rounded-full" style={{ background: 'var(--green-l)', color: 'var(--green-d)' }}>
-                      {cycleLabel(c)}
-                    </span>
-                  ))}
-                </div>
-              )}
               <div className="text-[11px] space-y-1 font-mono text-muted">
                 <div className="flex items-center justify-between">
                   <span>Code lecture : {revealed[ief.id + '_l'] ? ief.code_lecture : '••••••'}</span>
@@ -12836,7 +12864,7 @@ function IEFsAdminTab({ notify, iefId }) {
       )}
       {toDelete && isGlobal && (
         <ConfirmModal
-          title="Supprimer ce groupe scolaire ?"
+          title="Supprimer cette IEF ?"
           message={`« ${toDelete.nom} » sera définitivement supprimée. Cette action est impossible si des écoles y sont encore rattachées.`}
           onConfirm={() => handleDelete(toDelete)}
           onCancel={() => setToDelete(null)}
@@ -12889,13 +12917,13 @@ const [iefList, setIefList] = useState([]);
   }, [isGlobalAdmin, mergedIefList.length]);
 
   const selectedIefName = isGlobalAdmin
-    ? (mergedIefList.find((i) => i.id === adminIefId)?.nom || 'Tous les groupes scolaires')
-    : (session.iefName || 'Votre groupe scolaire');
+    ? (mergedIefList.find((i) => i.id === adminIefId)?.nom || 'Toutes les IEF')
+    : (session.iefName || 'Votre IEF');
 
   const tabs = [
     { id: 'ecoles', label: 'Écoles', icon: Building2 },
-    { id: 'admins', label: 'Administrateurs Groupe', icon: UserCog },
-    { id: 'iefs', label: 'Gestion des groupes', icon: Database },
+    { id: 'admins', label: 'Administrateurs IEF', icon: UserCog },
+    { id: 'iefs', label: 'Gestion des IEF', icon: Database },
   ];
 
   const activeIefId = isGlobalAdmin ? adminIefId : (session && session.iefId);
@@ -12921,20 +12949,20 @@ const [iefList, setIefList] = useState([]);
         <Building2 size={14} />
         {isGlobalAdmin ? (
           <span className="flex items-center gap-2 flex-wrap">
-            Super Admin — Groupe scolaire administré :
+            Super Admin — IEF administrée :
             <select
               value={adminIefId || ''}
               onChange={(e) => setAdminIefId(e.target.value || null)}
               className="px-2 py-1 rounded-lg border text-xs font-semibold"
               style={{ borderColor: 'var(--green-d)', background: 'var(--panel)', color: 'var(--green-d)', maxWidth: 220 }}
             >
-              <option value="">— Tous les groupes scolaires (mode global) —</option>
+              <option value="">— Toutes les IEF (mode global) —</option>
               {mergedIefList.map((i) => <option key={i.id} value={i.id}>{i.nom}</option>)}
             </select>
             {loadingIefs && <Loader2 size={12} className="animate-spin" />}
           </span>
         ) : (
-          <>Vous administrez le groupe scolaire <b>{session.iefName || ''}</b> : les cycles et comptes créés ici seront automatiquement rattachés à votre groupe scolaire, sans impact sur les autres groupes.</>
+          <>Vous administrez l'IEF <b>{session.iefName || ''}</b> : les écoles et comptes créés ici seront automatiquement rattachés à cette IEF, sans impact sur les autres IEF.</>
         )}
       </div>
 
@@ -13073,6 +13101,12 @@ setSession(saved);
         await sb('GET', 'iefs', 'select=id&limit=1');
       } catch (e) {
         if (/relation .*iefs.* does not exist|not find the table/i.test(sbErrMsg(e))) missing.push('migration_multi_ief');
+      }
+      // Vérifie la colonne cycles sur schools (migration_school_cycles.sql)
+      try {
+        await sb('GET', 'schools', 'select=cycles&limit=1');
+      } catch (e) {
+        if (/cycles|does not exist|could not find|schema cache/i.test(sbErrMsg(e))) missing.push('migration_school_cycles');
       }
       if (!cancelled) setMigrationStatus({ checked: true, ok: missing.length === 0, missing });
     })();

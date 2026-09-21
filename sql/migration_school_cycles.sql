@@ -1,9 +1,12 @@
--- SYGENOP — Ajout du cycle scolaire aux écoles
--- À exécuter une seule fois dans Supabase > SQL Editor.
--- Le script est idempotent : il peut être relancé sans risque.
+-- ============================================================
+--  EduLink Pro — Cycles multiples sur les écoles (groupe scolaire)
+--  À exécuter dans l'éditeur SQL de Supabase.
+--  Idempotent.
+--  ============================================================
 
-alter table public.schools add column if not exists cycle text;
-create index if not exists idx_schools_cycle on public.schools(cycle);
+-- Ajoute la colonne cycles (tableau text) à la table schools.
+-- Une école simple = 1 cycle ; un groupe scolaire = 2 à 5 cycles.
+ALTER TABLE public.schools
+  ADD COLUMN IF NOT EXISTS cycles text[] DEFAULT '{}';
 
--- Rend immédiatement la nouvelle colonne visible par l'API REST de Supabase.
-select pg_notify('pgrst', 'reload schema');
+COMMENT ON COLUMN public.schools.cycles IS 'Cycles couverts par l''école (ex: {elementaire,moyen,secondaire}). Une école simple en a 1, un groupe scolaire en a 2 à 5.';
