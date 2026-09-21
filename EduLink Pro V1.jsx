@@ -1197,10 +1197,7 @@ async function loadSchoolData(id) {
         payload = result?.data || result;
         serverVersion = result?.version ?? null;
       } else {
-        const rows = await sb('GET', 'school_data', `school_id=eq.${id}&select=school_id,payload,version`);
-        const row = Array.isArray(rows) ? rows.find((r) => r && r.school_id === id) : null;
-        payload = (row && row.payload) || null;
-        serverVersion = row?.version ?? null;
+        throw new Error('Code IEF absent — reconnectez-vous pour accéder aux données.');
       }
     } else {
       throw new Error('Code d’accès absent pour cette école');
@@ -1315,16 +1312,8 @@ async function saveSchoolData(id, state, access) {
         result = await sb('POST', 'rpc/save_school_data_staff', '', { p_school_id: id, p_staff_id: staffId, p_code: staffCode, p_payload: mergedClean, p_expected_version: null });
       }
     } else if (adminCode) {
-    try {
       result = await sb('POST', 'rpc/save_school_data_admin', '', { p_school_id: id, p_admin_code: adminCode, p_payload: clean, p_expected_version: expectedVersion });
-    } catch (e) {
-      // Compatibilité avec les bases qui n'ont pas encore exécuté la migration
-      // ajoutant save_school_data_admin : admin-write protège déjà cette écriture.
-      const msg = sbErrMsg(e);
-      if (!/function|rpc|schema cache|not found|does not exist/i.test(msg)) throw e;
-      result = await sb('PATCH', 'school_data', `school_id=eq.${id}`, { payload: clean, version: (state.__version || 1) + 1 });
-    }
-  } else {
+    } else {
     throw new Error('Code d’accès absent pour cette école');
   }
   if (result?.ok === false) {
@@ -12745,7 +12734,7 @@ function IEFsAdminTab({ notify, iefId }) {
   );
 }
 
-function SuperAdminView({ notify, onOpenSchool, session }) {
+function SuperAdminView({ notify, onOpenSchool, session, migrationStatus }) {
   const isGlobalAdmin = !(session && session.iefId); // Super Admin racine (voit/gère toutes les IEF)
   const [tab, setTab] = useState('ecoles');
   const [adminIefId, setAdminIefId] = useState(session && session.iefId ? session.iefId : null);
@@ -12800,6 +12789,20 @@ const [iefList, setIefList] = useState([]);
 
   return (
     <div className="space-y-4 sygenop-fade">
+      {/* Avertissement migrations manquantes */}
+      {migrationStatus.checked && !migrationStatus.ok && (
+        <div className="sygenop-card px-4 py-3 text-xs font-semibold flex items-start gap-2" style={{ background: '#fef3c7', color: '#92400e', border: '1px solid #f59e0b' }}>
+          <AlertTriangle size={16} className="mt-0.5 shrink-0" />
+          <div>
+            <div className="font-bold mb-1">Migrations SQL requises</div>
+            <div className="font-normal">
+              Certaines migrations de sécurité ne sont pas appliquées sur la base Supabase.
+              Les fonctionnalités affectées peuvent ne pas fonctionner correctement.
+            </div>
+            <div className="font-normal mt-1 opacity-75">Fichiers manquants : {migrationStatus.missing.join(', ')}</div>
+          </div>
+        </div>
+      )}
       {/* Bandeau administrateur */}
       <div className="sygenop-card px-4 py-2.5 text-xs font-semibold flex items-center gap-2" style={{ background: 'var(--green-l)', color: 'var(--green-d)' }}>
         <Building2 size={14} />
@@ -12925,6 +12928,43 @@ setSession(saved);
 
   // Mémorise la rubrique active pour la restaurer après une actualisation.
   useEffect(() => { saveJSON(LS_ACTIVE, active); }, [active]);
+
+  // Vérification des migrations SQL critiques au démarrage.
+  // Essaie d'appeler des RPC qui n'existent que si les migrations sont
+  // appliquées. Si elles sont absentes, un avertissement s'affiche.
+  const [migrationStatus, setMigrationStatus] = useState({ checked: false, ok: true, missing: [] });
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      const missing = [];
+      // Vérifie check_school_code (migration_securite_rpc.sql)
+      try {
+        await sb('POST', 'rpc/check_school_code', '', { p_school_id: '00000000-0000-0000-0000-000000000000', p_code: 'test' });
+      } catch (e) {
+        if (/function|rpc|not found|does not exist/i.test(sbErrMsg(e))) missing.push('migration_securite_rpc');
+      }
+      // Vérifie search_public_schools (migration_login_search.sql)
+      try {
+        await sb('POST', 'rpc/search_public_schools', '', { p_query: 'te' });
+      } catch (e) {
+        if (/function|rpc|not found|does not exist/i.test(sbErrMsg(e))) missing.push('migration_login_search');
+      }
+      // Vérifie get_school_data (migration_securite_data.sql)
+      try {
+        await sb('POST', 'rpc/get_school_data', '', { p_school_id: '00000000-0000-0000-0000-000000000000', p_code: 'test' });
+      } catch (e) {
+        if (/function|rpc|not found|does not exist/i.test(sbErrMsg(e))) missing.push('migration_securite_data');
+      }
+      // Vérifie la table iefs (migration_multi_ief.sql)
+      try {
+        await sb('GET', 'iefs', 'select=id&limit=1');
+      } catch (e) {
+        if (/relation .*iefs.* does not exist|not find the table/i.test(sbErrMsg(e))) missing.push('migration_multi_ief');
+      }
+      if (!cancelled) setMigrationStatus({ checked: true, ok: missing.length === 0, missing });
+    })();
+    return () => { cancelled = true; };
+  }, []);
 
   const [syncStatus, setSyncStatus] = useState({ online: true, pendingCount: 0, syncing: false });
 
@@ -13300,7 +13340,7 @@ function openSchool(id, name, actif) {
   if (active === 'ief') {
     body = <IEFSchoolsView onOpenSchool={openSchool} session={session} />;
   } else if (active === 'superadmin') {
-    body = <SuperAdminView notify={notify} onOpenSchool={openSchool} session={session} />;
+    body = <SuperAdminView notify={notify} onOpenSchool={openSchool} session={session} migrationStatus={migrationStatus} />;
   } else if (active === 'dash') {
     body = (
       <DashboardView
