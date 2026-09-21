@@ -1261,6 +1261,33 @@ function mergeStaffRequestArrays(serverData, localData) {
   return out;
 }
 
+// Réunit deux versions d'un même payload en CAS DE CONFLIT DE VERSION
+// (deux auteurs sur la même école, ou une version serveur « fantôme » car une
+// lecture n'a pas renvoyé la colonne version). Stratégie sûre : on garde la
+// version serveur fraîche comme base (source de vérité la plus à jour) et on y
+// réapplique le brouillon local pour ses DEUX natures de contenu :
+//   - éléments présents uniquement dans le brouillon local (ajouts purs) ;
+//   - valeurs locales pour les objets/scalaires (l'auteur actif ne perd pas
+//     sa saisie), à condition que la base serveur ne les contienne pas déjà.
+// On ne supprime JAMAIS un enregistrement qui n'existe que côté serveur.
+function mergePayloadAdditive(serverData, localData) {
+  if (Array.isArray(serverData)) {
+    const map = new Map();
+    const nonId = (arr) => (arr || []).filter((el) => !(el && typeof el === 'object' && el.id != null));
+    (serverData || []).forEach((el) => { if (el && typeof el === 'object' && el.id != null) map.set(el.id, el); });
+    (localData || []).forEach((el) => { if (el && typeof el === 'object' && el.id != null) map.set(el.id, el); });
+    return [...map.values(), ...nonId(serverData), ...nonId(localData)];
+  }
+  if (serverData && typeof serverData === 'object' && localData && typeof localData === 'object') {
+    const out = { ...serverData };
+    for (const k of Object.keys(localData || {})) {
+      out[k] = (k in serverData) ? mergePayloadAdditive(serverData[k], localData[k]) : localData[k];
+    }
+    return out;
+  }
+  return localData !== undefined ? localData : serverData;
+}
+
 async function saveSchoolData(id, state, access) {
   const session = loadSessionJSON(LS_SESSION, null);
   // Le snapshot capturé à la saisie ne vaut que pour l'école d'origine pour
@@ -1292,8 +1319,25 @@ async function saveSchoolData(id, state, access) {
   delete clean.__version;
   const expectedVersion = state.__version ?? null;
   let result;
+  let savedPayload = clean;
     if (schoolCode) {
       result = await sb('POST', 'rpc/save_school_data', '', { p_school_id: id, p_code: schoolCode, p_payload: clean, p_expected_version: expectedVersion });
+      // Conflit de version (souvent « fantôme » : tant que get_school_data ne
+      // renvoie pas la version réelle, le client croit être en v1 et part avec
+      // un p_expected_version périmé → l'écriture est REFUSÉE bien qu'elle
+      // soit légitime). On recharge la version FRAÎCHE du serveur, on y
+      // réinjecte les données locales (aucune perte), puis on RENVOIE la
+      // sauvegarde sans verrou optimiste — la saisie n'est ainsi jamais
+      // abandonnée silencieusement.
+      if (result && result.ok === false && result.conflict) {
+        const fresh = await sb('POST', 'rpc/get_school_data', '', { p_school_id: id, p_code: schoolCode });
+        const freshData = fresh && fresh.data;
+        if (!freshData) throw new Error(result.error || 'Enregistrement refusé');
+        const mergedClean = { ...mergePayloadAdditive(freshData, clean) };
+        delete mergedClean.__version;
+        savedPayload = mergedClean;
+        result = await sb('POST', 'rpc/save_school_data', '', { p_school_id: id, p_code: schoolCode, p_payload: mergedClean, p_expected_version: null });
+      }
     } else if (staffId != null && staffCode) {
       // Credentials personnel issues de la session OU du snapshot : la
       // condition ne doit PAS exiger que la session courante soit encore
@@ -1312,10 +1356,23 @@ async function saveSchoolData(id, state, access) {
         if (!freshData) throw new Error(result.error || 'Enregistrement refusé');
         const mergedClean = { ...mergeStaffRequestArrays(freshData, clean) };
         delete mergedClean.__version;
+        savedPayload = mergedClean;
         result = await sb('POST', 'rpc/save_school_data_staff', '', { p_school_id: id, p_staff_id: staffId, p_code: staffCode, p_payload: mergedClean, p_expected_version: null });
       }
     } else if (adminCode) {
       result = await sb('POST', 'rpc/save_school_data_admin', '', { p_school_id: id, p_admin_code: adminCode, p_payload: clean, p_expected_version: expectedVersion });
+      // Même mécanisme de récupération que l'école : sur conflit (souvent
+      // fantôme dû à une lecture sans version), on recharge la version fraîche,
+      // on fusionne sans perte puis on resauvegarde sans verrou optimiste.
+      if (result && result.ok === false && result.conflict) {
+        const fresh = await sb('POST', 'rpc/get_school_data_admin', '', { p_school_id: id, p_admin_code: adminCode });
+        const freshData = fresh && fresh.data;
+        if (!freshData) throw new Error(result.error || 'Enregistrement administrateur refusé');
+        const mergedClean = { ...mergePayloadAdditive(freshData, clean) };
+        delete mergedClean.__version;
+        savedPayload = mergedClean;
+        result = await sb('POST', 'rpc/save_school_data_admin', '', { p_school_id: id, p_admin_code: adminCode, p_payload: mergedClean, p_expected_version: null });
+      }
     } else {
     throw new Error('Code d’accès absent pour cette école');
   }
@@ -1325,7 +1382,7 @@ async function saveSchoolData(id, state, access) {
     throw err;
   }
   const version = result?.version || ((state.__version || 1) + 1);
-  await primeCacheFromServer(id, { ...clean, __version: version }).catch(() => {});
+  await primeCacheFromServer(id, { ...savedPayload, __version: version }).catch(() => {});
   return version;
 }
 
@@ -13205,6 +13262,44 @@ setSession(saved);
       .finally(() => { if (!cancelled) setLoadingState(false); });
     return () => { cancelled = true; };
   }, [activeSchoolId, loadNonce]);
+
+  // TEMPS RÉEL pour les rôles de lecture/administration (IEF, Super Admin) :
+  // rechargement périodique de l'école ouverte pour que les saisies faites par
+  // les écoles apparaissent sans recharger la page ni rouvrir l'école. Utilise
+  // la même protection « keepLocal » que le chargement principal : une saisie
+  // locale en attente ou une version locale plus récente ne sont jamais
+  // écrasées par l'ancienne version serveur.
+  useEffect(() => {
+    const readerRole = session && (session.role === 'ief' || session.role === 'admin');
+    if (!readerRole || !activeSchoolId) return undefined;
+    let cancelled = false;
+    const refresh = async () => {
+      try {
+        const [localCache, st] = await Promise.all([
+          getInstantCache(activeSchoolId),
+          loadSchoolData(activeSchoolId),
+        ]);
+        if (cancelled) return;
+        const localVersion = (localCache && localCache.__version) || 0;
+        const serverVersion = (st && st.__version) || 0;
+        const [pending, blocked] = await Promise.all([
+          pendingSchools().catch(() => new Set()),
+          blockedSchools().catch(() => new Set()),
+        ]);
+        const keepLocal = pending.has(activeSchoolId) || blocked.has(activeSchoolId);
+        if (st && (keepLocal || localVersion > serverVersion)) {
+          if (localCache) await primeCacheFromServer(activeSchoolId, localCache).catch(() => {});
+        } else if (st) {
+          setSchoolState(st);
+        }
+      } catch (_) {
+        // Le chargement principal et le cache local restent prioritaires :
+        // une panne réseau ne doit pas faire disparaître l'affichage.
+      }
+    };
+    const timer = window.setInterval(refresh, 30000);
+    return () => { cancelled = true; window.clearInterval(timer); };
+  }, [session?.role, activeSchoolId]);
 
   // Mutateur générique : applique la fonction sur l'état local (optimiste,
   // toujours écrit dans IndexedDB immédiatement), puis synchronise avec

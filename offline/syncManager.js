@@ -143,9 +143,13 @@ function isDefinitiveSyncError(message) {
   // sont toujours transitoires : le serveur sera peut-être joignable au
   // prochain cycle, on ne doit pas abandonner l'élément.
   if (/failed to fetch|network|aborted|timeout|r[ée]seau|connection refused/i.test(m)) return false;
+  // « Conflit de version » n'est PAS (plus) définitif : saveSchoolData s'en
+  // récupère côté client en rechargeant la version fraîche, en fusionnant les
+  // données (aucune perte) puis en resauvegardant sans verrou. Abandonner le
+  // brouillon à ce stade perdait silencieusement les saisies (données qui
+  // « disparaissent » le lendemain, invisibles pour le Super Admin).
   return (
     /refus/i.test(m) ||                       // « Accès refusé », « Enregistrement … refusé »…
-    /conflit de version/i.test(m) ||          // verrouillage optimiste : la version ne matchera plus jamais sans rechargement
     /\b40[13]\b/.test(m) ||                   // codes HTTP 401/403 dans les erreurs REST
     /permission denied|row-level security|unauthorized|forbidden|invalid api key|\bjwt\b/i.test(m)
   );
