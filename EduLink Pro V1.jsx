@@ -3769,6 +3769,7 @@ function ClassModal({ cls, level, personnel, materiel = [], affectations = [], c
 
 function PersonnelListTab({ personnel, onAdd, onEdit, onDelete, onCard, onAttest, onProfile, readOnly, cycle }) {
   const [q, setQ] = useState('');
+  const [revealed, setRevealed] = useState({});
   const filtered = personnel.filter((p) => {
     const full = personFullName(p).toLowerCase();
     const query = q.toLowerCase();
@@ -3827,7 +3828,8 @@ function PersonnelListTab({ personnel, onAdd, onEdit, onDelete, onCard, onAttest
                         </div>
                         {STAFF_LOGIN_ROLES.has(p.role) && p.code && (
                           <div className="text-[11px] flex items-center gap-1.5 mt-0.5" style={{ color: 'var(--green-d)' }}>
-                            <KeyRound size={11} /> Code : <span className="font-mono font-semibold tracking-widest">{p.code}</span>
+                            <KeyRound size={11} /> Code : <span className="font-mono font-semibold tracking-widest">{revealed[p.id] ? p.code : '••••••'}</span>
+                            <button onClick={(e) => { e.stopPropagation(); setRevealed((r) => ({ ...r, [p.id]: !r[p.id] })); }} style={{ color: 'var(--muted)' }} title={revealed[p.id] ? 'Masquer le code' : 'Afficher le code'}>{revealed[p.id] ? <EyeOff size={12} /> : <Eye size={12} />}</button>
                             <button onClick={(e) => { e.stopPropagation(); copyToClipboard(p.code, () => {}); }} style={{ color: 'var(--muted)' }} title="Copier le code"><FileSpreadsheet size={12} /></button>
                           </div>
                         )}
@@ -5092,6 +5094,7 @@ function PersonnelProfileModal({ person, state, updateState, notify, readOnly, o
   const [dateDebut, setDateDebut] = useState(todayISO());
   const [dateFin, setDateFin] = useState('');
   const [commentaire, setCommentaire] = useState('');
+  const [revealed, setRevealed] = useState(false);
   const fullName = personFullName(person);
   const requests = (state?.staffAbsenceRequests || []).filter((request) => request.requesterId === person.id).slice().reverse();
   const statutTone = person.statut === 'Actif' ? 'green' : person.statut === 'Absent' ? 'red' : 'gold';
@@ -5155,7 +5158,7 @@ function PersonnelProfileModal({ person, state, updateState, notify, readOnly, o
             <div className="sm:col-span-2"><b className="text-xs" style={{ color: 'var(--muted)' }}>Spécialités</b><div className="flex flex-wrap gap-1 mt-1">{person.specialites.map((specialite) => <span key={specialite} className="text-[11px] px-2 py-0.5 rounded-full" style={{ background: 'var(--green-l)', color: 'var(--green-d)' }}>{specialite}</span>)}</div></div>
           )}
           {STAFF_LOGIN_ROLES.has(person.role) && person.code && (
-            <div className="sm:col-span-2"><b className="text-xs" style={{ color: 'var(--muted)' }}>Code de connexion</b><div className="flex items-center gap-1.5 mt-0.5"><span className="font-mono font-semibold tracking-widest text-sm" style={{ color: 'var(--green-d)' }}>{person.code}</span><button onClick={() => copyToClipboard(person.code, () => {})} style={{ color: 'var(--muted)' }} title="Copier le code"><FileSpreadsheet size={13} /></button></div></div>
+            <div className="sm:col-span-2"><b className="text-xs" style={{ color: 'var(--muted)' }}>Code de connexion</b><div className="flex items-center gap-1.5 mt-0.5"><span className="font-mono font-semibold tracking-widest text-sm" style={{ color: 'var(--green-d)' }}>{revealed ? person.code : '••••••'}</span><button onClick={() => setRevealed((r) => !r)} style={{ color: 'var(--muted)' }} title={revealed ? 'Masquer le code' : 'Afficher le code'}>{revealed ? <EyeOff size={13} /> : <Eye size={13} />}</button><button onClick={() => copyToClipboard(person.code, () => {})} style={{ color: 'var(--muted)' }} title="Copier le code"><FileSpreadsheet size={13} /></button></div></div>
           )}
         </div>
 
