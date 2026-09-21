@@ -1200,7 +1200,7 @@ async function loadSchoolData(id) {
         payload = result?.data || result;
         serverVersion = result?.version ?? null;
       } else {
-        throw new Error('Code IEF absent — reconnectez-vous pour accéder aux données.');
+        throw new Error('Code groupe scolaire absent — reconnectez-vous pour accéder aux données.');
       }
     } else {
       throw new Error('Code d’accès absent pour cette école');
@@ -1602,7 +1602,7 @@ function JoursFeriesGlobauxModal({ isRacine, nbEcoles, applying, onApply, onClos
       <div className="flex items-center justify-between"><div className="font-bold text-ink">Jours non ouvrés et fériés — toutes les écoles</div><button type="button" onClick={onClose}><X size={18} /></button></div>
       <p className="text-xs text-muted">
         {isRacine
-          ? <>Applique la même liste à <b>toutes les écoles actives du système</b>, tous types et cycles confondus, même si une IEF est sélectionnée dans le filtre.</>
+          ? <>Applique la même liste à <b>toutes les écoles actives du système</b>, tous types et cycles confondus, même si un groupe scolaire est sélectionné dans le filtre.</>
           : <>Applique la même liste aux <b>{nbEcoles} école(s) active(s)</b> de votre groupe scolaire, tous types confondus.</>}
         {' '}Les horaires hebdomadaires propres à chaque école sont conservés ; sa liste de jours non ouvrés est remplacée par celle-ci.
       </p>
@@ -5710,7 +5710,7 @@ function saveClass(form) {
     const commonStudentHeader = (
     <>
       {teacherName && <StudentTransferRequestsPanel state={state} updateState={updateState} notify={notify} mode="teacher" teacherName={teacherName} teacherStaffId={teacherStaffId} />}
-      {readOnly && <div className="sygenop-card px-4 py-2.5 text-xs font-semibold flex items-center gap-2" style={{ background: 'var(--gold-l)', color: '#92710c' }}><Eye size={14} /> Mode consultation (IEF) — lecture seule, aucune modification possible.</div>}
+      {readOnly && <div className="sygenop-card px-4 py-2.5 text-xs font-semibold flex items-center gap-2" style={{ background: 'var(--gold-l)', color: '#92710c' }}><Eye size={14} /> Mode consultation (Groupe scolaire) — lecture seule, aucune modification possible.</div>}
       {!!(state && state.mohebs) && <div className="sygenop-card px-4 py-2.5 text-xs font-semibold flex items-center gap-2" style={{ background: 'var(--green-l)', color: 'var(--green-d)' }}><BookOpen size={14} /> École MOHEBS — le barème inclut le domaine « Langue Nationale » pour chaque niveau.</div>}
       <StudentSectionNav section={studentSection} onChange={setStudentSection} />
     </>
@@ -7555,7 +7555,7 @@ function BulletinSheet({ state, cls, level, cfg, student, studentIndex, period }
         <div className="flex-1 text-center" style={{ fontSize: 11, lineHeight: 1.35 }}>
           <div>République du Sénégal</div>
           <div>Ministère de l'Éducation nationale</div>
-          <div style={{ fontWeight: 700 }}>Inspection de l'Éducation et de la Formation (IEF) {h.ief || 'GRAND DAKAR'}</div>
+          <div style={{ fontWeight: 700 }}>Groupe scolaire {h.ief || 'GRAND DAKAR'}</div>
           <div style={{ fontWeight: 800, fontSize: 13, marginTop: 2 }}>{(h.ecole || 'ÉCOLE').toUpperCase()}</div>
           <div style={{ fontSize: 10, marginTop: 2 }}>ANNÉE SCOLAIRE : {h.annee}</div>
         </div>
@@ -8537,7 +8537,7 @@ function DepensesTab({ depenses, onAdd, onEdit, onDelete, onPrint, readOnly, onE
     <div className="space-y-4">
       {readOnly && (
         <div className="sygenop-card px-4 py-2.5 text-xs font-semibold flex items-center gap-2" style={{ background: 'var(--gold-l)', color: '#92710c' }}>
-          <Eye size={14} /> Mode consultation (IEF) — lecture seule, aucune modification possible.
+          <Eye size={14} /> Mode consultation (Groupe scolaire) — lecture seule, aucune modification possible.
         </div>
       )}
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
@@ -9840,7 +9840,7 @@ const cleanDomains = domains
     <div className="space-y-4">
       {readOnly && (
         <div className="sygenop-card px-4 py-2.5 text-xs font-semibold flex items-center gap-2" style={{ background: 'var(--gold-l)', color: '#92710c' }}>
-          <Eye size={14} /> Mode consultation (IEF) — lecture seule, aucune modification possible.
+          <Eye size={14} /> Mode consultation (Groupe scolaire) — lecture seule, aucune modification possible.
         </div>
       )}
       <div className="sygenop-card p-4 flex flex-wrap items-center gap-3">
@@ -10239,7 +10239,7 @@ function PresenceElevesCard({ state, updateState, notify, readOnly, session }) {
     <div className="space-y-4">
       {readOnly && (
         <div className="sygenop-card px-4 py-2.5 text-xs font-semibold flex items-center gap-2" style={{ background: 'var(--gold-l)', color: '#92710c' }}>
-          <Eye size={14} /> Mode consultation (IEF) — lecture seule, aucune modification possible.
+          <Eye size={14} /> Mode consultation (Groupe scolaire) — lecture seule, aucune modification possible.
         </div>
       )}
       <div className="sygenop-card p-5 space-y-3">
@@ -10252,7 +10252,7 @@ function PresenceElevesCard({ state, updateState, notify, readOnly, session }) {
             </select>
           </div>
           <EtabField label="Inspection d'Académie (IA)" value={form.ia} onChange={(v) => set('ia', v)} disabled={readOnly} placeholder="Ex : DAKAR" />
-          <EtabField label="Inspection de l'Éducation et de la Formation (IEF)" value={form.ief} onChange={(v) => set('ief', v)} disabled={readOnly} placeholder="Ex : GRAND DAKAR" />
+          <EtabField label="Groupe scolaire de rattachement" value={form.ief} onChange={(v) => set('ief', v)} disabled={readOnly} placeholder="Ex : GRAND DAKAR" />
           <EtabField label={cycleTerminology(form.cycle || state.header?.cycle).head} value={form.directeur} onChange={(v) => set('directeur', v)} disabled={readOnly} placeholder={`Nom du/de la ${cycleTerminology(form.cycle || state.header?.cycle).head.toLowerCase()}`} />
           <EtabField label="Téléphone" value={form.tel} onChange={(v) => set('tel', v)} disabled={readOnly} placeholder="Ex : 77 000 00 00" />
           <EtabField label="Année scolaire" value={form.annee} onChange={(v) => set('annee', v)} disabled={readOnly} placeholder="Ex : 2026/2027" />
@@ -10878,7 +10878,7 @@ function DataView({ state, loading, updateState, notify, readOnly, session, acti
     <div className="space-y-4 sygenop-fade">
       {readOnly && (
         <div className="sygenop-card px-4 py-2.5 text-xs font-semibold flex items-center gap-2" style={{ background: 'var(--gold-l)', color: '#92710c' }}>
-          <Eye size={14} /> Mode consultation (IEF) — export et journal d'audit disponibles, import désactivé.
+          <Eye size={14} /> Mode consultation (Groupe scolaire) — export et journal d'audit disponibles, import désactivé.
         </div>
       )}
       <div className="flex flex-wrap gap-1.5 p-1 rounded-xl w-fit" style={{ background: 'var(--panel)', border: '1px solid var(--line)' }}>
@@ -10897,7 +10897,7 @@ function DataView({ state, loading, updateState, notify, readOnly, session, acti
       {tab === 'import' && (
         readOnly ? (
           <div className="sygenop-card p-10 text-center text-sm text-muted">
-            L'import de données n'est pas disponible en mode consultation (IEF).
+            L'import de données n'est pas disponible en mode consultation (Groupe scolaire).
           </div>
         ) : (
           <div className="space-y-4">
@@ -11624,7 +11624,7 @@ const [form, setForm] = useState(() => ({
                 </button>
               </div>
               <p className="text-[11px] mt-1 text-muted">
-                Une école désactivée est inaccessible à tous (directeur, enseignants, lecteur IEF).
+                Une école désactivée est inaccessible à tous (directeur, enseignants, lecteur du groupe scolaire).
               </p>
             </div>
           )}
@@ -12321,7 +12321,7 @@ function IEFAccountsTab({ notify, session, iefIdOverride, iefList }) {
         <div className="sygenop-card p-5 space-y-2">
           <div className="font-bold text-sm text-ink">Votre code Super Administrateur (racine)</div>
           <p className="text-xs text-muted">
-            C'est votre propre code, celui qui donne un accès complet à toutes les IEF. Vous pouvez le changer ici.
+            C'est votre propre code, celui qui donne un accès complet à tous les groupes scolaires. Vous pouvez le changer ici.
           </p>
           <div className="flex gap-2 max-w-md">
             <div className="relative flex-1">
@@ -12347,7 +12347,7 @@ function IEFAccountsTab({ notify, session, iefIdOverride, iefList }) {
 
       <div className="flex items-center justify-between">
         <div>
-          <div className="font-bold text-sm text-ink">Comptes IEF {iefId ? `— ${session.iefName || ''}` : '(périmètre global)'}</div>
+          <div className="font-bold text-sm text-ink">Comptes Groupe scolaire {iefId ? `— ${session.iefName || ''}` : '(périmètre global)'}</div>
           <p className="text-xs text-muted">Chacun se connecte via l'onglet « Groupe scolaire » ou « Super Admin » de l'écran de connexion, avec son propre code.</p>
         </div>
         {!missingTable && (
@@ -12631,7 +12631,7 @@ function IEFsAdminTab({ notify, iefId }) {
 
   async function handleSave(form) {
     if (modal && modal.id === GRAND_DAKAR_FAKE_ID) {
-      notify('IEF GRAND DAKAR est une IEF historique gérée automatiquement — ses accès ne peuvent pas être modifiés ici.', true);
+      notify('Groupe scolaire historique géré automatiquement — ses accès ne peuvent pas être modifiés ici.', true);
       setModal(null);
       return;
     }
@@ -12671,7 +12671,7 @@ function IEFsAdminTab({ notify, iefId }) {
     } catch (e) { notify('Erreur : ' + sbErrMsg(e), true); }
   }
   async function handleDelete(ief) {
-    if (schoolCounts[ief.id]) { notify('Impossible : cette IEF a encore des écoles rattachées', true); return; }
+      if (schoolCounts[ief.id]) { notify('Impossible : ce groupe scolaire a encore des écoles rattachées', true); return; }
     try {
       await sb('DELETE', 'iefs', `id=eq.${ief.id}`);
       notify('Groupe scolaire supprimé');
@@ -12685,7 +12685,7 @@ function IEFsAdminTab({ notify, iefId }) {
       <div className="sygenop-card p-5 space-y-3">
         <div className="font-bold text-sm flex items-center gap-2 text-ink"><AlertTriangle size={16} /> Migration requise</div>
         <p className="text-xs text-muted">
-          La table <code>iefs</code> n'existe pas encore dans votre base Supabase. Pour activer la gestion des IEF décentralisées, exécutez une fois ce script dans l'éditeur SQL de Supabase, puis rechargez cette page :
+          La table <code>iefs</code> n'existe pas encore dans votre base Supabase. Pour activer la gestion des groupes scolaires, exécutez une fois ce script dans l'éditeur SQL de Supabase, puis rechargez cette page :
         </p>
         <pre className="text-[11px] p-3 rounded-lg overflow-auto max-h-72" style={{ background: 'var(--bg)', color: 'var(--ink)', whiteSpace: 'pre-wrap', wordBreak: 'break-word' }}>{IEFS_TABLE_SQL}</pre>
         <div className="flex flex-wrap gap-2">
@@ -12721,7 +12721,7 @@ function IEFsAdminTab({ notify, iefId }) {
       ) : error ? (
         <div className="text-sm py-6 text-center" style={{ color: '#c0392b' }}>{error}</div>
       ) : iefs.length === 0 ? (
-        <div className="sygenop-card p-6 text-sm text-center text-muted">Aucune IEF pour ce périmètre.</div>
+        <div className="sygenop-card p-6 text-sm text-center text-muted">Aucun groupe scolaire pour ce périmètre.</div>
       ) : (
         <div className="grid gap-3 sm:grid-cols-2">
           {iefs.map((ief) => (
@@ -12779,7 +12779,7 @@ function IEFsAdminTab({ notify, iefId }) {
       )}
       {toDelete && isGlobal && (
         <ConfirmModal
-          title="Supprimer cette IEF ?"
+          title="Supprimer ce groupe scolaire ?"
           message={`« ${toDelete.nom} » sera définitivement supprimée. Cette action est impossible si des écoles y sont encore rattachées.`}
           onConfirm={() => handleDelete(toDelete)}
           onCancel={() => setToDelete(null)}
@@ -12832,12 +12832,12 @@ const [iefList, setIefList] = useState([]);
   }, [isGlobalAdmin, mergedIefList.length]);
 
   const selectedIefName = isGlobalAdmin
-    ? (mergedIefList.find((i) => i.id === adminIefId)?.nom || 'Toutes les IEF')
-    : (session.iefName || 'Votre IEF');
+    ? (mergedIefList.find((i) => i.id === adminIefId)?.nom || 'Tous les groupes scolaires')
+    : (session.iefName || 'Votre groupe scolaire');
 
   const tabs = [
     { id: 'ecoles', label: 'Écoles', icon: Building2 },
-    { id: 'admins', label: 'Administrateurs IEF', icon: UserCog },
+    { id: 'admins', label: 'Administrateurs Groupe', icon: UserCog },
     { id: 'iefs', label: 'Gestion des groupes', icon: Database },
   ];
 
@@ -13352,7 +13352,7 @@ function handleLogout() {
   }, [session, activeSchoolId, schoolState]);
 function openSchool(id, name, actif) {
     if (actif === false) {
-      notify('Cette école est désactivée. Elle est inaccessible à tous (directeur, enseignants, lecteur IEF).', true);
+      notify('Cette école est désactivée. Elle est inaccessible à tous (directeur, enseignants, lecteur du groupe scolaire).', true);
       return;
     }
     setActiveSchoolId(id);
