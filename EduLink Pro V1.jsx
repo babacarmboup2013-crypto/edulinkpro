@@ -5635,14 +5635,6 @@ const classes = (state && state.classes) || {};
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [level, classEntries.map(([id]) => id).join(',')]);
 
-  if (loading || !state) {
-    return (
-      <div className="flex items-center justify-center py-24 text-muted">
-        <Loader2 className="animate-spin mr-2" size={18} /> Chargement des données…
-      </div>
-    );
-  }
-
 function saveClass(form) {
     // École privée : blocage de la création d'une nouvelle classe au-delà de
     // la limite définie (par défaut 2, modifiable par le Super Admin).
@@ -5698,6 +5690,14 @@ function saveClass(form) {
         .filter((d) => d.disciplines.length),
     };
   }, [cfg, isTeacherScoped, currentClass, cycle]);
+
+  if (loading || !state) {
+    return (
+      <div className="flex items-center justify-center py-24 text-muted">
+        <Loader2 className="animate-spin mr-2" size={18} /> Chargement des données…
+      </div>
+    );
+  }
 
   if (isTeacherScoped && !availableLevels.length) {
     return (
