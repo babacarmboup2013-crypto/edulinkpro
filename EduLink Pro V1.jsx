@@ -11350,9 +11350,14 @@ const barData = cycleSchoolStats
       </div>
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
         {filtered.map((s) => (
-<button key={s.id} onClick={() => onOpenSchool(s.id, s.name, s.actif)} className="sygenop-card p-4 text-left">
+          <button key={s.id} onClick={() => onOpenSchool(s.id, s.name, s.actif)} className="sygenop-card p-4 text-left">
             <div className="font-bold text-sm text-ink">{s.name}</div>
-            <div className="text-xs mt-1 text-muted">{schoolTypeLabel(s.type)}</div>
+            <div className="flex items-center gap-2 mt-1">
+              <span className="text-xs text-muted">{schoolTypeLabel(s.type)}</span>
+              <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full" style={{ background: 'var(--green-l)', color: 'var(--green-d)' }}>
+                {cycleLabel(s.cycle)}
+              </span>
+            </div>
             <div className="flex flex-wrap gap-x-3 gap-y-1 mt-2.5 text-xs text-muted">
               <span className="flex items-center gap-1"><GraduationCap size={12} /> {s.effectif} élève(s)</span>
               <span className="flex items-center gap-1"><Users size={12} /> {s.personnelTotal} agent(s)</span>
@@ -12447,19 +12452,29 @@ function IEFModal({ ief, onSave, onClose }) {
     nom: ief?.nom || '',
     code_lecture: ief?.code_lecture || generateAccessCode(),
     code_admin: ief?.code_admin || generateAccessCode(),
+    cycles: ief?.cycles || [],
   }));
   const [showLecture, setShowLecture] = useState(true);
   const [showAdmin, setShowAdmin] = useState(false);
   const [busy, setBusy] = useState(false);
   function set(k, v) { setForm((f) => ({ ...f, [k]: v })); }
+  function toggleCycle(cycleId) {
+    setForm((f) => {
+      const current = f.cycles || [];
+      const next = current.includes(cycleId) ? current.filter((c) => c !== cycleId) : [...current, cycleId];
+      return { ...f, cycles: next };
+    });
+  }
   async function submit(e) {
     e.preventDefault();
     if (!form.nom.trim()) return;
+    if (!form.cycles || form.cycles.length < 2) return;
     setBusy(true);
     await onSave({ ...form, nom: form.nom.trim() });
     setBusy(false);
   }
   const fieldStyle = { borderColor: 'var(--line)', background: 'var(--panel)', color: 'var(--ink)' };
+  const cyclesValid = form.cycles && form.cycles.length >= 2;
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
       <form onSubmit={submit} className="sygenop-card p-6 max-w-md w-full sygenop-fade max-h-[90vh] overflow-auto">
@@ -12468,12 +12483,42 @@ function IEFModal({ ief, onSave, onClose }) {
           <button type="button" onClick={onClose} style={{ color: 'var(--muted)' }}><X size={18} /></button>
         </div>
         <p className="text-xs mb-4 text-muted">
-          Une IEF décentralisée fonctionne comme une antenne indépendante : ses écoles, son administrateur et son compte de consultation sont séparés des autres IEF.
+          Un groupe scolaire regroupe plusieurs cycles (2 à 5) sous un même nom. Chaque cycle correspond à un niveau d'enseignement.
         </p>
         <div className="space-y-3">
           <div>
             <label className="text-xs font-semibold block mb-1 text-muted">Nom du groupe scolaire *</label>
-            <input autoFocus value={form.nom} onChange={(e) => set('nom', e.target.value)} className="w-full px-3 py-2.5 rounded-lg border text-sm" style={fieldStyle} placeholder="Ex : IEF THIÈS" />
+            <input autoFocus value={form.nom} onChange={(e) => set('nom', e.target.value)} className="w-full px-3 py-2.5 rounded-lg border text-sm" style={fieldStyle} placeholder="Ex : Groupe Scolaire Liberté" />
+          </div>
+          <div>
+            <label className="text-xs font-semibold block mb-1 text-muted">Cycles couverts * <span className="font-normal">({form.cycles.length}/5 sélectionnés, min. 2)</span></label>
+            <div className="grid grid-cols-1 gap-1.5">
+              {CYCLE_OPTIONS.map((cycle) => {
+                const checked = (form.cycles || []).includes(cycle.value);
+                return (
+                  <button
+                    key={cycle.value}
+                    type="button"
+                    onClick={() => toggleCycle(cycle.value)}
+                    className="flex items-center gap-2 px-3 py-2 rounded-lg text-xs font-semibold text-left transition-colors"
+                    style={checked
+                      ? { background: 'var(--green-l)', color: 'var(--green-d)', border: '1.5px solid var(--green-d)' }
+                      : { background: 'var(--bg)', color: 'var(--muted)', border: '1.5px solid var(--line)' }}
+                  >
+                    <span className="w-4 h-4 rounded flex items-center justify-center" style={checked ? { background: 'var(--green-d)', color: '#fff' } : { border: '1.5px solid var(--line)' }}>
+                      {checked && '✓'}
+                    </span>
+                    {cycle.label}
+                  </button>
+                );
+              })}
+            </div>
+            {!cyclesValid && form.cycles.length > 0 && (
+              <p className="text-[11px] mt-1" style={{ color: 'var(--red)' }}>Sélectionnez au moins 2 cycles.</p>
+            )}
+            {form.cycles.length === 0 && (
+              <p className="text-[11px] mt-1 text-muted">Un groupe scolaire doit couvrir au moins 2 cycles.</p>
+            )}
           </div>
           <div>
             <label className="text-xs font-semibold block mb-1 text-muted">Code « Groupe scolaire (lecture seule) »</label>
@@ -12485,7 +12530,7 @@ function IEFModal({ ief, onSave, onClose }) {
               </div>
               <button type="button" onClick={() => set('code_lecture', generateAccessCode())} className="px-3 py-2 rounded-lg text-xs font-semibold whitespace-nowrap sygenop-btn sygenop-btn--ghost">Générer</button>
             </div>
-            <p className="text-[11px] mt-1 text-muted">Permet de consulter (sans modifier) toutes les écoles de cette IEF.</p>
+            <p className="text-[11px] mt-1 text-muted">Permet de consulter (sans modifier) toutes les écoles de cette groupe scolaire.</p>
           </div>
           <div>
             <label className="text-xs font-semibold block mb-1 text-muted">Code « Administrateur Groupe »</label>
@@ -12497,13 +12542,13 @@ function IEFModal({ ief, onSave, onClose }) {
               </div>
               <button type="button" onClick={() => set('code_admin', generateAccessCode())} className="px-3 py-2 rounded-lg text-xs font-semibold whitespace-nowrap sygenop-btn sygenop-btn--ghost">Générer</button>
             </div>
-            <p className="text-[11px] mt-1 text-muted">Donne un accès complet (créer/modifier des écoles, comptes) mais limité à cette seule IEF.</p>
+            <p className="text-[11px] mt-1 text-muted">Donne un accès complet (créer/modifier des écoles, comptes) mais limité à ce seul groupe scolaire.</p>
           </div>
         </div>
         <div className="flex justify-end gap-2 mt-6">
           <button type="button" onClick={onClose} className="px-3.5 py-2 rounded-lg text-sm font-semibold" style={{ background: 'var(--bg)', color: 'var(--ink)' }}>Annuler</button>
-          <button type="submit" disabled={busy} className="px-3.5 py-2 rounded-lg text-sm font-semibold text-white disabled:opacity-60" style={{ background: 'var(--green-d)' }}>
-            {busy ? 'Enregistrement…' : (isEdit ? 'Enregistrer' : 'Créer l\u2019IEF')}
+          <button type="submit" disabled={busy || !cyclesValid} className="px-3.5 py-2 rounded-lg text-sm font-semibold text-white disabled:opacity-60" style={{ background: 'var(--green-d)' }}>
+            {busy ? 'Enregistrement…' : (isEdit ? 'Enregistrer' : 'Créer le groupe scolaire')}
           </button>
         </div>
       </form>
@@ -12585,19 +12630,32 @@ function IEFsAdminTab({ notify, iefId }) {
   useEffect(() => { refresh(); }, [iefId]);
 
   async function handleSave(form) {
-    // L'IEF GRAND DAKAR est une IEF virtuelle (écoles ief_id null) : elle n'existe
-    // pas en base et ne peut pas être modifiée. On refuse silencieusement.
     if (modal && modal.id === GRAND_DAKAR_FAKE_ID) {
       notify('IEF GRAND DAKAR est une IEF historique gérée automatiquement — ses accès ne peuvent pas être modifiés ici.', true);
       setModal(null);
       return;
     }
     try {
+      const payload = { ...form };
       if (modal && modal !== 'new' && modal.id) {
-        await sb('PATCH', 'iefs', `id=eq.${modal.id}`, form);
+        try {
+          await sb('PATCH', 'iefs', `id=eq.${modal.id}`, payload);
+        } catch (e) {
+          if (/cycles|schema cache/gi.test(sbErrMsg(e))) {
+            delete payload.cycles;
+            await sb('PATCH', 'iefs', `id=eq.${modal.id}`, payload);
+          } else throw e;
+        }
         notify('Groupe scolaire modifié avec succès');
       } else {
-        await sb('POST', 'iefs', '', { ...form, actif: true });
+        try {
+          await sb('POST', 'iefs', '', { ...payload, actif: true });
+        } catch (e) {
+          if (/cycles|schema cache/gi.test(sbErrMsg(e))) {
+            const { cycles, ...rest } = payload;
+            await sb('POST', 'iefs', '', { ...rest, actif: true });
+          } else throw e;
+        }
         notify('Groupe scolaire créé avec succès — communiquez ses codes à l\u2019équipe concernée');
       }
       setModal(null);
@@ -12682,6 +12740,15 @@ function IEFsAdminTab({ notify, iefId }) {
                   <span className="text-[11px] font-semibold px-2 py-1 rounded-full" style={{ background: 'var(--green-l)', color: 'var(--green-d)' }}>Active</span>
                 )}
               </div>
+              {Array.isArray(ief.cycles) && ief.cycles.length > 0 && (
+                <div className="flex flex-wrap gap-1">
+                  {ief.cycles.map((c) => (
+                    <span key={c} className="text-[10px] font-semibold px-2 py-0.5 rounded-full" style={{ background: 'var(--green-l)', color: 'var(--green-d)' }}>
+                      {cycleLabel(c)}
+                    </span>
+                  ))}
+                </div>
+              )}
               <div className="text-[11px] space-y-1 font-mono text-muted">
                 <div className="flex items-center justify-between">
                   <span>Code lecture : {revealed[ief.id + '_l'] ? ief.code_lecture : '••••••'}</span>
