@@ -103,7 +103,26 @@ security definer
 set search_path = public
 as $$
 begin
-  delete from public.login_attempts where identifier = p_identifier;
+  update public.login_attempts
+     set fails = 0, locked_until = null, last_attempt = now()
+   where identifier = p_identifier;
+end;
+$$;
+
+-- Verrouille un identifiant manuellement (pour le hard cap par école).
+create or replace function public._rl_lock(p_identifier text, p_minutes integer default 15)
+returns void
+language plpgsql
+security definer
+set search_path = public
+as $$
+begin
+  insert into public.login_attempts as la (identifier, fails, locked_until, last_attempt)
+  values (p_identifier, 5, now() + (p_minutes || ' minutes')::interval, now())
+  on conflict (identifier) do update
+    set fails        = 5,
+        locked_until = now() + (p_minutes || ' minutes')::interval,
+        last_attempt = now();
 end;
 $$;
 
@@ -111,6 +130,7 @@ revoke all on function public._rl_remaining_minutes(text) from anon, authenticat
 revoke all on function public._rl_is_locked(text) from anon, authenticated;
 revoke all on function public._rl_fail(text) from anon, authenticated;
 revoke all on function public._rl_success(text) from anon, authenticated;
+revoke all on function public._rl_lock(text, integer) from anon, authenticated;
 
 -- ------------------------------------------------------------
 -- 2) VÉRIFICATION DU CODE ÉCOLE (avec rate limiting)
@@ -122,9 +142,17 @@ security definer
 set search_path = public
 as $$
 declare
-  v_key text := 'school:' || coalesce(p_school_id::text, '');
-  v_ok  boolean;
+  v_key     text := 'school:' || coalesce(p_school_id::text, '') || ':' || md5(lower(trim(coalesce(p_code, ''))));
+  v_school  text := 'school:' || coalesce(p_school_id::text, '');
+  v_ok      boolean;
 begin
+  -- Hard cap par école (20 tentatives / 15 min, quel que soit le code)
+  if public._rl_is_locked(v_school) then
+    raise exception 'Trop de tentatives pour cette école. Réessayez dans % minute(s).',
+      public._rl_remaining_minutes(v_school);
+  end if;
+
+  -- Soft lock par code spécifique (5 tentatives / 15 min)
   if public._rl_is_locked(v_key) then
     raise exception 'Trop de tentatives. Réessayez dans % minute(s).',
       public._rl_remaining_minutes(v_key);
@@ -141,6 +169,10 @@ begin
     perform public._rl_success(v_key);
   else
     perform public._rl_fail(v_key);
+    -- Incrémenter aussi le cap par école
+    if not public._rl_is_locked(v_school) then
+      perform public._rl_fail(v_school);
+    end if;
   end if;
   return coalesce(v_ok, false);
 end;
@@ -334,10 +366,16 @@ security definer
 set search_path = public
 as $$
 declare
-  v_key     text := 'school:' || coalesce(p_school_id::text, '');
+  v_key     text := 'school:' || coalesce(p_school_id::text, '') || ':' || md5(lower(trim(coalesce(p_code, ''))));
+  v_school  text := 'school:' || coalesce(p_school_id::text, '');
   v_payload jsonb;
   v_ok      boolean;
 begin
+  if public._rl_is_locked(v_school) then
+    raise exception 'Trop de tentatives pour cette école. Réessayez dans % minute(s).',
+      public._rl_remaining_minutes(v_school);
+  end if;
+
   if public._rl_is_locked(v_key) then
     raise exception 'Trop de tentatives. Réessayez dans % minute(s).',
       public._rl_remaining_minutes(v_key);
@@ -352,6 +390,9 @@ begin
 
   if not coalesce(v_ok, false) then
     perform public._rl_fail(v_key);
+    if not public._rl_is_locked(v_school) then
+      perform public._rl_fail(v_school);
+    end if;
     return jsonb_build_object('ok', false, 'error', 'Accès refusé');
   end if;
   perform public._rl_success(v_key);
@@ -372,18 +413,25 @@ $$;
 grant execute on function public.get_school_data(uuid, text) to anon;
 grant execute on function public.get_school_data(uuid, text) to authenticated;
 
-create or replace function public.save_school_data(p_school_id uuid, p_code text, p_payload jsonb)
+create or replace function public.save_school_data(p_school_id uuid, p_code text, p_payload jsonb, p_expected_version integer default null)
 returns jsonb
 language plpgsql
 security definer
 set search_path = public
 as $$
 declare
-  v_key         text := 'school:' || coalesce(p_school_id::text, '');
+  v_key         text := 'school:' || coalesce(p_school_id::text, '') || ':' || md5(lower(trim(coalesce(p_code, ''))));
+  v_school      text := 'school:' || coalesce(p_school_id::text, '');
   v_ok          boolean;
   v_exists      boolean;
+  v_current_version int;
   v_new_version int;
 begin
+  if public._rl_is_locked(v_school) then
+    raise exception 'Trop de tentatives pour cette école. Réessayez dans % minute(s).',
+      public._rl_remaining_minutes(v_school);
+  end if;
+
   if public._rl_is_locked(v_key) then
     raise exception 'Trop de tentatives. Réessayez dans % minute(s).',
       public._rl_remaining_minutes(v_key);
@@ -398,9 +446,24 @@ begin
 
   if not coalesce(v_ok, false) then
     perform public._rl_fail(v_key);
+    if not public._rl_is_locked(v_school) then
+      perform public._rl_fail(v_school);
+    end if;
     return jsonb_build_object('ok', false, 'error', 'Accès refusé');
   end if;
   perform public._rl_success(v_key);
+
+  select version into v_current_version from public.school_data where school_id = p_school_id;
+  v_exists := v_current_version is not null;
+
+  if v_exists and p_expected_version is not null and p_expected_version <> v_current_version then
+    return jsonb_build_object(
+      'ok', false,
+      'error', 'Conflit de version : ces données ont été modifiées entretemps par quelqu''un d''autre. Rechargez la page puis refaites votre action.',
+      'conflict', true,
+      'server_version', v_current_version
+    );
+  end if;
 
   select exists (
     select 1 from public.school_data where school_id = p_school_id
@@ -423,8 +486,8 @@ begin
 end;
 $$;
 
-grant execute on function public.save_school_data(uuid, text, jsonb) to anon;
-grant execute on function public.save_school_data(uuid, text, jsonb) to authenticated;
+grant execute on function public.save_school_data(uuid, text, jsonb, integer) to anon;
+grant execute on function public.save_school_data(uuid, text, jsonb, integer) to authenticated;
 
 -- ------------------------------------------------------------
 -- 7) LECTURE / ÉCRITURE ADMIN (rate limiting par md5(code))
