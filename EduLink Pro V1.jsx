@@ -11670,10 +11670,14 @@ const [form, setForm] = useState(() => ({
    avant décentralisation. Utilisé dans le sélecteur du Super Admin. */
 const GRAND_DAKAR_FAKE_ID = '__GRAND_DAKAR__';
 
-function EcolesAdminTab({ notify, onOpenSchool, session, iefIdOverride }) {
+function EcolesAdminTab({ notify, onOpenSchool, session, iefIdOverride, iefList: iefListProp }) {
   const iefId = iefIdOverride !== undefined && iefIdOverride !== null ? iefIdOverride : (session && session.iefId);
   const isGlobalAdmin = !iefId;
   const isGrandDakar = iefId === GRAND_DAKAR_FAKE_ID;
+  // Résout le vrai ief_id de GRAND DAKAR depuis la liste IEF
+  const grandDakarRealId = isGrandDakar
+    ? ((Array.isArray(iefListProp) && iefListProp.find((i) => i.nom && i.nom.toUpperCase().includes('GRAND DAKAR'))?.id) || null)
+    : null;
   const [schools, setSchools] = useState([]);
   const [iefList, setIefList] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -11754,7 +11758,8 @@ async function refresh() {
   }, [iefId]);
 
   async function handleSave(form) {
-    const iefField = { ief_id: isGrandDakar ? null : (isGlobalAdmin ? (form.ief_id || null) : iefId) };
+    // GRAND DAKAR utilise le vrai UUID de la table iefs (pas null)
+    const iefField = { ief_id: isGrandDakar ? grandDakarRealId : (isGlobalAdmin ? (form.ief_id || null) : iefId) };
     try {
       let directeurSaved = true;
       if (modal && modal !== 'new' && modal.id) {
@@ -12225,10 +12230,14 @@ where not exists (
 --     sql/migration_rate_limit.sql     (anti brute-force serveur)
 -- ============================================================`;
 
-function IEFAccountsTab({ notify, session, iefIdOverride }) {
+function IEFAccountsTab({ notify, session, iefIdOverride, iefList }) {
   const iefId = iefIdOverride !== undefined && iefIdOverride !== null ? iefIdOverride : (session && session.iefId);
   const isGlobalAdmin = !iefId;
   const isGrandDakar = iefId === GRAND_DAKAR_FAKE_ID;
+  // Résout le vrai ief_id de GRAND DAKAR depuis la liste IEF (pas null)
+  const grandDakarRealId = isGrandDakar
+    ? ((Array.isArray(iefList) && iefList.find((i) => i.nom && i.nom.toUpperCase().includes('GRAND DAKAR'))?.id) || null)
+    : null;
   const [admins, setAdmins] = useState([]);
   const [loading, setLoading] = useState(true);
   const [missingTable, setMissingTable] = useState(false);
@@ -12246,9 +12255,19 @@ function IEFAccountsTab({ notify, session, iefIdOverride }) {
     setError(null);
     setMissingTable(false);
     try {
-      const params = iefId
-        ? (isGrandDakar ? 'order=created_at.asc&ief_id=is.null' : `order=created_at.asc&ief_id=eq.${iefId}`)
-        : 'order=created_at.asc&ief_id=is.null';
+      // Pour GRAND DAKAR, cherche les admins avec le vrai UUID OU ceux encore
+      // avec ief_id=null (compatibilité avec les anciens comptes créés avant le fix).
+      let params;
+      if (isGrandDakar) {
+        const realId = grandDakarRealId;
+        params = realId
+          ? `order=created_at.asc&or=(ief_id.eq.${realId},ief_id.is.null)`
+          : 'order=created_at.asc&ief_id=is.null';
+      } else if (iefId) {
+        params = `order=created_at.asc&ief_id=eq.${iefId}`;
+      } else {
+        params = 'order=created_at.asc&ief_id=is.null';
+      }
       const rows = (await sb('GET', 'admins', params)) || [];
       setAdmins(rows);
     } catch (e) {
@@ -12287,9 +12306,9 @@ function IEFAccountsTab({ notify, session, iefIdOverride }) {
 
   async function handleSave(form) {
     try {
-      // Pour l'IEF GRAND DAKAR (sentinelle), les comptes sont créés sans
-      // ief_id (NULL) — c'est ainsi qu'ils sont rattachés à l'IEF historique.
-      const accountIefId = isGrandDakar ? null : iefId;
+      // Résout le vrai ief_id : GRAND DAKAR utilise le UUID réel de la table iefs
+      // (pas null) car les RPC exigent ief_id IS NOT NULL pour autoriser l'accès.
+      const accountIefId = isGrandDakar ? grandDakarRealId : iefId;
       if (modal && modal !== 'new' && modal.id) {
         await sb('PATCH', 'admins', `id=eq.${modal.id}`, { nom: form.nom, code: form.code, role: form.role });
         notify('Compte modifié');
@@ -12837,8 +12856,8 @@ const [iefList, setIefList] = useState([]);
           </button>
         ))}
       </div>
-      {tab === 'ecoles' && <EcolesAdminTab notify={notify} onOpenSchool={onOpenSchool} session={session} iefIdOverride={activeIefId} />}
-      {tab === 'admins' && <IEFAccountsTab notify={notify} session={session} iefIdOverride={activeIefId} />}
+      {tab === 'ecoles' && <EcolesAdminTab notify={notify} onOpenSchool={onOpenSchool} session={session} iefIdOverride={activeIefId} iefList={mergedIefList} />}
+      {tab === 'admins' && <IEFAccountsTab notify={notify} session={session} iefIdOverride={activeIefId} iefList={mergedIefList} />}
       {tab === 'iefs' && <IEFsAdminTab notify={notify} iefId={activeIefId} />}
     </div>
   );
