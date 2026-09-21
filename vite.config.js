@@ -14,6 +14,11 @@ export default defineConfig({
         home: 'home.html',
         connect: 'connect.html',
       },
+      output: {
+        manualChunks: {
+          recharts: ['recharts'],
+        },
+      },
     },
   },
   server: {

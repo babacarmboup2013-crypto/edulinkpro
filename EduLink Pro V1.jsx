@@ -13488,7 +13488,11 @@ function openSchool(id, name, actif) {
             <ActualitesTicker actualites={schoolState.actualites} onOpen={() => setActive('actualites')} />
           )}
           <main id="sygenop-print-area" className="flex-1 p-4 md:p-6 lg:p-8 max-w-[1500px] w-full">
-            <ErrorBoundary>{body}</ErrorBoundary>
+            <ErrorBoundary>
+              <React.Suspense fallback={<div className="flex items-center justify-center p-12"><Loader2 size={24} className="animate-spin" style={{ color: 'var(--accent)' }} /></div>}>
+                {body}
+              </React.Suspense>
+            </ErrorBoundary>
           </main>
         </div>
       </div>
