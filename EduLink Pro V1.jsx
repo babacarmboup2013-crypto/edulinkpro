@@ -1964,6 +1964,28 @@ function GlobalStyles({ dark }) {
       .bg-bg{ background:var(--bg); }
       .border-line{ border-color:var(--line); }
 
+      /* ---------- Filigrane logo ---------- */
+      #sygenop-print-area{ position:relative; }
+      #sygenop-print-area::before{
+        content:"";
+        position:fixed;
+        top:50%; left:50%;
+        transform:translate(-50%,-50%);
+        width:min(520px,70vw); height:min(520px,70vw);
+        background:url('${import.meta.env.BASE_URL}edulink-logo-light.png') center/contain no-repeat;
+        opacity:.04;
+        pointer-events:none;
+        z-index:0;
+      }
+      #sygenop-print-area > *{ position:relative; z-index:1; }
+      .dark #sygenop-print-area::before{
+        background:url('${import.meta.env.BASE_URL}edulink-logo-dark.png') center/contain no-repeat;
+        opacity:.06;
+      }
+      @media print{
+        #sygenop-print-area::before{ display:none !important; }
+      }
+
       /* ---------- Synthèse / Bulletins ---------- */
       .synth-table{ width:100%; border-collapse:collapse; font-size:11.5px; }
       .synth-table th, .synth-table td{ border:1px solid var(--line); padding:5px 7px; text-align:center; }
