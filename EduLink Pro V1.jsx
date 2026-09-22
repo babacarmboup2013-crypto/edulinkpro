@@ -1867,16 +1867,16 @@ const THEME_VARS_LIGHT = {
   '--modal-overlay': 'rgba(10,30,61,.5)', '--modal-card': 'rgba(255,255,255,.92)', '--modal-line': 'rgba(229,233,241,.85)',
 };
 const THEME_VARS_DARK = {
-  '--ink': '#e2e8f0', '--green': '#3b82f6', '--green-d': '#60a5fa', '--green-l': '#1e293b',
-  '--green-hover': '#93c5fd',
-  '--gold': '#fbbf24', '--gold-l': '#422006', '--gold-hover': '#fcd34d',
+  '--ink': '#e2e8f0', '--green': '#0a1e3d', '--green-d': '#dde6f2', '--green-l': '#1e293b',
+  '--green-hover': '#07152b',
+  '--gold': '#ffd100', '--gold-l': '#422006', '--gold-hover': '#e6bc00',
   '--red': '#f87171', '--red-l': '#450a0a',
   '--success': '#34d399', '--success-l': '#064e3b',
   '--warning': '#fbbf24', '--warning-l': '#422006',
   '--info': '#60a5fa', '--info-l': '#1e3a5f',
   '--bg': '#0f172a', '--panel': '#1e293b', '--line': '#334155', '--muted': '#94a3b8',
   '--sidebar': '#0a1e3d', '--sidebar-muted': '#8fa8c9',
-  '--modal-overlay': 'rgba(2,6,23,.62)', '--modal-card': 'rgba(15,23,42,.84)', '--modal-line': 'rgba(51,65,85,.5)',
+  '--modal-overlay': 'rgba(10,30,61,.62)', '--modal-card': 'rgba(15,23,42,.84)', '--modal-line': 'rgba(51,65,85,.5)',
 };
 
 function GlobalStyles({ dark }) {

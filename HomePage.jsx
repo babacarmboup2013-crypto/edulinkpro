@@ -5,7 +5,7 @@ import ChesterWidget from './components/Chester.jsx';
    EduLink Pro — Page d'accueil
    ----------------------------------------------------------------
    Design system inspiré de la charte du logo :
-   badge bleu nuit (#020617), anneau blanc, dot cyan (#ffd100).
+   badge bleu marine (#0a1e3d), anneau blanc, dot jaune (#ffd100).
    Typographie : Inter. Grille 8px. Bento grid.
    ================================================================ */
 
@@ -461,7 +461,7 @@ export default function HomePage({ onEnter }) {
             <div className="edl-visual" data-reveal data-delay="120">
               <div className="edl-visual-ring" aria-hidden="true">
                 <svg viewBox="0 0 400 400" fill="none">
-                  <circle cx="200" cy="200" r="198" stroke="#020617" strokeOpacity=".12" strokeWidth="1.5" strokeDasharray="6 8" />
+                   <circle cx="200" cy="200" r="198" stroke="#0a1e3d" strokeOpacity=".12" strokeWidth="1.5" strokeDasharray="6 8" />
                   <circle cx="90" cy="80" r="9" fill="#ffd100" />
                   <circle cx="315" cy="320" r="6" fill="#ffd100" />
                 </svg>
@@ -474,7 +474,7 @@ export default function HomePage({ onEnter }) {
                 <img src={`${import.meta.env.BASE_URL}illustrations/tableau-de-bord.svg`} alt="Aperçu du tableau de bord EduLink Pro" />
               </div>
               <div className="edl-float-chip">
-                <div className="ic"><Icon name="chart" size={20} color="#020617" /></div>
+                <div className="ic"><Icon name="chart" size={20} color="#0a1e3d" /></div>
                 <div>
                   <div className="t">Présences 96%</div>
                   <div className="s">suivi en temps réel</div>
@@ -507,7 +507,7 @@ export default function HomePage({ onEnter }) {
                   <span className="grow"><Icon name="arrow" size={16} /></span>
                 </div>
                 <div className="edl-feat-body">
-                  <div className="ic"><Icon name="dashboard" size={22} color="#020617" /></div>
+                  <div className="ic"><Icon name="dashboard" size={22} color="#0a1e3d" /></div>
                   <h3>Tableau de bord intelligent</h3>
                   <p>Effectifs, présences, notes et paiements agrégés sur une vue globale, en temps réel, pour chaque école.</p>
                   <div className="edl-pillrow">
@@ -530,7 +530,7 @@ export default function HomePage({ onEnter }) {
                       <span className="grow"><Icon name="arrow" size={16} /></span>
                     </div>
                     <div className="edl-feat-body">
-                      <div className="ic"><Icon name={f.icon} size={22} color="#020617" /></div>
+                      <div className="ic"><Icon name={f.icon} size={22} color="#0a1e3d" /></div>
                       <h3>{f.title}</h3>
                       <p>{f.desc}</p>
                       <div className="edl-pillrow">{f.pills.map((p) => <span className="edl-pill" key={p}>{p}</span>)}</div>
@@ -550,7 +550,7 @@ export default function HomePage({ onEnter }) {
                       <span className="grow"><Icon name="arrow" size={16} /></span>
                     </div>
                     <div className="edl-feat-body">
-                      <div className="ic"><Icon name={f.icon} size={22} color="#020617" /></div>
+                      <div className="ic"><Icon name={f.icon} size={22} color="#0a1e3d" /></div>
                       <h3>{f.title}</h3>
                       <p>{f.desc}</p>
                       <div className="edl-pillrow">{f.pills.map((p) => <span className="edl-pill" key={p}>{p}</span>)}</div>
@@ -664,7 +664,7 @@ export default function HomePage({ onEnter }) {
                   </div>
                 </div>
                 <div className="edl-contact-card">
-                  <div className="ic" style={{ background: '#e0f2fe', color: '#4A90D9' }}>
+                  <div className="ic" style={{ background: '#dde6f2', color: '#0a1e3d' }}>
                     <svg width="22" height="22" viewBox="0 0 24 24" fill="#ffd100" aria-hidden="true">
                       <path d="M12.04 2C6.58 2 2.13 6.45 2.13 11.91c0 1.75.46 3.45 1.32 4.95L2 22l5.25-1.38a9.9 9.9 0 0 0 4.78 1.22h.01c5.46 0 9.91-4.45 9.91-9.91C21.95 6.45 17.5 2 12.04 2m5.83 14.12c-.25.7-1.45 1.33-2 1.38-.53.05-1.03.24-3.46-.72-2.92-1.15-4.77-4.13-4.92-4.32-.14-.2-1.17-1.56-1.17-2.97 0-1.41.74-2.1 1-2.39.26-.28.57-.35.76-.35.19 0 .38 0 .54.01.18.01.41-.07.64.49.24.57.8 1.97.87 2.11.07.14.12.31.02.5-.1.19-.14.31-.29.48-.14.17-.3.38-.43.5-.14.14-.29.3-.12.58.17.28.74 1.22 1.59 1.97 1.09.97 2 1.27 2.29 1.42.29.14.45.12.62-.07.17-.2.72-.84.91-1.13.19-.29.38-.24.64-.14.26.09 1.66.78 1.95.93.28.14.47.21.54.33.07.11.07.66-.18 1.29z" />
                     </svg>
