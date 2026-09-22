@@ -5,23 +5,23 @@ import ChesterWidget from './components/Chester.jsx';
    EduLink Pro — Page d'accueil
    ----------------------------------------------------------------
    Design system inspiré de la charte du logo :
-   badge bleu nuit (#020617), anneau blanc, dot cyan (#22d3ee).
+   badge bleu nuit (#020617), anneau blanc, dot cyan (#ffd100).
    Typographie : Inter. Grille 8px. Bento grid.
    ================================================================ */
 
 const BRAND = {
-  green900: '#020617',
-  green800: '#0f172a',
-  green700: '#1e293b',
-  green600: '#4A90D9',
-  green500: '#22d3ee',
-  green50:  '#f0f4f8',
-  gold:     '#d4a017',
-  goldSoft: '#fef9e7',
-  ink:      '#0f172a',
-  body:     '#475569',
-  muted:    '#64748b',
-  line:     '#e2e8f0',
+  green900: '#0a1e3d',
+  green800: '#0d2448',
+  green700: '#132d55',
+  green600: '#0a1e3d',
+  green500: '#ffd100',
+  green50:  '#f8f9fc',
+  gold:     '#ffd100',
+  goldSoft: '#fff8cf',
+  ink:      '#172033',
+  body:     '#6d778b',
+  muted:    '#6d778b',
+  line:     '#e5e9f1',
   white:    '#ffffff',
 };
 
@@ -48,7 +48,7 @@ const css = `
 .edl-brand-name{display:flex;flex-direction:column;line-height:1.15}
 .edl-brand-name b{font-size:1.2rem;font-weight:800;letter-spacing:-.02em;color:var(--ink)}
 .edl-brand-title{display:flex;align-items:center;gap:7px}
-.edl-brand-title em{font-style:normal;font-size:.66rem;font-weight:800;color:#fff;background:linear-gradient(135deg,#f4d97e,#d4a017);padding:2px 7px;border-radius:6px;letter-spacing:.03em;box-shadow:0 2px 10px rgba(212,160,23,.5)}
+.edl-brand-title em{font-style:normal;font-size:.66rem;font-weight:800;color:#fff;background:linear-gradient(135deg,#f4d97e,#ffd100);padding:2px 7px;border-radius:6px;letter-spacing:.03em;box-shadow:0 2px 10px rgba(212,160,23,.5)}
 .edl-brand-name small{font-size:.72rem;font-weight:600;color:var(--muted);margin-top:3px}
 .edl-navlinks{display:flex;align-items:center;gap:6px}
 .edl-navlinks a{position:relative;padding:9px 14px;font-size:.9rem;font-weight:600;color:var(--muted);text-decoration:none;border-radius:9px;transition:color .2s,background .2s}
@@ -77,8 +77,8 @@ const css = `
 
 /* ---------- Hero ---------- */
 .edl-hero{position:relative;background:
-  radial-gradient(900px 380px at 88% -10%,rgba(16,163,116,.10),transparent 60%),
-  radial-gradient(700px 320px at 0% 100%,rgba(212,160,23,.08),transparent 55%);
+  radial-gradient(900px 380px at 88% -10%,rgba(10,30,61,.10),transparent 60%),
+  radial-gradient(700px 320px at 0% 100%,rgba(255,209,0,.08),transparent 55%);
   border-bottom:1px solid var(--line);overflow:hidden}
 .edl-hero-watermark{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;pointer-events:none;z-index:0}
 .edl-hero-watermark img{width:720px;height:auto;max-width:90vw;opacity:.08}
@@ -132,7 +132,7 @@ const css = `
 /* ---------- Bento features ---------- */
 .edl-bento{display:flex;flex-direction:column;gap:22px}
 .edl-feat{position:relative;background:#fff;border:1px solid var(--line);border-radius:22px;overflow:hidden;transition:transform .3s cubic-bezier(.16,1,.3,1),box-shadow .3s,border-color .3s}
-.edl-feat:hover{transform:translateY(-4px);box-shadow:0 28px 60px -30px rgba(2,6,23,.35);border-color:rgba(30,64,175,.3)}
+.edl-feat:hover{transform:translateY(-4px);box-shadow:0 28px 60px -30px rgba(2,6,23,.35);border-color:rgba(10,30,61,.3)}
 .edl-feat--wide{display:grid;grid-template-columns:1.05fr 1fr}
 .edl-feat--dark{background:var(--g900);border-color:transparent}
 .edl-feat-media{position:relative;background:var(--g900);overflow:hidden}
@@ -153,7 +153,7 @@ const css = `
 .edl-feat-body p{font-size:.95rem;color:var(--body);line-height:1.65}
 .edl-feat--dark .edl-feat-body p{color:#cfe6da}
 .edl-pillrow{display:flex;flex-wrap:wrap;gap:8px;margin-top:20px}
-.edl-pill{font-size:.74rem;font-weight:700;color:var(--g800);background:var(--g50);padding:6px 12px;border-radius:999px;border:1px solid rgba(30,64,175,.14)}
+.edl-pill{font-size:.74rem;font-weight:700;color:var(--g800);background:var(--g50);padding:6px 12px;border-radius:999px;border:1px solid rgba(10,30,61,.14)}
 .edl-feat--dark .edl-pill{background:rgba(255,255,255,.1);color:#ffe9b8;border-color:rgba(255,255,255,.14)}
 .edl-bento-grid{display:grid;grid-template-columns:1fr 1fr;gap:22px}
 
@@ -205,7 +205,7 @@ const css = `
 .edl-feat--dark .edl-feat-body .ic{color:#ffe4a1}
 .edl-feat--dark .edl-pill{color:#ffe4a1;border-color:rgba(255,228,161,.3)}
 .edl-footer .copy b{color:#f2d478;text-shadow:0 0 14px rgba(242,212,120,.4)}
-.edl-cta .edl-btn--gold{background:linear-gradient(135deg,#f4d97e,#d4a017);border:2px solid #8a6b1d;box-shadow:0 14px 34px -12px rgba(0,0,0,.5),0 0 28px rgba(212,160,23,.45)}
+.edl-cta .edl-btn--gold{background:linear-gradient(135deg,#f4d97e,#ffd100);border:2px solid #8a6b1d;box-shadow:0 14px 34px -12px rgba(0,0,0,.5),0 0 28px rgba(212,160,23,.45)}
 .edl-cta .edl-btn--gold:hover{background:linear-gradient(135deg,#fae28c,#e7b439);transform:translateY(-2px);box-shadow:0 18px 40px -14px rgba(0,0,0,.55),0 0 36px rgba(250,226,140,.5)}
 
 /* ---------- Contact ---------- */
@@ -225,10 +225,10 @@ const css = `
 .edl-field{display:flex;flex-direction:column;gap:8px;margin-bottom:18px}
 .edl-field label{font-size:.82rem;font-weight:700;color:var(--ink)}
 .edl-field input,.edl-field textarea,.edl-field select{border:2.5px solid #b8c9c0;border-radius:11px;padding:12px 14px;font-size:.95rem;font-family:inherit;color:var(--ink);background:#fff;transition:border-color .2s,box-shadow .2s;outline:none}
-.edl-field input:focus,.edl-field textarea:focus,.edl-field select:focus{border-color:var(--g600);box-shadow:0 0 0 3px rgba(30,64,175,.12)}
+.edl-field input:focus,.edl-field textarea:focus,.edl-field select:focus{border-color:var(--g600);box-shadow:0 0 0 3px rgba(10,30,61,.12)}
 .edl-field textarea{resize:vertical;min-height:110px}
 .edl-form-row{display:grid;grid-template-columns:1fr 1fr;gap:16px}
-.edl-form-ok{background:var(--g50);border:1px solid rgba(30,64,175,.25);color:var(--g800);padding:13px 16px;border-radius:11px;font-weight:700;font-size:.9rem;margin-bottom:16px;display:flex;align-items:center;gap:9px}
+.edl-form-ok{background:var(--g50);border:1px solid rgba(10,30,61,.25);color:var(--g800);padding:13px 16px;border-radius:11px;font-weight:700;font-size:.9rem;margin-bottom:16px;display:flex;align-items:center;gap:9px}
 
 /* ---------- Footer ---------- */
 .edl-footer{background:#06291e;color:#9fc3b1;padding:44px 0}
@@ -462,8 +462,8 @@ export default function HomePage({ onEnter }) {
               <div className="edl-visual-ring" aria-hidden="true">
                 <svg viewBox="0 0 400 400" fill="none">
                   <circle cx="200" cy="200" r="198" stroke="#020617" strokeOpacity=".12" strokeWidth="1.5" strokeDasharray="6 8" />
-                  <circle cx="90" cy="80" r="9" fill="#d4a017" />
-                  <circle cx="315" cy="320" r="6" fill="#22d3ee" />
+                  <circle cx="90" cy="80" r="9" fill="#ffd100" />
+                  <circle cx="315" cy="320" r="6" fill="#ffd100" />
                 </svg>
               </div>
               <div className="edl-browser">
@@ -633,7 +633,7 @@ export default function HomePage({ onEnter }) {
                     <img src={`${import.meta.env.BASE_URL}edulink-favicon.svg`} alt="" />
                   </div>
                   <div className="edl-sec-in">
-                    <div className="ic"><Icon name={s.icon} size={24} color="#d4a017" /></div>
+                    <div className="ic"><Icon name={s.icon} size={24} color="#ffd100" /></div>
                     <h3>{s.title}</h3>
                     <p>{s.desc}</p>
                   </div>
@@ -665,7 +665,7 @@ export default function HomePage({ onEnter }) {
                 </div>
                 <div className="edl-contact-card">
                   <div className="ic" style={{ background: '#e0f2fe', color: '#4A90D9' }}>
-                    <svg width="22" height="22" viewBox="0 0 24 24" fill="#22d3ee" aria-hidden="true">
+                    <svg width="22" height="22" viewBox="0 0 24 24" fill="#ffd100" aria-hidden="true">
                       <path d="M12.04 2C6.58 2 2.13 6.45 2.13 11.91c0 1.75.46 3.45 1.32 4.95L2 22l5.25-1.38a9.9 9.9 0 0 0 4.78 1.22h.01c5.46 0 9.91-4.45 9.91-9.91C21.95 6.45 17.5 2 12.04 2m5.83 14.12c-.25.7-1.45 1.33-2 1.38-.53.05-1.03.24-3.46-.72-2.92-1.15-4.77-4.13-4.92-4.32-.14-.2-1.17-1.56-1.17-2.97 0-1.41.74-2.1 1-2.39.26-.28.57-.35.76-.35.19 0 .38 0 .54.01.18.01.41-.07.64.49.24.57.8 1.97.87 2.11.07.14.12.31.02.5-.1.19-.14.31-.29.48-.14.17-.3.38-.43.5-.14.14-.29.3-.12.58.17.28.74 1.22 1.59 1.97 1.09.97 2 1.27 2.29 1.42.29.14.45.12.62-.07.17-.2.72-.84.91-1.13.19-.29.38-.24.64-.14.26.09 1.66.78 1.95.93.28.14.47.21.54.33.07.11.07.66-.18 1.29z" />
                     </svg>
                   </div>

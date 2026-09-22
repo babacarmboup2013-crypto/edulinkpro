@@ -44,7 +44,7 @@ const SECURED_TABLES = new Set(['schools', 'school_data']);
 // policy) : lecture ET écriture passent systématiquement par admin-write,
 // qui vérifie le code (admin_code / ief_admin_code) et applique le
 // périmètre côté serveur avant toute requête.
-const ADMIN_SECURED_TABLES = new Set(['admins', 'iefs', 'ief_config']);
+const ADMIN_SECURED_TABLES = new Set(['admins', 'iefs', 'ief_config', 'groupes_scolaires']);
 const SB_REQUEST_TIMEOUT_MS = 20000;
 async function fetchWithTimeout(url, options = {}, timeoutMs = SB_REQUEST_TIMEOUT_MS) {
   const controller = new AbortController();
@@ -1159,9 +1159,9 @@ async function loadSchoolData(id) {
   const session = loadSessionJSON(LS_SESSION, null);
   const ownsSchool = session?.schoolId === id;
   const staffRole = ['teacher', 'guard', 'accountant', 'secretary'].includes(session?.role);
-  // Le rôle « Groupe scolaire » (ief) ne dispose QUE du code école saisi au
+  // Le rôle « IEF » (ief) ne dispose QUE du code IEF saisi au
   // login (session.iefCode) : il passe TOUJOURS par la lecture READ-ONLY
-  // get_groupe_school_data. On neutralise ici tout éventuel code école traînant
+  // get_school_data_ief. On neutralise ici tout éventuel code école traînant
   // en localStorage (LS_SCHOOL_CODE) : jamais de lecture via get_school_data
   // (qui renvoie les codes du personnel) ni d'écriture via save_school_data.
   const isIefRole = session?.role === 'ief';
@@ -1200,7 +1200,7 @@ async function loadSchoolData(id) {
         payload = result?.data || result;
         serverVersion = result?.version ?? null;
       } else {
-        throw new Error('Code Groupe scolaire absent — reconnectez-vous pour accéder aux données.');
+        throw new Error('Code IEF absent — reconnectez-vous pour accéder aux données.');
       }
     } else {
       throw new Error('Code d’accès absent pour cette école');
@@ -1290,12 +1290,12 @@ function mergePayloadAdditive(serverData, localData) {
 
 async function saveSchoolData(id, state, access) {
   const session = loadSessionJSON(LS_SESSION, null);
-  // Le compte « Groupe scolaire » (role ief) est STRICTEMENT en lecture seule.
+  // Le compte « IEF » (role ief) est STRICTEMENT en lecture seule.
   // Aucune écriture ne doit partir vers save_school_data / *admin* / *staff*,
   // même si un code école traîne en localStorage (LS_SCHOOL_CODE) : on refuse
   // dès l'entrée et on laisse reportRejected abandonner l'élément proprement.
   if (session && session.role === 'ief') {
-    throw new Error('Accès refusé : compte « Groupe scolaire » en lecture seule, aucune modification autorisée');
+    throw new Error('Accès refusé : compte « IEF » en lecture seule, aucune modification autorisée');
   }
   // Le snapshot capturé à la saisie ne vaut que pour l'école d'origine pour
   // les codes ÉCOLE et PERSONNEL (vérifiés contre cette école précise).
@@ -1671,8 +1671,8 @@ function JoursFeriesGlobauxModal({ isRacine, nbEcoles, applying, onApply, onClos
       <div className="flex items-center justify-between"><div className="font-bold text-ink">Jours non ouvrés et fériés — toutes les écoles</div><button type="button" onClick={onClose}><X size={18} /></button></div>
       <p className="text-xs text-muted">
         {isRacine
-          ? <>Applique la même liste à <b>toutes les écoles actives du système</b>, tous types et cycles confondus, même si un Groupe scolaire est sélectionné dans le filtre.</>
-          : <>Applique la même liste aux <b>{nbEcoles} école(s) active(s)</b> de votre Groupe scolaire, tous types confondus.</>}
+          ? <>Applique la même liste à <b>toutes les écoles actives du système</b>, tous types et cycles confondus, même si une IEF est sélectionnée dans le filtre.</>
+          : <>Applique la même liste aux <b>{nbEcoles} école(s) active(s)</b> de votre IEF, tous types confondus.</>}
         {' '}Les horaires hebdomadaires propres à chaque école sont conservés ; sa liste de jours non ouvrés est remplacée par celle-ci.
       </p>
       <label className="block text-sm font-semibold">Jours non ouvrés et fériés<textarea value={jours} onChange={(e) => setJours(e.target.value)} placeholder={'2026-12-25\n2027-01-01'} className="mt-1 w-full px-3 py-2 rounded-lg border min-h-28" /><span className="text-xs font-normal text-muted">Une date par ligne, au format AAAA-MM-JJ. Laisser vide efface les listes existantes de toutes les écoles.</span></label>
@@ -1855,16 +1855,28 @@ function computeAttendanceStats(state, classIds, startISO, endISO) {
    THÈME — palette Bleu Nuit / Cyan / Or, clair + sombre
    ============================================================ */
 const THEME_VARS_LIGHT = {
-  '--ink': '#0f172a', '--green': '#4A90D9', '--green-d': '#020617', '--green-l': '#e0f2fe',
-  '--gold': '#d4a017', '--gold-l': '#fef9e7', '--red': '#dc2626', '--red-l': '#fef2f2',
-  '--bg': '#f0f4f8', '--panel': '#ffffff', '--line': '#e2e8f0', '--muted': '#64748b',
-  '--modal-overlay': 'rgba(2,6,23,.5)', '--modal-card': 'rgba(255,255,255,.84)', '--modal-line': 'rgba(226,232,240,.85)',
+  '--ink': '#172033', '--green': '#0a1e3d', '--green-d': '#0a1e3d', '--green-l': '#dde6f2',
+  '--green-hover': '#07152b',
+  '--gold': '#ffd100', '--gold-l': '#fff8cf', '--gold-hover': '#e6bc00',
+  '--red': '#d64b55', '--red-l': '#ffedef',
+  '--success': '#159a70', '--success-l': '#e8f8f1',
+  '--warning': '#b7791f', '--warning-l': '#fff6df',
+  '--info': '#2a5a94', '--info-l': '#e4edf9',
+  '--bg': '#ffffff', '--panel': '#ffffff', '--line': '#e5e9f1', '--muted': '#6d778b',
+  '--sidebar': '#0a1e3d', '--sidebar-muted': '#8fa8c9',
+  '--modal-overlay': 'rgba(10,30,61,.5)', '--modal-card': 'rgba(255,255,255,.92)', '--modal-line': 'rgba(229,233,241,.85)',
 };
 const THEME_VARS_DARK = {
   '--ink': '#e2e8f0', '--green': '#3b82f6', '--green-d': '#60a5fa', '--green-l': '#1e293b',
-  '--gold': '#fbbf24', '--gold-l': '#422006', '--red': '#f87171', '--red-l': '#450a0a',
-  '--bg': '#020617', '--panel': '#0f172a', '--line': '#1e293b', '--muted': '#94a3b8',
-  '--modal-overlay': 'rgba(2,6,23,.62)', '--modal-card': 'rgba(15,23,42,.76)', '--modal-line': 'rgba(30,41,59,.6)',
+  '--green-hover': '#93c5fd',
+  '--gold': '#fbbf24', '--gold-l': '#422006', '--gold-hover': '#fcd34d',
+  '--red': '#f87171', '--red-l': '#450a0a',
+  '--success': '#34d399', '--success-l': '#064e3b',
+  '--warning': '#fbbf24', '--warning-l': '#422006',
+  '--info': '#60a5fa', '--info-l': '#1e3a5f',
+  '--bg': '#0f172a', '--panel': '#1e293b', '--line': '#334155', '--muted': '#94a3b8',
+  '--sidebar': '#0a1e3d', '--sidebar-muted': '#8fa8c9',
+  '--modal-overlay': 'rgba(2,6,23,.62)', '--modal-card': 'rgba(15,23,42,.84)', '--modal-line': 'rgba(51,65,85,.5)',
 };
 
 function GlobalStyles({ dark }) {
@@ -1875,7 +1887,7 @@ function GlobalStyles({ dark }) {
 @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap');
       .sygenop-root{ ${cssVars} font-family:'Inter',-apple-system,BlinkMacSystemFont,sans-serif; background:var(--bg); color:var(--ink); min-height:100vh; -webkit-font-smoothing:antialiased; text-rendering:optimizeLegibility; }
       .sygenop-card{ background:var(--panel); border:1px solid var(--line); border-radius:16px; box-shadow:0 1px 2px rgba(2,6,23,.04),0 12px 30px -8px rgba(2,6,23,.10); transition:transform .25s cubic-bezier(.22,1,.36,1), box-shadow .25s, border-color .25s; will-change:transform; }
-      .sygenop-card:hover{ transform:translateY(-3px); box-shadow:0 4px 10px rgba(2,6,23,.06),0 22px 45px -14px rgba(30,64,175,.32); border-color:rgba(30,64,175,.18); }
+      .sygenop-card:hover{ transform:translateY(-3px); box-shadow:0 4px 10px rgba(2,6,23,.06),0 22px 45px -14px rgba(10,30,61,.28); border-color:rgba(10,30,61,.15); }
 
       /* ---------- Modales : verre dépoli, opacité régulée + scroll sûr ---------- */
       .sygenop-root .fixed.inset-0.z-50{
@@ -1901,36 +1913,36 @@ function GlobalStyles({ dark }) {
       .sygenop-root .fixed.inset-0.z-50 > .sygenop-card textarea{ background: var(--panel); }
 
       /* ---------- Accessibilité clavier ---------- */
-      .sygenop-root button:focus-visible, .sygenop-root input:focus-visible, .sygenop-root select:focus-visible, .sygenop-root textarea:focus-visible, .sygenop-root a:focus-visible{ outline:2px solid var(--gold); outline-offset:2px; border-radius:6px; box-shadow:0 0 0 4px rgba(212,160,23,.18); }
-      .sygenop-root input:focus, .sygenop-root select:focus, .sygenop-root textarea:focus{ border-color:var(--green); box-shadow:0 0 0 3px rgba(30,64,175,.12); }
+      .sygenop-root button:focus-visible, .sygenop-root input:focus-visible, .sygenop-root select:focus-visible, .sygenop-root textarea:focus-visible, .sygenop-root a:focus-visible{ outline:2px solid var(--gold); outline-offset:2px; border-radius:6px; box-shadow:0 0 0 4px rgba(255,209,0,.18); }
+      .sygenop-root input:focus, .sygenop-root select:focus, .sygenop-root textarea:focus{ border-color:var(--green); box-shadow:0 0 0 3px rgba(10,30,61,.12); }
 
       /* ---------- Scrollbar (clair + sombre) ---------- */
       .sygenop-root ::-webkit-scrollbar{ width:10px; height:10px; }
       .sygenop-root ::-webkit-scrollbar-track{ background:var(--bg); }
       .sygenop-root ::-webkit-scrollbar-thumb{ background:var(--line); border-radius:999px; border:2px solid var(--bg); }
       .sygenop-root ::-webkit-scrollbar-thumb:hover{ background:var(--green); }
-      .sygenop-root ::selection{ background:rgba(30,64,175,.18); }
+      .sygenop-root ::selection{ background:rgba(10,30,61,.18); }
 
       /* ---------- Boutons & inputs cohérents ---------- */
-      .sygenop-btn{ display:inline-flex; align-items:center; justify-content:center; gap:.5rem; border:none; cursor:pointer; font-weight:600; font-size:.85rem; border-radius:.65rem; padding:.6rem 1rem; color:#fff; background:var(--green-d); transition:transform .15s ease, box-shadow .2s ease, filter .2s ease; white-space:nowrap; }
-      .sygenop-btn:hover{ transform:translateY(-1px); box-shadow:0 8px 18px -6px rgba(30,64,175,.5); filter:brightness(1.05); }
+      .sygenop-btn{ display:inline-flex; align-items:center; justify-content:center; gap:.5rem; border:none; cursor:pointer; font-weight:600; font-size:.85rem; border-radius:.65rem; padding:.6rem 1rem; color:#fff; background:var(--green-d); transition:transform .15s ease, box-shadow .2s ease, background .2s ease; white-space:nowrap; }
+      .sygenop-btn:hover{ transform:translateY(-1px); box-shadow:0 8px 18px -6px rgba(10,30,61,.5); background:var(--green-hover); }
       .sygenop-btn:active{ transform:translateY(0); }
       .sygenop-btn:disabled{ opacity:.5; cursor:not-allowed; transform:none; box-shadow:none; filter:none; }
       .sygenop-btn--ghost{ background:var(--bg); color:var(--ink); border:1px solid var(--line); }
       .sygenop-btn--ghost:hover{ box-shadow:0 6px 14px -6px rgba(2,6,23,.25); filter:none; }
       .sygenop-btn--danger{ background:var(--red); }
-      .sygenop-btn--danger:hover{ box-shadow:0 8px 18px -6px rgba(220,38,38,.5); }
+      .sygenop-btn--danger:hover{ box-shadow:0 8px 18px -6px rgba(214,75,85,.5); }
       .sygenop-btn--sm{ padding:.4rem .7rem; font-size:.78rem; border-radius:.5rem; }
-      .sygenop-btn--gold{ background:var(--gold); }
-      .sygenop-btn--gold:hover{ box-shadow:0 8px 18px -6px rgba(212,160,23,.5); }
+      .sygenop-btn--gold{ background:var(--gold); color:#172033; transition:transform .15s ease, box-shadow .2s ease, background .2s ease; }
+      .sygenop-btn--gold:hover{ box-shadow:0 8px 18px -6px rgba(255,209,0,.5); background:var(--gold-hover); }
       .sygenop-input{ width:100%; padding:.65rem .9rem; border-radius:.65rem; border:1px solid var(--line); background:var(--panel); color:var(--ink); font-size:.9rem; transition:border-color .2s, box-shadow .2s; }
 
       /* ---------- Tableaux : lisibilité + lignes alternées + survol ---------- */
       .sygenop-root table{ width:100%; border-collapse:separate; border-spacing:0; }
       .sygenop-root thead th{ background:var(--green-l); color:var(--green-d); }
       .sygenop-root tbody tr{ transition:background .15s ease; }
-      .sygenop-root tbody tr:nth-child(even):not(.total):not(.grand){ background:rgba(30,64,175,.025); }
-      .sygenop-root tbody tr:hover{ background:rgba(212,160,23,.06); }
+      .sygenop-root tbody tr:nth-child(even):not(.total):not(.grand){ background:rgba(10,30,61,.02); }
+      .sygenop-root tbody tr:hover{ background:rgba(255,209,0,.06); }
       .sygenop-root tbody tr:last-child td{ border-bottom:none; }
       .sygenop-table{ overflow-x:auto; border:1px solid var(--line); border-radius:12px; }
       .sygenop-table table{ min-width:640px; }
@@ -1963,11 +1975,11 @@ function GlobalStyles({ dark }) {
       .synth-rate-bad{ color:var(--red); font-weight:700; }
       .synth-rate-n{ font-size:10px; opacity:.75; display:block; }
 
-      .bull-sheet{ background:#fff; color:#0f172a; width:210mm; min-height:297mm; margin:0 auto; padding:14mm 12mm; box-sizing:border-box; font-size:11.5px; }
+      .bull-sheet{ background:#fff; color:#172033; width:210mm; min-height:297mm; margin:0 auto; padding:14mm 12mm; box-sizing:border-box; font-size:11.5px; }
       .bull-sheet table{ width:100%; border-collapse:collapse; }
-      .bull-sheet th, .bull-sheet td{ border:1px solid #cbd5e1; padding:4px 6px; }
-      .bull-sheet .domrow td{ background:#e0f2fe; font-weight:700; color:#020617; text-align:left; }
-      .bull-sheet tr.tot td{ background:#fef9e7; font-weight:800; }
+      .bull-sheet th, .bull-sheet td{ border:1px solid #e5e9f1; padding:4px 6px; }
+      .bull-sheet .domrow td{ background:#dde6f2; font-weight:700; color:#0a1e3d; text-align:left; }
+      .bull-sheet tr.tot td{ background:#fff8cf; font-weight:800; }
 
       /* ---------- Carte d’identité élève ---------- */
       .student-id-card-sheet{ display:flex; flex-direction:column; align-items:center; gap:16px; }
@@ -1975,11 +1987,11 @@ function GlobalStyles({ dark }) {
       .student-id-card-back{ display:flex; flex-direction:column; align-items:center; justify-content:center; }
 
       /* ---------- Reçu de paiement ---------- */
-      .recu-sheet{ background:#fff; color:#0f172a; width:148mm; min-height:auto; margin:0 auto 14px; padding:10mm; box-sizing:border-box; font-size:12px; border:1px dashed #d4a017; }
+      .recu-sheet{ background:#fff; color:#172033; width:148mm; min-height:auto; margin:0 auto 14px; padding:10mm; box-sizing:border-box; font-size:12px; border:1px dashed #ffd100; }
       .recu-sheet table{ width:100%; border-collapse:collapse; }
       .recu-sheet th, .recu-sheet td{ border:1px solid #cbd5e1; padding:5px 7px; }
-      .recu-sheet .recu-total td{ background:#fef9e7; font-weight:800; }
-      .recu-sheet .recu-stub{ border-top:1px dashed #d4a017; margin-top:10px; padding-top:8px; font-size:10px; color:#64748b; }
+      .recu-sheet .recu-total td{ background:#fff8cf; font-weight:800; }
+      .recu-sheet .recu-stub{ border-top:1px dashed #ffd100; margin-top:10px; padding-top:8px; font-size:10px; color:#64748b; }
 
       @media print{
         .no-print{ display:none !important; }
@@ -2145,7 +2157,7 @@ function ActualitesTicker({ actualites, onOpen }) {
 }
 
 /* ============================================================
-   ÉCRAN DE CONNEXION — 4 rôles (École / Enseignant / Groupe scolaire / Super Admin)
+   ÉCRAN DE CONNEXION — 4 rôles (École / Enseignant / IEF / Super Admin)
    ============================================================ */
 function LoginScreen({ onLogin, dark, setDark, notify, onBack }) {
   const [tab, setTab] = useState('school'); // school | personnel | ief | admin
@@ -2360,23 +2372,23 @@ async function submitIEF(e) {
     }
     let ok = false;
     let iefName = null;
-    let iefId = null;
+    let groupeId = null;
     try {
       const res = await sb('POST', 'rpc/check_groupe_code', '', { p_code: entered });
-      if (res && res.ok) { ok = true; iefName = res.nom || null; iefId = res.ief_id || null; }
+      if (res && res.ok) { ok = true; iefName = res.nom || null; groupeId = res.groupe_id || null; }
       else if (res && res.locked) {
         notify(`Trop de tentatives (serveur). Réessayez dans ${res.retry_after_min || 15} min.`, true);
         setBusy(false); return;
       }
     } catch (e2) { notify('Erreur : ' + sbErrMsg(e2), true); setBusy(false); return; }
-    if (ok) { recordLoginSuccess('ief:' + entered); onLogin({ role: 'ief', iefId, iefName, iefCode: entered }); }
+    if (ok) { recordLoginSuccess('ief:' + entered); onLogin({ role: 'ief', groupeId, iefName, iefCode: entered }); }
     else {
       recordLoginFailure('ief:' + entered);
       const nxt = getLoginAttempts('ief:' + entered);
       if (nxt.lockedUntil > Date.now()) {
-        notify(`Code Groupe scolaire incorrect. Accès bloqué 15 min après ${MAX_LOGIN_ATTEMPTS} échecs.`, true);
+        notify(`Code IEF incorrect. Accès bloqué 15 min après ${MAX_LOGIN_ATTEMPTS} échecs.`, true);
       } else {
-        notify(`Code Groupe scolaire incorrect (${nxt.fails}/${MAX_LOGIN_ATTEMPTS} essais).`, true);
+        notify(`Code IEF incorrect (${nxt.fails}/${MAX_LOGIN_ATTEMPTS} essais).`, true);
       }
     }
     setBusy(false);
@@ -2420,13 +2432,13 @@ const entered = String(code).trim();
   const tabs = [
     { id: 'school', label: 'École', icon: School },
     { id: 'personnel', label: 'Personnel', icon: Users },
-    { id: 'ief', label: 'Groupe scolaire', icon: Building2 },
+    { id: 'ief', label: 'IEF', icon: Building2 },
     { id: 'admin', label: 'Super Admin', icon: UserCog },
   ];
 
   return (
     <div className="sygenop-root relative flex items-center justify-center p-6 pb-10" style={{
-      backgroundImage: `radial-gradient(circle at 12% 8%, rgba(16,163,116,.13), transparent 42%), radial-gradient(circle at 92% 4%, rgba(184,134,47,.12), transparent 38%)`,
+      backgroundImage: `radial-gradient(circle at 12% 8%, rgba(10,30,61,.10), transparent 42%), radial-gradient(circle at 92% 4%, rgba(255,209,0,.10), transparent 38%)`,
     }}>
       <GlobalStyles dark={dark} />
       {onBack && (
@@ -2438,9 +2450,9 @@ const entered = String(code).trim();
           style={{
             top: 18, left: 18, zIndex: 70, cursor: 'pointer',
             width: 42, height: 42, display: 'flex', alignItems: 'center', justifyContent: 'center',
-            borderRadius: '50%', border: '2px solid var(--green-d, #020617)',
+            borderRadius: '50%', border: '2px solid var(--green-d, #0a1e3d)',
             background: 'rgba(255,255,255,.92)', backdropFilter: 'blur(6px)',
-            boxShadow: '0 6px 16px -6px rgba(10,79,58,.35)', color: 'var(--green-d, #020617)',
+            boxShadow: '0 6px 16px -6px rgba(10,79,58,.35)', color: 'var(--green-d, #0a1e3d)',
           }}
         >
           <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M3 10.5 12 3l9 7.5" /><path d="M5 9.5V21h5v-6h4v6h5V9.5" /></svg>
@@ -2479,7 +2491,7 @@ const entered = String(code).trim();
             <h1 className="text-2xl font-extrabold text-ink">
               EduLink Pro
             </h1>
-            <span className="text-[10px] font-bold px-1.5 py-0.5 rounded" style={{ background: 'var(--gold, #d4a017)', color: '#fff' }}>V1</span>
+            <span className="text-[10px] font-bold px-1.5 py-0.5 rounded" style={{ background: 'var(--gold, #ffd100)', color: '#fff' }}>V1</span>
           </div>
           <p className="text-xs mt-1 text-center text-muted">
             La plateforme intelligente de gestion scolaire
@@ -2563,11 +2575,11 @@ const entered = String(code).trim();
           {tab === 'ief' && (
             <form onSubmit={submitIEF} className="space-y-4">
               <p className="text-xs leading-relaxed text-muted">
-                Saisissez le code d'accès d'un <b style={{ color: 'var(--green-d)' }}>Groupe scolaire</b>{' '}
-                (une école couvrant 2 à 5 cycles) pour la consulter en <b>lecture seule</b> :
+                Saisissez le code d'accès d'une <b style={{ color: 'var(--green-d)' }}>IEF</b> (circonscription)
+                pour consulter en <b>lecture seule</b> les écoles qui y sont rattachées :
                 élèves, notes, personnel, finances. Aucune modification n'est possible.
               </p>
-              <CodeField code={code} setCode={setCode} show={showCode} setShow={setShowCode} label="Code d'accès du Groupe scolaire" />
+              <CodeField code={code} setCode={setCode} show={showCode} setShow={setShowCode} label="Code d'accès de l'IEF" />
               <SubmitBtn busy={busy}>Se connecter</SubmitBtn>
             </form>
           )}
@@ -2687,7 +2699,7 @@ function SubmitBtn({ children, busy }) {
       type="submit"
       disabled={busy}
       className="w-full py-3 rounded-lg font-semibold text-sm text-white flex items-center justify-center gap-2 disabled:opacity-60"
-      style={{ background: 'linear-gradient(135deg,#22d3ee,#020617)' }}
+      style={{ background: 'linear-gradient(135deg,#ffd100,#0a1e3d)' }}
     >
       {busy && <Loader2 size={15} className="animate-spin" />}
       {children}
@@ -2718,13 +2730,13 @@ function allowedPagesFor(session) {
 
 const NAV_ITEMS = (session) => {
   const items = [];
-  // La consultation de circonscription (« Vue d'ensemble Groupe scolaire »)
+  // La consultation de circonscription (« Vue d'ensemble IEF »)
   // est réservée au Super Admin (role admin). Depuis la refonte, le login
-  // « Groupe scolaire » (role ief) authentifie avec le code d'accès D'UNE
-  // ÉCOLE et ouvre LECTURE SEULE sur cette école : ses rubriques sont donc
+  // « IEF » (role ief) authentifie avec le code d'un Groupe scolaire
+  // et ouvre LECTURE SEULE sur les écoles de ce groupe : ses rubriques sont donc
   // celles de l'école (le bloc final items.push), pas la vue circonscription.
   if (session.role === 'ief' || session.role === 'admin') {
-    items.push({ id: 'ief', label: 'Vue d\u2019ensemble (Groupe scolaire)', icon: LayoutDashboard });
+    items.push({ id: 'ief', label: 'Vue d\u2019ensemble (IEF)', icon: LayoutDashboard });
   }
   if (session.role === 'admin') {
     items.push({ id: 'superadmin', label: 'Gestion des écoles', icon: Building2 });
@@ -2783,7 +2795,7 @@ const NAV_ITEMS = (session) => {
 };
 
 const PAGE_TITLES = {
-  ief: ['Vue d\u2019ensemble (Groupe scolaire)', 'Tous les cycles de l\u2019école — statistiques consolidées'],
+  ief: ['Vue d\u2019ensemble (IEF)', 'Tous les cycles de l\u2019établissement — statistiques consolidées'],
   superadmin: ['Gestion des écoles', 'Créer, modifier, supprimer des écoles et des administrateurs'],
   dash: ['Tableau de bord', 'Vue d\u2019ensemble de l\u2019établissement'],
   personnel: ['Personnel', 'Gestion du personnel et pointage'],
@@ -2808,7 +2820,7 @@ function Sidebar({ session, active, setActive, mobileOpen, setMobileOpen, hasAct
       {mobileOpen && <div className="fixed inset-0 bg-black/40 z-30 md:hidden" onClick={() => setMobileOpen(false)} />}
       <aside
         className={`no-print fixed md:sticky top-0 z-40 h-screen w-60 flex-shrink-0 flex flex-col text-white transition-transform duration-300 ${mobileOpen ? 'translate-x-0' : '-translate-x-full md:translate-x-0'}`}
-        style={{ background: 'linear-gradient(160deg,#020617 0%,#0f172a 60%,#1e293b 100%)' }}
+        style={{ background: 'linear-gradient(160deg,#0a1e3d 0%,#0d2448 60%,#132d55 100%)' }}
       >
         <div className="px-4 pt-5 pb-4 border-b border-white/10">
           <button
@@ -2823,7 +2835,7 @@ function Sidebar({ session, active, setActive, mobileOpen, setMobileOpen, hasAct
             />
             <div className="flex items-center gap-1.5">
               <h1 className="text-lg font-bold">EduLink Pro</h1>
-              <span className="text-[9px] font-bold px-1.5 py-0.5 rounded" style={{ background: 'var(--gold, #d4a017)', color: '#fff' }}>V1</span>
+              <span className="text-[9px] font-bold px-1.5 py-0.5 rounded" style={{ background: 'var(--gold, #ffd100)', color: '#fff' }}>V1</span>
             </div>
           </button>
           <p className="text-[11px] mt-1 text-[#94a3b8] font-medium leading-tight">
@@ -2841,7 +2853,7 @@ function Sidebar({ session, active, setActive, mobileOpen, setMobileOpen, hasAct
                     disabled={disabled}
                     onClick={() => setEvalOpen((o) => !o)}
                     className={`w-full text-left px-3 py-2.5 rounded-lg text-[13.5px] font-medium flex items-center gap-2.5 mb-0.5 transition-colors ${disabled ? 'opacity-35 cursor-not-allowed' : 'hover:bg-white/10 hover:text-white'}`}
-                    style={isActiveGroup ? { background: 'rgba(255,255,255,.1)', boxShadow: 'inset 3px 0 0 var(--gold, #d4a017)', color: '#fff', fontWeight: 700 } : { color: '#cbe0d3' }}
+                    style={isActiveGroup ? { background: 'rgba(255,255,255,.1)', boxShadow: 'inset 3px 0 0 var(--gold, #ffd100)', color: '#fff', fontWeight: 700 } : { color: '#cbe0d3' }}
                   >
                     <item.icon size={16} className="w-[18px]" />
                     {item.label}
@@ -2854,7 +2866,7 @@ function Sidebar({ session, active, setActive, mobileOpen, setMobileOpen, hasAct
                           key={c.id}
                           onClick={() => { setActive(c.id); setMobileOpen(false); }}
                           className="w-full text-left px-3 py-2 rounded-lg text-[13px] font-medium mb-0.5 transition-colors"
-                          style={active === c.id ? { background: 'rgba(255,255,255,.1)', boxShadow: 'inset 3px 0 0 var(--gold, #d4a017)', color: '#fff', fontWeight: 700 } : { color: '#cbe0d3' }}
+                          style={active === c.id ? { background: 'rgba(255,255,255,.1)', boxShadow: 'inset 3px 0 0 var(--gold, #ffd100)', color: '#fff', fontWeight: 700 } : { color: '#cbe0d3' }}
                         >
                           {c.label}
                         </button>
@@ -2870,7 +2882,7 @@ function Sidebar({ session, active, setActive, mobileOpen, setMobileOpen, hasAct
                 disabled={disabled}
                 onClick={() => { setActive(item.id); setMobileOpen(false); }}
                 className={`w-full text-left px-3 py-2.5 rounded-lg text-[13.5px] font-medium flex items-center gap-2.5 mb-0.5 transition-colors ${disabled ? 'opacity-35 cursor-not-allowed' : 'hover:bg-white/10 hover:text-white hover:translate-x-0.5'}`}
-                style={active === item.id ? { background: 'rgba(255,255,255,.1)', boxShadow: 'inset 3px 0 0 var(--gold, #d4a017)', color: '#fff', fontWeight: 700 } : { color: '#cbe0d3' }}
+                style={active === item.id ? { background: 'rgba(255,255,255,.1)', boxShadow: 'inset 3px 0 0 var(--gold, #ffd100)', color: '#fff', fontWeight: 700 } : { color: '#cbe0d3' }}
               >
                 <item.icon size={16} className="w-[18px]" />
                 {item.label}
@@ -2891,7 +2903,7 @@ function Sidebar({ session, active, setActive, mobileOpen, setMobileOpen, hasAct
 
 function Topbar({ title, sub, session, schoolName, dark, setDark, onLogout, setMobileOpen, countdownMs, annee, periodeKey, periodeLabel, periodeOptions = [], canEditPeriode, onPeriodeChange }) {
   const roleLabel = {
-    ief: session.iefName ? `Groupe scolaire — ${session.iefName}` : 'Groupe scolaire (lecture seule)', admin: 'Super Administrateur', teacher: 'Enseignant(e)', accountant: 'Comptable/Gestionnaire', secretary: 'Secrétaire', school: schoolName || 'Compte école',
+    ief: session.iefName ? `IEF — ${session.iefName}` : 'IEF (lecture seule)', admin: 'Super Administrateur', teacher: 'Enseignant(e)', accountant: 'Comptable/Gestionnaire', secretary: 'Secrétaire', school: schoolName || 'Compte école',
   }[session.role];
   function fmtCountdown(ms) {
     if (ms == null || ms <= 0) return null;
@@ -2906,7 +2918,7 @@ function Topbar({ title, sub, session, schoolName, dark, setDark, onLogout, setM
   return (
     <div
       className="no-print sticky top-0 z-20 px-4 md:px-7 py-2.5 shadow-lg"
-      style={{ background: 'linear-gradient(120deg,#0f172a 0%,#4A90D9 55%,#3b82f6 100%)' }}
+      style={{ background: 'linear-gradient(120deg,#0a1e3d 0%,#0d2448 55%,#132d55 100%)' }}
     >
       <div className="flex items-center justify-between gap-4">
       <button className="md:hidden text-white" onClick={() => setMobileOpen(true)}><Menu size={22} /></button>
@@ -2946,7 +2958,7 @@ function Topbar({ title, sub, session, schoolName, dark, setDark, onLogout, setM
               className="text-[11px] font-bold px-2 py-0.5 rounded-md border-0 outline-none cursor-pointer whitespace-nowrap"
               style={{ background: 'rgba(255,255,255,.15)', color: '#fff' }}
             >
-              {periodeOptions.map((p) => <option key={p.key} value={p.key} style={{ color: '#4A90D9' }}>{p.label}</option>)}
+              {periodeOptions.map((p) => <option key={p.key} value={p.key} style={{ color: '#0a1e3d' }}>{p.label}</option>)}
             </select>
           ) : periodeKey ? (
             <span className="inline-flex items-center gap-1 text-[11px] font-bold px-2 py-0.5 rounded-md bg-white/15 text-white whitespace-nowrap">
@@ -3232,13 +3244,13 @@ function DashboardView({ state, loading, teacherName, teacherStaffId, role, upda
     { name: 'Garçons', value: stats.garcons },
     { name: 'Filles', value: stats.filles },
   ];
-  const GENDER_COLORS = ['#4A90D9', '#d4a017'];
+  const GENDER_COLORS = ['#0a1e3d', '#ffd100'];
   const personnelGenderData = [
     { name: 'Hommes', value: stats.personnelMale || 0 },
     { name: 'Femmes', value: stats.personnelFemale || 0 },
     ...(stats.personnelUnknown ? [{ name: 'Non renseigné', value: stats.personnelUnknown }] : []),
   ];
-  const PERSONNEL_GENDER_COLORS = ['#4A90D9', '#d4a017', '#94a3b8'];
+  const PERSONNEL_GENDER_COLORS = ['#0a1e3d', '#ffd100', '#94a3b8'];
   const visibleClassIds = Object.entries(state.classes || {}).filter(([, cls]) => !isTeacherScoped || cls.teacher === teacherName).map(([id]) => id);
   const visibleAssignments = (state.affectationsMateriel || []).filter((a) => visibleClassIds.includes(a.classId));
 
@@ -3328,7 +3340,7 @@ function DashboardView({ state, loading, teacherName, teacherStaffId, role, upda
               <XAxis dataKey="niveau" tick={{ fontSize: 12, fill: 'var(--muted)' }} />
               <YAxis tick={{ fontSize: 12, fill: 'var(--muted)' }} />
               <Tooltip contentStyle={{ borderRadius: 10, border: '1px solid var(--line)', fontSize: 12 }} />
-              <Bar dataKey="effectif" fill="#4A90D9" radius={[6, 6, 0, 0]} />
+              <Bar dataKey="effectif" fill="#0a1e3d" radius={[6, 6, 0, 0]} />
             </BarChart>
           </ResponsiveContainer>
         </div>
@@ -3653,7 +3665,7 @@ return (
             </div>
           </div>
           {STAFF_LOGIN_ROLES.has(form.role) && (
-            <div className="rounded-xl p-3.5" style={{ background: 'var(--green-l)', border: '1px solid rgba(30,64,175,.25)' }}>
+            <div className="rounded-xl p-3.5" style={{ background: 'var(--green-l)', border: '1px solid rgba(10,30,61,.25)' }}>
               <div className="flex items-center gap-2 pt-1 pb-2">
                 <span className="w-1 h-3.5 rounded-full" style={{ background: 'var(--green-d)' }} />
                 <span className="text-[11px] font-bold uppercase tracking-wide" style={{ color: 'var(--green-d)' }}>Accès personnel</span>
@@ -4733,7 +4745,7 @@ function absenceDocumentHtml(state, request) {
   const qrValue = `SYGENOP|ABS|${request.id}`;
   const qrImg = `https://api.qrserver.com/v1/create-qr-code/?size=200x200&ecc=M&margin=4&format=png&data=${encodeURIComponent(qrValue)}`;
   const logoImg = schoolLogoData(state);
-  const logoHtml = logoImg ? `<img class="logo" src="${escapeHtml(logoImg)}" alt="Logo" />` : `<svg class="logo-fallback" width="44" height="44" viewBox="0 0 24 24" fill="none" stroke="#d4a017" strokeWidth="1.5"><circle cx="12" cy="12" r="9"/><path d="M8 7h8M8 12h8M8 17h5"/></svg>`;
+  const logoHtml = logoImg ? `<img class="logo" src="${escapeHtml(logoImg)}" alt="Logo" />` : `<svg class="logo-fallback" width="44" height="44" viewBox="0 0 24 24" fill="none" stroke="#ffd100" strokeWidth="1.5"><circle cx="12" cy="12" r="9"/><path d="M8 7h8M8 12h8M8 17h5"/></svg>`;
 
   const bodyHtml = `<!doctype html>
 <html lang="fr">
@@ -4750,18 +4762,18 @@ function absenceDocumentHtml(state, request) {
   .toolbar .dl { background: #1d4ed8; }
   .toolbar span { margin-left: auto; font-size: 12px; color: #475569; }
   @media print { .toolbar { display: none; } }
-  .frame { border: 4px solid #020617; padding: 6px; }
-  .inner { border: 2px solid #020617; padding: 22px 26px; }
-  .head { display: flex; align-items: center; justify-content: space-between; border-bottom: 2px solid #020617; padding-bottom: 14px; }
+  .frame { border: 4px solid #0a1e3d; padding: 6px; }
+  .inner { border: 2px solid #0a1e3d; padding: 22px 26px; }
+  .head { display: flex; align-items: center; justify-content: space-between; border-bottom: 2px solid #0a1e3d; padding-bottom: 14px; }
   .head .flag { width: 54px; height: auto; flex-shrink: 0; display: block; object-fit: contain; }
   .head .center { text-align: center; flex: 1; padding: 0 12px; }
-  .head .school { font-weight: 800; font-size: 19px; text-transform: uppercase; letter-spacing: .5px; color: #020617; }
+  .head .school { font-weight: 800; font-size: 19px; text-transform: uppercase; letter-spacing: .5px; color: #0a1e3d; }
   .head .republic { font-size: 11px; color: #4b6a5c; margin-top: 3px; }
   .head .addr { font-size: 10.5px; color: #4b6a5c; margin-top: 2px; }
   .head .logo { max-height: 52px; max-width: 80px; object-fit: contain; flex-shrink: 0; }
   .head .logo-fallback { flex-shrink: 0; }
   .titlebox { text-align: center; margin: 18px 0 6px; }
-  .titlebox .t { display: inline-block; padding: 8px 22px; border: 2px solid #020617; color: #020617; font-weight: 800; font-size: 21px; letter-spacing: 1px; }
+  .titlebox .t { display: inline-block; padding: 8px 22px; border: 2px solid #0a1e3d; color: #0a1e3d; font-weight: 800; font-size: 21px; letter-spacing: 1px; }
   .bref { text-align: center; font-size: 12px; color: #444; margin-bottom: 26px; }
   .body { font-size: 15px; line-height: 1.9; text-align: justify; }
   table.grid { width: 100%; border-collapse: collapse; margin: 22px 0; font-size: 14px; }
@@ -5106,19 +5118,19 @@ function StaffServiceAttestation({ state, person }) {
   const num = `N° ${nb}/${annee}`;
   return (
     <div className="mx-auto bg-white" style={{ color: '#11231b', width: '210mm', minHeight: '148mm' }}>
-      <div className="relative h-full border-4 p-1.5" style={{ borderColor: 'var(--green-d, #020617)' }}>
-        <div className="h-full border-2 px-7 py-6 flex flex-col" style={{ borderColor: 'var(--green-d, #020617)' }}>
-          <div className="flex items-center justify-between border-b-2 pb-3" style={{ borderColor: 'var(--green-d, #020617)' }}>
+      <div className="relative h-full border-4 p-1.5" style={{ borderColor: 'var(--green-d, #0a1e3d)' }}>
+        <div className="h-full border-2 px-7 py-6 flex flex-col" style={{ borderColor: 'var(--green-d, #0a1e3d)' }}>
+          <div className="flex items-center justify-between border-b-2 pb-3" style={{ borderColor: 'var(--green-d, #0a1e3d)' }}>
             <SenegalFlag className="w-12 h-auto" />
             <div className="text-center">
               <div className="text-[10px]" style={{ color: '#4b6a5c' }}>République du Sénégal · Un Peuple, Un But, Une Foi</div>
               <div className="text-[10px]" style={{ color: '#4b6a5c' }}>Adresse : {localite} — {num}</div>
-              <div className="text-base font-extrabold leading-tight" style={{ color: 'var(--green-d, #020617)' }}>{school}</div>
+              <div className="text-base font-extrabold leading-tight" style={{ color: 'var(--green-d, #0a1e3d)' }}>{school}</div>
             </div>
-            {schoolLogoData(state) ? <SchoolLogoMark state={state} width={44} /> : <svg width="38" height="38" viewBox="0 0 24 24" fill="none" stroke="#d4a017" strokeWidth="1.5"><circle cx="12" cy="12" r="9" /><path d="M8 7h8M8 12h8M8 17h5" /></svg>}
+            {schoolLogoData(state) ? <SchoolLogoMark state={state} width={44} /> : <svg width="38" height="38" viewBox="0 0 24 24" fill="none" stroke="#ffd100" strokeWidth="1.5"><circle cx="12" cy="12" r="9" /><path d="M8 7h8M8 12h8M8 17h5" /></svg>}
           </div>
           <div className="mt-3 text-center">
-            <div className="inline-block px-5 py-1 font-extrabold text-base tracking-wide" style={{ border: '2px solid var(--green-d, #020617)', color: 'var(--green-d, #020617)' }}>ATTESTATION DE SERVICE</div>
+            <div className="inline-block px-5 py-1 font-extrabold text-base tracking-wide" style={{ border: '2px solid var(--green-d, #0a1e3d)', color: 'var(--green-d, #0a1e3d)' }}>ATTESTATION DE SERVICE</div>
           </div>
           <p className="mt-3 text-[13px] leading-relaxed">Je soussigné(e), <b>{directeur || 'le Directeur(trice)'}</b>, Directeur(trice) de l’établissement <b>{school}</b>, situé(e) {localite}, atteste que <b>M./Mme {nomComplet}</b>, exerçant la fonction de <b>{fonction}</b> et {person.statut ? `${person.statut.toLowerCase()} dans nos effectifs` : 'appartenant à nos effectifs'}, est bien membre du personnel dudit établissement.</p>
           <div className="mt-3 text-center">
@@ -5780,7 +5792,7 @@ function saveClass(form) {
     const commonStudentHeader = (
     <>
       {teacherName && <StudentTransferRequestsPanel state={state} updateState={updateState} notify={notify} mode="teacher" teacherName={teacherName} teacherStaffId={teacherStaffId} />}
-      {readOnly && <div className="sygenop-card px-4 py-2.5 text-xs font-semibold flex items-center gap-2" style={{ background: 'var(--gold-l)', color: '#92710c' }}><Eye size={14} /> Mode consultation (Groupe scolaire) — lecture seule, aucune modification possible.</div>}
+      {readOnly && <div className="sygenop-card px-4 py-2.5 text-xs font-semibold flex items-center gap-2" style={{ background: 'var(--gold-l)', color: '#92710c' }}><Eye size={14} /> Mode consultation (IEF) — lecture seule, aucune modification possible.</div>}
       {!!(state && state.mohebs) && <div className="sygenop-card px-4 py-2.5 text-xs font-semibold flex items-center gap-2" style={{ background: 'var(--green-l)', color: 'var(--green-d)' }}><BookOpen size={14} /> École MOHEBS — le barème inclut le domaine « Langue Nationale » pour chaque niveau.</div>}
       <StudentSectionNav section={studentSection} onChange={setStudentSection} />
     </>
@@ -6083,7 +6095,7 @@ function StudentFicheModal({ student, clsName, onCard, onCert, onEdit, onClose }
           {row('Contact tuteur', student.tuteurTel)}
         </div>
         <div className="grid gap-3 mt-6" style={{ gridTemplateColumns: onEdit ? '1fr 1fr' : '1fr 1fr 1fr' }}>
-          <button type="button" onClick={onCard} className="px-3 py-2.5 rounded-lg text-sm font-semibold text-white flex items-center justify-center gap-1.5" style={{ background: 'var(--gold, #d4a017)' }}><CreditCard size={16} /> Carte d’identité</button>
+          <button type="button" onClick={onCard} className="px-3 py-2.5 rounded-lg text-sm font-semibold text-white flex items-center justify-center gap-1.5" style={{ background: 'var(--gold, #ffd100)' }}><CreditCard size={16} /> Carte d’identité</button>
           <button type="button" onClick={onCert} className="px-3 py-2.5 rounded-lg text-sm font-semibold text-white flex items-center justify-center gap-1.5" style={{ background: 'var(--green-d)' }}><FileText size={16} /> Certificat de scolarité</button>
           <button type="button" onClick={onClose} className="px-3 py-2.5 rounded-lg text-sm font-semibold" style={{ background: 'var(--bg)', color: 'var(--muted)' }}>Fermer</button>
           {onEdit && <button type="button" onClick={onEdit} className="px-3 py-2.5 rounded-lg text-sm font-semibold flex items-center justify-center gap-1.5" style={{ background: 'var(--panel)', color: 'var(--ink)' }}><Pencil size={16} /> Modifier</button>}
@@ -6339,11 +6351,11 @@ function StaffIdentityCard({ state, person }) {
   const code = staffCardCode(person);
   const school = state.header?.ecole || 'Établissement scolaire';
   const qrValue = `SYGENOP|STAFF|${code}|${person.id}`;
-  return <div className="student-id-card-sheet"><div className="student-id-card-front sygenop-card p-5" style={{ border: '2px solid var(--gold, #d4a017)' }}>
+  return <div className="student-id-card-sheet"><div className="student-id-card-front sygenop-card p-5" style={{ border: '2px solid var(--gold, #ffd100)' }}>
     <div className="flex items-start justify-between gap-4"><div className="flex items-center gap-2 flex-shrink-0"><SenegalFlag className="w-16 h-auto flex-shrink-0" /></div><div><div className="text-lg font-bold" style={{ color: 'var(--green-d)' }}>{school}</div><div className="text-xs text-muted">CARTE PROFESSIONNELLE · RECTO · Année {state.header?.annee || 'en cours'}</div></div><SchoolLogoMark state={state} width={72} /></div>
     <div className="grid grid-cols-[1fr_150px] gap-4 mt-3 pt-3" style={{ borderTop: '1px solid var(--line)' }}><div className="space-y-1 text-sm"><div><b>Agent :</b> {person.prenom || '—'} {person.nom || ''}</div><div><b>Matricule :</b> {code}</div><div><b>Fonction :</b> {person.role || '—'}</div>{person.specialites?.length > 0 && <div><b>Spécialités :</b> {person.specialites.join(', ')}</div>}<div><b>Téléphone :</b> {person.telephone || '—'}</div><div><b>Statut :</b> {person.statut || 'Actif'}</div></div><div className="border rounded-lg flex items-center justify-center overflow-hidden" style={{ borderColor: 'var(--line)', height: 150, background: 'var(--bg)' }}>{person.photoData ? <img src={person.photoData} alt={`Photo de ${person.prenom || 'l’agent'}`} className="w-full h-full object-cover" /> : <span className="text-xs text-center px-2 text-muted">Photo de l’agent</span>}</div></div>
     <div className="flex items-end justify-between gap-4 mt-2 pt-2" style={{ borderTop: '1px solid var(--line)' }}><div className="text-[10px] flex-1 text-muted">Scannez ce QR code : badge d'accès au portail.</div><QRBadge value={qrValue} size={64} label="" /></div>
-  </div><div className="student-id-card-back sygenop-card p-6 text-center" style={{ border: '2px solid var(--gold, #d4a017)' }}><div className="font-bold text-lg" style={{ color: 'var(--green-d)' }}>{school}</div><div className="text-xs mb-5 text-muted">CARTE PROFESSIONNELLE · VERSO</div><QRBadge value={qrValue} size={230} label="Identifiant permanent de l’agent" /><div className="mt-5 text-xs text-muted">Ce QR ne change jamais. Il sert de badge d’accès et d’identification du personnel dans le système.</div></div></div>;
+  </div><div className="student-id-card-back sygenop-card p-6 text-center" style={{ border: '2px solid var(--gold, #ffd100)' }}><div className="font-bold text-lg" style={{ color: 'var(--green-d)' }}>{school}</div><div className="text-xs mb-5 text-muted">CARTE PROFESSIONNELLE · VERSO</div><QRBadge value={qrValue} size={230} label="Identifiant permanent de l’agent" /><div className="mt-5 text-xs text-muted">Ce QR ne change jamais. Il sert de badge d’accès et d’identification du personnel dans le système.</div></div></div>;
 }
 
 function StudentSchoolCertificate({ state, cls, student }) {
@@ -6362,20 +6374,20 @@ function StudentSchoolCertificate({ state, cls, student }) {
   const num = `N° ${String((state.certCounter || 0) + (student.cardCode ? 1 : 0)).padStart(4, '0')}/${annee}`;
   return (
     <div className="mx-auto bg-white" style={{ color: '#11231b', width: '210mm', minHeight: '148mm' }}>
-      <div className="relative h-full border-4 p-1.5" style={{ borderColor: 'var(--green-d, #020617)' }}>
-        <div className="h-full border-2 px-7 py-6 flex flex-col" style={{ borderColor: 'var(--green-d, #020617)' }}>
+      <div className="relative h-full border-4 p-1.5" style={{ borderColor: 'var(--green-d, #0a1e3d)' }}>
+        <div className="h-full border-2 px-7 py-6 flex flex-col" style={{ borderColor: 'var(--green-d, #0a1e3d)' }}>
           {/* En-tête */}
-          <div className="flex items-center justify-between border-b-2 pb-3" style={{ borderColor: 'var(--green-d, #020617)' }}>
+          <div className="flex items-center justify-between border-b-2 pb-3" style={{ borderColor: 'var(--green-d, #0a1e3d)' }}>
             <SenegalFlag className="w-12 h-auto" />
             <div className="text-center">
               <div className="text-[10px]" style={{ color: '#4b6a5c' }}>République du Sénégal · Un Peuple, Un But, Une Foi</div>
               <div className="text-[10px]" style={{ color: '#4b6a5c' }}>Adresse : {localite} — {num}</div>
-              <div className="text-base font-extrabold leading-tight" style={{ color: 'var(--green-d, #020617)' }}>{school}</div>
+              <div className="text-base font-extrabold leading-tight" style={{ color: 'var(--green-d, #0a1e3d)' }}>{school}</div>
             </div>
-            {schoolLogoData(state) ? <SchoolLogoMark state={state} width={44} /> : <svg width="38" height="38" viewBox="0 0 24 24" fill="none" stroke="#d4a017" strokeWidth="1.5"><circle cx="12" cy="12" r="9" /><path d="M8 7h8M8 12h8M8 17h5" /></svg>}
+            {schoolLogoData(state) ? <SchoolLogoMark state={state} width={44} /> : <svg width="38" height="38" viewBox="0 0 24 24" fill="none" stroke="#ffd100" strokeWidth="1.5"><circle cx="12" cy="12" r="9" /><path d="M8 7h8M8 12h8M8 17h5" /></svg>}
           </div>
           <div className="mt-3 text-center">
-            <div className="inline-block px-5 py-1 font-extrabold text-base tracking-wide" style={{ border: '2px solid var(--green-d, #020617)', color: 'var(--green-d, #020617)' }}>CERTIFICAT DE SCOLARITÉ</div>
+            <div className="inline-block px-5 py-1 font-extrabold text-base tracking-wide" style={{ border: '2px solid var(--green-d, #0a1e3d)', color: 'var(--green-d, #0a1e3d)' }}>CERTIFICAT DE SCOLARITÉ</div>
           </div>
           <p className="mt-3 text-[13px] leading-relaxed">Je soussigné(e), <b>{directeur || 'le Directeur(trice)'}</b>, Directeur(trice) de l’établissement <b>{school}</b>, situé(e) {localite}, atteste que l’élève&nbsp;:</p>
           <div className="mt-3 text-center">
@@ -6930,11 +6942,11 @@ function addStudent(student) {
   }
 
   const DOMAIN_COLORS = [
-    { bg: '#e0f2fe', fg: '#020617', bar: '#4A90D9' },
-    { bg: '#fef9e7', fg: '#92710c', bar: '#d4a017' },
+    { bg: '#dde6f2', fg: '#0a1e3d', bar: '#0a1e3d' },
+    { bg: '#fff8cf', fg: '#92710c', bar: '#ffd100' },
     { bg: '#ede9fe', fg: '#5b21b6', bar: '#8b5cf6' },
     { bg: '#fdeef2', fg: '#9d174d', bar: '#ec4899' },
-    { bg: '#e0f2fe', fg: '#0e7490', bar: '#22d3ee' },
+    { bg: '#e4edf9', fg: '#2a5a94', bar: '#2a5a94' },
     { bg: '#fff3e8', fg: '#9a3412', bar: '#f97316' },
   ];
   const doms = cfg.domains || [];
@@ -7620,12 +7632,12 @@ function BulletinSheet({ state, cls, level, cfg, student, studentIndex, period }
 
   return (
     <div className="bull-sheet sygenop-card" style={{ marginBottom: 24 }}>
-      <div className="flex items-start gap-3 pb-2" style={{ borderBottom: '2px solid #020617' }}>
+      <div className="flex items-start gap-3 pb-2" style={{ borderBottom: '2px solid #0a1e3d' }}>
         <SenegalFlag className="w-20 h-auto flex-shrink-0" />
         <div className="flex-1 text-center" style={{ fontSize: 11, lineHeight: 1.35 }}>
           <div>République du Sénégal</div>
           <div>Ministère de l'Éducation nationale</div>
-          <div style={{ fontWeight: 700 }}>Groupe scolaire {h.ief || 'GRAND DAKAR'}</div>
+          <div style={{ fontWeight: 700 }}>IEF {h.ief || 'GRAND DAKAR'}</div>
           <div style={{ fontWeight: 800, fontSize: 13, marginTop: 2 }}>{(h.ecole || 'ÉCOLE').toUpperCase()}</div>
           <div style={{ fontSize: 10, marginTop: 2 }}>ANNÉE SCOLAIRE : {h.annee}</div>
         </div>
@@ -7648,7 +7660,7 @@ function BulletinSheet({ state, cls, level, cfg, student, studentIndex, period }
           <QRBadge value={`SYGENOP|CARTE|${student.cardCode || `ELV-${String(student.id || '').slice(-8).toUpperCase()}`}|${student.id}`} size={70} label="" />
         </div>
       </div>
-      <div className="text-center font-bold py-1.5" style={{ background: '#020617', color: '#fff', borderRadius: 4, fontSize: 12 }}>
+      <div className="text-center font-bold py-1.5" style={{ background: '#0a1e3d', color: '#fff', borderRadius: 4, fontSize: 12 }}>
         BULLETIN — {periodLabel(state, period)}
       </div>
       <table style={{ marginTop: 10 }}>
@@ -7741,13 +7753,13 @@ function BulletinSheet({ state, cls, level, cfg, student, studentIndex, period }
           </tbody>
         </table>
         <div className="flex flex-col gap-2">
-          <div className="flex items-center justify-between px-3 py-2" style={{ background: '#e0f2fe', borderRadius: 6 }}>
+          <div className="flex items-center justify-between px-3 py-2" style={{ background: '#dde6f2', borderRadius: 6 }}>
             <span style={{ fontSize: 11 }}>Rang</span><b>{rang}/{students.length}</b>
           </div>
-          <div className="flex items-center justify-between px-3 py-2" style={{ background: cs.pass ? '#e0f2fe' : '#fef2f2', borderRadius: 6 }}>
-            <span style={{ fontSize: 11 }}>Moyenne {cfg.weightedAssessments ? '/20' : '/10'}</span><b style={{ color: cs.pass ? '#020617' : '#dc2626' }}>{fmtNote(cs.moy)}</b>
+          <div className="flex items-center justify-between px-3 py-2" style={{ background: cs.pass ? '#dde6f2' : '#fef2f2', borderRadius: 6 }}>
+            <span style={{ fontSize: 11 }}>Moyenne {cfg.weightedAssessments ? '/20' : '/10'}</span><b style={{ color: cs.pass ? '#0a1e3d' : '#dc2626' }}>{fmtNote(cs.moy)}</b>
           </div>
-          <div className="flex items-center justify-between px-3 py-2" style={{ background: '#fef9e7', borderRadius: 6 }}>
+          <div className="flex items-center justify-between px-3 py-2" style={{ background: '#fff8cf', borderRadius: 6 }}>
             <span style={{ fontSize: 11 }}>Mention</span><b>{m}</b>
           </div>
         </div>
@@ -7958,7 +7970,7 @@ function FeesModal({ level, fees, onSave, onClose }) {
           <div className="flex items-end gap-4">
             <label className="text-xs font-semibold block">Nombre de mensualités<input type="number" min="1" max="12" value={mensualites} onChange={(e) => setMensualites(e.target.value)} className="mt-1 w-24 px-3 py-2 rounded-lg border text-sm" style={{ borderColor: 'var(--line)' }} /></label>
             <div className="text-xs leading-relaxed text-muted">
-              Total annuel : <b className="text-ink">{fmtFCFA(total)}</b> · Dont à l'entrée : <b style={{ color: 'var(--gold, #d4a017)' }}>{fmtFCFA(totalEntree)}</b><br />
+              Total annuel : <b className="text-ink">{fmtFCFA(total)}</b> · Dont à l'entrée : <b style={{ color: 'var(--gold, #ffd100)' }}>{fmtFCFA(totalEntree)}</b><br />
               Mensualité ({nbMois} mois, hors entrée) : <b style={{ color: 'var(--green-d)' }}>{fmtFCFA(Math.round(totalAnnuel / nbMois))}</b>
             </div>
           </div>
@@ -8030,7 +8042,7 @@ function StudentFeesModal({ level, fees, months, student, onSave, onClose }) {
           <div className="flex flex-wrap items-end gap-4">
             <label className="text-xs font-semibold block">Réduction « cas social » (%)<input type="number" min="0" max="100" value={casSocial} onChange={(e) => setCasSocial(e.target.value)} className="mt-1 w-28 px-3 py-2 rounded-lg border text-sm" style={{ borderColor: 'var(--line)' }} placeholder="0" /></label>
             <div className="text-xs leading-relaxed text-muted">
-              Inscription : <b style={{ color: 'var(--gold, #d4a017)' }}>{fmtFCFA(inscriptionDue)}</b> · Mensualités (année) : <b className="text-ink">{fmtFCFA(anneeDue)}</b><br />
+              Inscription : <b style={{ color: 'var(--gold, #ffd100)' }}>{fmtFCFA(inscriptionDue)}</b> · Mensualités (année) : <b className="text-ink">{fmtFCFA(anneeDue)}</b><br />
               Total à payer par l'élève : <b style={{ color: 'var(--green-d)' }}>{fmtFCFA(inscriptionDue + anneeDue)}</b>{casSocial > 0 ? ` (réduction de ${casSocial}%)` : ''}
             </div>
           </div>
@@ -8242,18 +8254,18 @@ function ReceiptSheet({ state, cls, student, payment }) {
 
   return (
     <div className="recu-sheet sygenop-card">
-      <div className="flex items-center gap-3 pb-2" style={{ borderBottom: '2px solid #020617' }}>
+          <div className="flex items-center gap-3 pb-2" style={{ borderBottom: '2px solid #0a1e3d' }}>
         <SchoolLogoMark state={state} width={50} />
         <div className="flex-1 text-center" style={{ fontSize: 10.5, lineHeight: 1.3 }}>
           <div>République du Sénégal</div>
           <div style={{ fontWeight: 800, fontSize: 13, marginTop: 2 }}>{(h.ecole || 'ÉCOLE').toUpperCase()}</div>
-          <div style={{ fontSize: 9.5 }}>Groupe scolaire {h.ief || ''} · Année scolaire {h.annee || ''}</div>
+          <div style={{ fontSize: 9.5 }}>IEF {h.ief || ''} · Année scolaire {h.annee || ''}</div>
         </div>
       </div>
-      <div className="text-center font-bold py-1.5" style={{ background: '#020617', color: '#fff', borderRadius: 4, fontSize: 12, marginTop: 8 }}>
+      <div className="text-center font-bold py-1.5" style={{ background: '#0a1e3d', color: '#fff', borderRadius: 4, fontSize: 12, marginTop: 8 }}>
         REÇU DE PAIEMENT N° {payment.recu}
-        {payment.type_paiement === 'inscription' && <div style={{ fontSize: 9, fontWeight: 600, marginTop: 2, background: '#d4a017', display: 'inline-block', padding: '1px 8px', borderRadius: 3 }}>INSCRIPTION / RÉINSCRIPTION</div>}
-        {payment.type_paiement === 'mensualite' && <div style={{ fontSize: 9, fontWeight: 600, marginTop: 2, background: '#020617', border: '1px solid #fff', display: 'inline-block', padding: '1px 8px', borderRadius: 3 }}>MENSUALITÉ / SCOLARITÉ</div>}
+        {payment.type_paiement === 'inscription' && <div style={{ fontSize: 9, fontWeight: 600, marginTop: 2, background: '#ffd100', display: 'inline-block', padding: '1px 8px', borderRadius: 3 }}>INSCRIPTION / RÉINSCRIPTION</div>}
+        {payment.type_paiement === 'mensualite' && <div style={{ fontSize: 9, fontWeight: 600, marginTop: 2, background: '#0a1e3d', border: '1px solid #fff', display: 'inline-block', padding: '1px 8px', borderRadius: 3 }}>MENSUALITÉ / SCOLARITÉ</div>}
       </div>
       <div className="flex justify-end mt-2"><QRBadge value={`SYGENOP|CARTE|${student.cardCode || `ELV-${String(student.id || '').slice(-8).toUpperCase()}`}|${student.id}`} /></div>
       <div className="grid grid-cols-2 gap-2" style={{ fontSize: 11, margin: '10px 0' }}>
@@ -8267,9 +8279,9 @@ function ReceiptSheet({ state, cls, student, payment }) {
         <tbody>
           {(payment.lignes?.length ? payment.lignes : [{ label: periodeLabel, montant: payment.montant }]).map((line, index) => <tr key={index}><td>{line.label}{moisPaiement ? ` — ${moisPaiement}` : ''}{payment.note && index === 0 ? ` — ${payment.note}` : ''}</td><td className="text-center">{fmtFCFA(line.montant)}</td></tr>)}
           <tr className="recu-total"><td>Montant reçu</td><td className="text-center">{fmtFCFA(payment.montant)}</td></tr>
-          {payment.type_paiement === 'inscription' && <tr><td>Reliquat inscription</td><td className="text-center" style={{ color: reliquat.inscription > 0 ? '#dc2626' : '#020617', fontWeight: 700 }}>{fmtFCFA(reliquat.inscription)}</td></tr>}
+          {payment.type_paiement === 'inscription' && <tr><td>Reliquat inscription</td><td className="text-center" style={{ color: reliquat.inscription > 0 ? '#dc2626' : '#0a1e3d', fontWeight: 700 }}>{fmtFCFA(reliquat.inscription)}</td></tr>}
           {payment.type_paiement === 'mensualite' && <>
-            <tr><td>Reliquat scolarité</td><td className="text-center" style={{ color: reliquat.mensualite > 0 ? '#dc2626' : '#020617', fontWeight: 700 }}>{fmtFCFA(reliquat.mensualite)}</td></tr>
+            <tr><td>Reliquat scolarité</td><td className="text-center" style={{ color: reliquat.mensualite > 0 ? '#dc2626' : '#0a1e3d', fontWeight: 700 }}>{fmtFCFA(reliquat.mensualite)}</td></tr>
             <tr><td>Reliquat mensuel</td><td className="text-center">{fmtFCFA(reliquatMensuel)}</td></tr>
           </>}
         </tbody>
@@ -8281,15 +8293,15 @@ function ReceiptSheet({ state, cls, student, payment }) {
         <div><b>{isTypeInscription ? 'Total dû (inscription) :' : 'Total dû (scolarité) :'}</b> {fmtFCFA(typeDue)}</div>
         <div><b>Total versé à ce jour :</b> {fmtFCFA(paidTotalType)}</div>
         <div style={{ gridColumn: '1 / -1' }}>
-          <b>Solde restant :</b> <span style={{ color: soldeType > 0 ? '#dc2626' : '#020617', fontWeight: 700 }}>{fmtFCFA(soldeType)}</span>
+          <b>Solde restant :</b> <span style={{ color: soldeType > 0 ? '#dc2626' : '#0a1e3d', fontWeight: 700 }}>{fmtFCFA(soldeType)}</span>
         </div>
         <div style={{ gridColumn: '1 / -1', borderTop: '1px solid #cbd5e1', paddingTop: 6, marginTop: 4 }}>
           {isTypeInscription ? (
-            <b style={{ color: '#d4a017' }}>Reliquat inscription :</b>
+            <b style={{ color: '#ffd100' }}>Reliquat inscription :</b>
           ) : (
-            <b style={{ color: '#020617' }}>Reliquat scolarité :</b>
+            <b style={{ color: '#0a1e3d' }}>Reliquat scolarité :</b>
           )}{' '}
-          <span style={{ color: (isTypeInscription ? reliquat.inscription : reliquat.mensualite) > 0 ? '#dc2626' : '#020617', fontWeight: 700 }}>
+          <span style={{ color: (isTypeInscription ? reliquat.inscription : reliquat.mensualite) > 0 ? '#dc2626' : '#0a1e3d', fontWeight: 700 }}>
             {fmtFCFA(isTypeInscription ? reliquat.inscription : reliquat.mensualite)}
           </span>
         </div>
@@ -8607,7 +8619,7 @@ function DepensesTab({ depenses, onAdd, onEdit, onDelete, onPrint, readOnly, onE
     <div className="space-y-4">
       {readOnly && (
         <div className="sygenop-card px-4 py-2.5 text-xs font-semibold flex items-center gap-2" style={{ background: 'var(--gold-l)', color: '#92710c' }}>
-          <Eye size={14} /> Mode consultation (Groupe scolaire) — lecture seule, aucune modification possible.
+          <Eye size={14} /> Mode consultation (IEF) — lecture seule, aucune modification possible.
         </div>
       )}
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
@@ -9000,7 +9012,7 @@ function MaterielJournal({ items, affectations, classes, onEdit, onDelete, readO
 function MaterielAffectationReceipt({ state, affectation, item, cls }) {
   const code = affectation.code || affectation.id;
   const qr = `https://api.qrserver.com/v1/create-qr-code/?size=110x110&data=${encodeURIComponent(`EduLink Pro|${code}`)}`;
-  return <div className="recu-sheet sygenop-card p-6"><div className="flex justify-between items-start"><div className="flex items-center gap-2"><SchoolLogoMark state={state} width={48} /><div><h2 className="font-bold">{state?.header?.ecole || 'EduLink Pro'}</h2><p className="text-xs">La plateforme intelligente de gestion scolaire</p></div></div><img src={qr} alt="QR code du reçu" width="80" height="80" /></div><h3 className="text-center font-bold py-2 mt-3" style={{ background: '#020617', color: '#fff' }}>REÇU D’AFFECTATION DE MATÉRIEL</h3><div className="space-y-2 mt-4 text-sm"><div><b>Code :</b> {code}</div><div><b>Date :</b> {fmtDateFr(affectation.date)}</div><div><b>Classe :</b> {cls?.name} — {cls?.level}</div><div><b>Matériel :</b> {item?.nom}</div><div><b>Catégorie :</b> {item?.categorie || '—'}</div><div><b>Quantité affectée :</b> {affectation.quantite}</div></div><p className="text-xs mt-6 text-muted">Document vérifiable avec le QR code.</p></div>;
+  return <div className="recu-sheet sygenop-card p-6"><div className="flex justify-between items-start"><div className="flex items-center gap-2"><SchoolLogoMark state={state} width={48} /><div><h2 className="font-bold">{state?.header?.ecole || 'EduLink Pro'}</h2><p className="text-xs">La plateforme intelligente de gestion scolaire</p></div></div><img src={qr} alt="QR code du reçu" width="80" height="80" /></div><h3 className="text-center font-bold py-2 mt-3" style={{ background: '#0a1e3d', color: '#fff' }}>REÇU D’AFFECTATION DE MATÉRIEL</h3><div className="space-y-2 mt-4 text-sm"><div><b>Code :</b> {code}</div><div><b>Date :</b> {fmtDateFr(affectation.date)}</div><div><b>Classe :</b> {cls?.name} — {cls?.level}</div><div><b>Matériel :</b> {item?.nom}</div><div><b>Catégorie :</b> {item?.categorie || '—'}</div><div><b>Quantité affectée :</b> {affectation.quantite}</div></div><p className="text-xs mt-6 text-muted">Document vérifiable avec le QR code.</p></div>;
 }
 
 function PaiementsView({ state, loading, updateState, notify, activeSchoolId, role, readOnly, session }) {
@@ -9795,7 +9807,7 @@ function actorLabel(session, state) {
     const dir = state && state.header && state.header.directeur;
     return dir ? `${dir} (Direction)` : 'Direction de l\u2019école';
   }
-  if (session.role === 'ief') return 'Groupe scolaire (lecture seule)';
+  if (session.role === 'ief') return 'IEF (lecture seule)';
   if (session.role === 'admin') return 'Super Administrateur';
   return 'Utilisateur';
 }
@@ -9910,7 +9922,7 @@ const cleanDomains = domains
     <div className="space-y-4">
       {readOnly && (
         <div className="sygenop-card px-4 py-2.5 text-xs font-semibold flex items-center gap-2" style={{ background: 'var(--gold-l)', color: '#92710c' }}>
-          <Eye size={14} /> Mode consultation (Groupe scolaire) — lecture seule, aucune modification possible.
+          <Eye size={14} /> Mode consultation (IEF) — lecture seule, aucune modification possible.
         </div>
       )}
       <div className="sygenop-card p-4 flex flex-wrap items-center gap-3">
@@ -10309,7 +10321,7 @@ function PresenceElevesCard({ state, updateState, notify, readOnly, session }) {
     <div className="space-y-4">
       {readOnly && (
         <div className="sygenop-card px-4 py-2.5 text-xs font-semibold flex items-center gap-2" style={{ background: 'var(--gold-l)', color: '#92710c' }}>
-          <Eye size={14} /> Mode consultation (Groupe scolaire) — lecture seule, aucune modification possible.
+          <Eye size={14} /> Mode consultation (IEF) — lecture seule, aucune modification possible.
         </div>
       )}
       <div className="sygenop-card p-5 space-y-3">
@@ -10322,7 +10334,7 @@ function PresenceElevesCard({ state, updateState, notify, readOnly, session }) {
             </select>
           </div>
           <EtabField label="Inspection d'Académie (IA)" value={form.ia} onChange={(v) => set('ia', v)} disabled={readOnly} placeholder="Ex : DAKAR" />
-          <EtabField label="Groupe scolaire de rattachement" value={form.ief} onChange={(v) => set('ief', v)} disabled={readOnly} placeholder="Ex : GRAND DAKAR" />
+          <EtabField label="IEF de rattachement" value={form.ief} onChange={(v) => set('ief', v)} disabled={readOnly} placeholder="Ex : IEF Dakar" />
           <EtabField label={cycleTerminology(form.cycle || state.header?.cycle).head} value={form.directeur} onChange={(v) => set('directeur', v)} disabled={readOnly} placeholder={`Nom du/de la ${cycleTerminology(form.cycle || state.header?.cycle).head.toLowerCase()}`} />
           <EtabField label="Téléphone" value={form.tel} onChange={(v) => set('tel', v)} disabled={readOnly} placeholder="Ex : 77 000 00 00" />
           <EtabField label="Année scolaire" value={form.annee} onChange={(v) => set('annee', v)} disabled={readOnly} placeholder="Ex : 2026/2027" />
@@ -10948,7 +10960,7 @@ function DataView({ state, loading, updateState, notify, readOnly, session, acti
     <div className="space-y-4 sygenop-fade">
       {readOnly && (
         <div className="sygenop-card px-4 py-2.5 text-xs font-semibold flex items-center gap-2" style={{ background: 'var(--gold-l)', color: '#92710c' }}>
-          <Eye size={14} /> Mode consultation (Groupe scolaire) — export et journal d'audit disponibles, import désactivé.
+          <Eye size={14} /> Mode consultation (IEF) — lecture seule, aucune modification possible.
         </div>
       )}
       <div className="flex flex-wrap gap-1.5 p-1 rounded-xl w-fit" style={{ background: 'var(--panel)', border: '1px solid var(--line)' }}>
@@ -10967,7 +10979,7 @@ function DataView({ state, loading, updateState, notify, readOnly, session, acti
       {tab === 'import' && (
         readOnly ? (
           <div className="sygenop-card p-10 text-center text-sm text-muted">
-            L'import de données n'est pas disponible en mode consultation (Groupe scolaire).
+            L'import de données n'est pas disponible en mode consultation (IEF).
           </div>
         ) : (
           <div className="space-y-4">
@@ -11007,15 +11019,15 @@ function ComingSoonView({ view }) {
 function IEFSchoolsView({ onOpenSchool, session }) {
   const role = session && session.role;
   const sessionIefId = session && session.iefId;
-  // Un compte IEF (lecture seule) ET un administrateur d'IEF décentralisé
-  // (connecté via l'onglet Super Admin avec son propre code) sont TOUJOURS
-  // verrouillés sur leur propre IEF : ils ne doivent jamais voir les autres
-  // IEF ni les écoles hors de leur circonscription. La sentinelle GRAND DAKAR
-  // ne sert plus qu'aux vieilles sessions sans ief_id (avant
-  // migration_ief_grand_dakar.sql).
-  const isLocked = role === 'ief' || !!(role === 'admin' && sessionIefId);
-  const lockedIefId = sessionIefId || (isLocked ? GRAND_DAKAR_FAKE_ID : null);
-  const [selectedIefId, setSelectedIefId] = useState(isLocked ? lockedIefId : '');
+  const sessionGroupeId = session && session.groupeId;
+  // Un compte IEF (lecture seule) est verrouillé sur son groupe scolaire :
+  // il ne voit que les écoles de CE groupe. Un admin décentralisé est
+  // verrouillé sur son IEF (circonscription).
+  const isLockedIef = role === 'ief' && !!sessionGroupeId;
+  const isLockedAdmin = role === 'admin' && !!sessionIefId;
+  const isLocked = isLockedIef || isLockedAdmin;
+  const lockedIefId = isLockedAdmin ? (sessionIefId || GRAND_DAKAR_FAKE_ID) : null;
+  const [selectedIefId, setSelectedIefId] = useState(isLockedAdmin ? lockedIefId : '');
   const [iefList, setIefList] = useState([]);
   const [schools, setSchools] = useState([]);
   const [payloadsById, setPayloadsById] = useState({});
@@ -11040,17 +11052,21 @@ function IEFSchoolsView({ onOpenSchool, session }) {
   }, [isLocked]);
 
   // IEF effective = celle de la session (verrouillée) sinon celle choisie dans le sélecteur
-  const effectiveIefId = isLocked ? lockedIefId : selectedIefId;
+  const effectiveIefId = isLockedAdmin ? lockedIefId : selectedIefId;
+  // Pour le rôle ief, on charge par groupe_id (pas ief_id)
+  const effectiveGroupeId = isLockedIef ? sessionGroupeId : null;
   const isGrandDakar = effectiveIefId === GRAND_DAKAR_FAKE_ID;
   // Si une VRAIE IEF « GRAND DAKAR » existe en base (post-migration
   // ief_grand_dakar), la sentinelle virtuelle (écoles ief_id null) ne doit
   // plus apparaître dans le sélecteur : elle n'a plus aucune école.
   const hasRealGrandDakar = (iefList || []).some((i) => (i.nom || '').toUpperCase().includes('GRAND DAKAR'));
-  const selectedIefName = isLocked
-    ? (isGrandDakar ? 'Groupe scolaire GRAND DAKAR' : (session.iefName || 'Votre groupe scolaire'))
+  const selectedIefName = isLockedIef
+    ? (session.iefName || 'Votre groupe scolaire')
+    : isLockedAdmin
+    ? (isGrandDakar ? 'IEF GRAND DAKAR' : (session.iefName || 'Votre IEF'))
     : (isGrandDakar
-        ? 'Groupe scolaire GRAND DAKAR'
-        : (iefList.find((i) => i.id === effectiveIefId)?.nom || 'Tous les groupes scolaires'));
+        ? 'IEF GRAND DAKAR'
+        : (iefList.find((i) => i.id === effectiveIefId)?.nom || 'Toutes les IEF'));
 
   useEffect(() => {
     let cancelled = false;
@@ -11059,7 +11075,10 @@ function IEFSchoolsView({ onOpenSchool, session }) {
       setError(null);
       try {
         let params = 'order=name.asc';
-        if (effectiveIefId) {
+        if (effectiveGroupeId) {
+          // Rôle ief : charge les écoles de CE groupe scolaire
+          params = `order=name.asc&groupe_id=eq.${effectiveGroupeId}`;
+        } else if (effectiveIefId) {
           params = isGrandDakar
             ? 'order=name.asc&ief_id=is.null'
             : `order=name.asc&ief_id=eq.${effectiveIefId}`;
@@ -11081,7 +11100,7 @@ function IEFSchoolsView({ onOpenSchool, session }) {
       }
     })();
     return () => { cancelled = true; };
-  }, [effectiveIefId, isGrandDakar]);
+  }, [effectiveIefId, effectiveGroupeId, isGrandDakar]);
   // Polling : recharger les données toutes les 60 secondes pour que
   // le groupe scolaire / Super Admin voie les changements en temps réel.
   useEffect(() => {
@@ -11089,7 +11108,9 @@ function IEFSchoolsView({ onOpenSchool, session }) {
     const poll = async () => {
       try {
         let params = 'order=name.asc';
-        if (effectiveIefId) {
+        if (effectiveGroupeId) {
+          params = `order=name.asc&groupe_id=eq.${effectiveGroupeId}`;
+        } else if (effectiveIefId) {
           params = isGrandDakar
             ? 'order=name.asc&ief_id=is.null'
             : `order=name.asc&ief_id=eq.${effectiveIefId}`;
@@ -11106,7 +11127,7 @@ function IEFSchoolsView({ onOpenSchool, session }) {
     };
     const id = setInterval(poll, 60000);
     return () => { active = false; clearInterval(id); };
-  }, [effectiveIefId, isGrandDakar]);
+  }, [effectiveIefId, effectiveGroupeId, isGrandDakar]);
 
   const perSchoolStats = useMemo(() => {
     return schools.map((s) => {
@@ -11179,13 +11200,13 @@ function IEFSchoolsView({ onOpenSchool, session }) {
     { name: 'Garçons', value: totals.garcons },
     { name: 'Filles', value: totals.filles },
   ];
-  const GENDER_COLORS = ['#4A90D9', '#d4a017'];
+  const GENDER_COLORS = ['#0a1e3d', '#ffd100'];
   const personnelGenderData = [
     { name: 'Hommes', value: totals.personnelMale || 0 },
     { name: 'Femmes', value: totals.personnelFemale || 0 },
     ...(totals.personnelUnknown ? [{ name: 'Non renseigné', value: totals.personnelUnknown }] : []),
   ];
-  const PERSONNEL_GENDER_COLORS = ['#4A90D9', '#d4a017', '#94a3b8'];
+  const PERSONNEL_GENDER_COLORS = ['#0a1e3d', '#ffd100', '#94a3b8'];
 const barData = cycleSchoolStats
     .filter((s) => s.effectif > 0)
     .sort((a, b) => b.effectif - a.effectif)
@@ -11206,7 +11227,7 @@ const barData = cycleSchoolStats
   }).filter((s) => s.moyenne != null), [cycleSchoolStats, payloadsById, notePeriod]);
 
   if (loading) {
-    return <AppLoader label="Chargement des écoles et statistiques du groupe scolaire…" />;
+    return <AppLoader label={isLockedIef ? "Chargement des écoles du groupe scolaire…" : "Chargement des écoles et statistiques de l'IEF…"} />;
   }
   if (error) {
     return (
@@ -11218,12 +11239,12 @@ const barData = cycleSchoolStats
 
   return (
     <div className="sygenop-fade space-y-6">
-      {/* Sélecteur du groupe scolaire — le Super Admin racine choisit un groupe
+      {/* Sélecteur du groupe scolaire / IEF — le Super Admin racine choisit une IEF
           dont il voit la vue d'ensemble (écoles + statistiques), sans impacter les autres. */}
       <div className="sygenop-card px-4 py-3 flex flex-wrap items-center gap-3">
         <div className="flex items-center gap-2">
           <Building2 size={16} style={{ color: 'var(--green-d)' }} />
-          <span className="text-xs font-bold uppercase tracking-wide text-muted">Groupe scolaire</span>
+          <span className="text-xs font-bold uppercase tracking-wide text-muted">{isLockedIef ? 'Groupe scolaire' : 'IEF'}</span>
         </div>
         {isLocked ? (
           <span className="text-sm font-bold px-3 py-1.5 rounded-lg" style={{ background: 'var(--green-l)', color: 'var(--green-d)' }}>
@@ -11236,9 +11257,9 @@ const barData = cycleSchoolStats
             className="px-3 py-2 rounded-lg border text-sm font-semibold"
             style={{ borderColor: 'var(--line)', background: 'var(--panel)', color: 'var(--ink)', minWidth: 240 }}
           >
-            <option value="">— Tous les groupes scolaires (vue globale) —</option>
+            <option value="">— Toutes les IEF (vue globale) —</option>
             {iefList.map((i) => <option key={i.id} value={i.id}>{i.nom}</option>)}
-            {!hasRealGrandDakar && <option value={GRAND_DAKAR_FAKE_ID}>Groupe scolaire GRAND DAKAR</option>}
+            {!hasRealGrandDakar && <option value={GRAND_DAKAR_FAKE_ID}>IEF GRAND DAKAR</option>}
           </select>
         )}
         <div className="text-xs font-semibold ml-auto text-muted">
@@ -11335,7 +11356,7 @@ const barData = cycleSchoolStats
                     <XAxis dataKey="ecole" tick={{ fontSize: 10, fill: 'var(--muted)' }} interval={0} angle={-25} textAnchor="end" />
                     <YAxis domain={[0, 10]} tick={{ fontSize: 11, fill: 'var(--muted)' }} />
                     <Tooltip formatter={(v) => [`${v}/10`, 'Moyenne']} contentStyle={{ borderRadius: 10, border: '1px solid var(--line)', fontSize: 12 }} />
-                    <Line type="monotone" dataKey="moyenne" stroke="#d4a017" strokeWidth={3} dot={{ r: 4 }} activeDot={{ r: 6 }} />
+                    <Line type="monotone" dataKey="moyenne" stroke="#ffd100" strokeWidth={3} dot={{ r: 4 }} activeDot={{ r: 6 }} />
                   </LineChart>
                 </ResponsiveContainer>
               )}
@@ -11363,7 +11384,7 @@ const barData = cycleSchoolStats
                 <XAxis dataKey="ecole" tick={{ fontSize: 11, fill: 'var(--muted)' }} interval={0} angle={-25} textAnchor="end" height={60} />
                 <YAxis tick={{ fontSize: 12, fill: 'var(--muted)' }} />
                 <Tooltip contentStyle={{ borderRadius: 10, border: '1px solid var(--line)', fontSize: 12 }} />
-                <Bar dataKey="effectif" fill="#4A90D9" radius={[6, 6, 0, 0]} />
+                <Bar dataKey="effectif" fill="#0a1e3d" radius={[6, 6, 0, 0]} />
               </BarChart>
             </ResponsiveContainer>
             </div>
@@ -11558,7 +11579,7 @@ function RestrictionsModal({ school, onSave, onClose }) {
 /* ============================================================
    SUPER ADMIN — Gestion des écoles & des administrateurs
    ============================================================ */
-function SchoolModal({ school, onSave, onClose, iefOptions, fixedIefName }) {
+function SchoolModal({ school, onSave, onClose, iefOptions, fixedIefName, groupeOptions, fixedGroupeName }) {
   const isEdit = !!school;
 const initialCycles = (() => {
     const base = school?.cycles && Array.isArray(school.cycles) && school.cycles.length ? school.cycles : (school?.cycle ? [school.cycle] : []);
@@ -11571,6 +11592,7 @@ const initialCycles = (() => {
     directeur: school?.directeur || '',
     code: school?.code || generateAccessCode(),
     ief_id: school?.ief_id || (iefOptions && iefOptions[0] ? iefOptions[0].id : ''),
+    groupe_id: school?.groupe_id || (groupeOptions && groupeOptions[0] ? groupeOptions[0].id : ''),
     actif: school?.actif !== false,
   }));
   const [showCode, setShowCode] = useState(true);
@@ -11664,7 +11686,7 @@ const initialCycles = (() => {
           </div>
           {iefOptions ? (
             <div>
-              <label className="text-xs font-semibold block mb-1 text-muted">Groupe scolaire de rattachement</label>
+              <label className="text-xs font-semibold block mb-1 text-muted">IEF de rattachement</label>
               <select value={form.ief_id} onChange={(e) => set('ief_id', e.target.value)} className="w-full px-3 py-2.5 rounded-lg border text-sm" style={fieldStyle}>
                 <option value="">— Aucune (visible uniquement du Super Admin global) —</option>
                 {iefOptions.map((i) => <option key={i.id} value={i.id}>{i.nom}</option>)}
@@ -11672,7 +11694,20 @@ const initialCycles = (() => {
             </div>
           ) : fixedIefName ? (
             <div className="text-[11px] px-3 py-2 rounded-lg" style={{ background: 'var(--green-l)', color: 'var(--green-d)' }}>
-              Cette école sera rattachée au Groupe scolaire <b>{fixedIefName}</b>.
+              Cette école sera rattachée à l'IEF <b>{fixedIefName}</b>.
+            </div>
+          ) : null}
+          {groupeOptions ? (
+            <div>
+              <label className="text-xs font-semibold block mb-1 text-muted">Groupe scolaire de rattachement</label>
+              <select value={form.groupe_id} onChange={(e) => set('groupe_id', e.target.value)} className="w-full px-3 py-2.5 rounded-lg border text-sm" style={fieldStyle}>
+                <option value="">— Aucun —</option>
+                {groupeOptions.map((g) => <option key={g.id} value={g.id}>{g.nom}</option>)}
+              </select>
+            </div>
+          ) : fixedGroupeName ? (
+            <div className="text-[11px] px-3 py-2 rounded-lg" style={{ background: 'var(--green-l)', color: 'var(--green-d)' }}>
+              Cette école sera rattachée au Groupe scolaire <b>{fixedGroupeName}</b>.
             </div>
           ) : null}
           <div>
@@ -11756,6 +11791,7 @@ function EcolesAdminTab({ notify, onOpenSchool, session, iefIdOverride, iefList:
     : null;
   const [schools, setSchools] = useState([]);
   const [iefList, setIefList] = useState([]);
+  const [groupeList, setGroupeList] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [q, setQ] = useState('');
@@ -11774,6 +11810,10 @@ function EcolesAdminTab({ notify, onOpenSchool, session, iefIdOverride, iefList:
         const rows = (await sb('POST', 'rpc/list_active_iefs', '', {})) || [];
         setIefList(rows);
       } catch (_) { /* migration multi-IEF pas encore appliquée */ }
+      try {
+        const rows = (await sb('POST', 'rpc/list_active_groupes', '', {})) || [];
+        setGroupeList(rows);
+      } catch (_) { /* migration groupes_scolaires pas encore appliquée */ }
     })();
   }, [isGlobalAdmin]);
 
@@ -11862,11 +11902,12 @@ async function refresh() {
   async function handleSave(form) {
     // GRAND DAKAR utilise le vrai UUID de la table iefs (pas null)
     const iefField = { ief_id: isGrandDakar ? grandDakarRealId : (isGlobalAdmin ? (form.ief_id || null) : iefId) };
+    const groupeField = { groupe_id: isGlobalAdmin ? (form.groupe_id || null) : null };
     try {
       let directeurSaved = true;
       if (modal && modal !== 'new' && modal.id) {
         const res = await upsertSchoolRow('PATCH', `id=eq.${modal.id}`, {
-          name: form.name, type: form.type, cycle: form.cycle, cycles: form.cycles, directeur: form.directeur, code: form.code, actif: form.actif, ...iefField,
+          name: form.name, type: form.type, cycle: form.cycle, cycles: form.cycles, directeur: form.directeur, code: form.code, actif: form.actif, ...iefField, ...groupeField,
         });
         directeurSaved = res.directeurSaved;
         // Répercute le nom/directeur dans les données de l'école si elle existe déjà
@@ -11878,7 +11919,7 @@ const st = await loadSchoolData(modal.id);
         notify(directeurSaved ? 'École modifiée avec succès' : 'École modifiée (le directeur est enregistré, mais exécutez la migration SQL pour qu\u2019il apparaisse aussi dans la liste — voir instructions fournies)');
       } else {
         const res = await upsertSchoolRow('POST', '', {
-          name: form.name, type: form.type, cycle: form.cycle, cycles: form.cycles, directeur: form.directeur, code: form.code, actif: form.actif, ...iefField,
+          name: form.name, type: form.type, cycle: form.cycle, cycles: form.cycles, directeur: form.directeur, code: form.code, actif: form.actif, ...iefField, ...groupeField,
         });
         directeurSaved = res.directeurSaved;
         const created = res.data || [];
@@ -12148,6 +12189,7 @@ const st = await loadSchoolData(modal.id);
           onClose={() => setModal(null)}
           iefOptions={isGlobalAdmin && iefList.length ? iefList : null}
           fixedIefName={!isGlobalAdmin ? (session && session.iefName) : null}
+          groupeOptions={isGlobalAdmin && groupeList.length ? groupeList : null}
         />
       )}
       {attendanceSchool && (
@@ -12209,13 +12251,13 @@ function IEFAccountModal({ admin, onSave, onClose, allowRoleAdmin }) {
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
       <form onSubmit={submit} className="sygenop-card p-6 max-w-md w-full sygenop-fade">
         <div className="flex items-center justify-between mb-4">
-          <div className="font-bold text-ink">{isEdit ? 'Modifier le compte' : 'Nouveau compte Groupe scolaire'}</div>
+          <div className="font-bold text-ink">{isEdit ? 'Modifier le compte' : 'Nouveau compte IEF'}</div>
           <button type="button" onClick={onClose} style={{ color: 'var(--muted)' }}><X size={18} /></button>
         </div>
         <p className="text-xs mb-4 text-muted">
           {form.role === 'admin'
-            ? "Ce compte pourra créer et modifier des écoles, mais uniquement au sein de son propre Groupe scolaire."
-            : "Ce compte pourra consulter les écoles de son Groupe scolaire (lecture seule) via l'onglet « Groupe scolaire » de l'écran de connexion, sans pouvoir rien modifier."}
+            ? "Ce compte pourra créer et modifier des écoles, mais uniquement au sein de sa propre IEF."
+            : "Ce compte pourra consulter les écoles de son IEF (lecture seule) via l'onglet « IEF » de l'écran de connexion, sans pouvoir rien modifier."}
         </p>
         <div className="space-y-3">
           {allowRoleAdmin && (
@@ -12223,7 +12265,7 @@ function IEFAccountModal({ admin, onSave, onClose, allowRoleAdmin }) {
               <label className="text-xs font-semibold block mb-1 text-muted">Type de compte</label>
               <div className="grid grid-cols-2 gap-2">
                 <button type="button" onClick={() => set('role', 'ief')} className="px-3 py-2 rounded-lg text-xs font-semibold" style={form.role === 'ief' ? { background: 'var(--green-d)', color: '#fff' } : { background: 'var(--bg)', color: 'var(--ink)', border: '1px solid var(--line)' }}>Lecture seule</button>
-                <button type="button" onClick={() => set('role', 'admin')} className="px-3 py-2 rounded-lg text-xs font-semibold" style={form.role === 'admin' ? { background: 'var(--green-d)', color: '#fff' } : { background: 'var(--bg)', color: 'var(--ink)', border: '1px solid var(--line)' }}>Administrateur Groupe</button>
+                <button type="button" onClick={() => set('role', 'admin')} className="px-3 py-2 rounded-lg text-xs font-semibold" style={form.role === 'admin' ? { background: 'var(--green-d)', color: '#fff' } : { background: 'var(--bg)', color: 'var(--ink)', border: '1px solid var(--line)' }}>Administrateur IEF</button>
               </div>
             </div>
           )}
@@ -12456,14 +12498,14 @@ function IEFAccountsTab({ notify, session, iefIdOverride, iefList }) {
   return (
     <div className="space-y-4">
       <div className="sygenop-card px-4 py-2.5 text-xs font-semibold flex items-center gap-2" style={{ background: 'var(--gold-l)', color: '#92710c' }}>
-        <Eye size={14} /> Les comptes créés ci-dessous sont rattachés {iefId ? <>à <b>votre Groupe scolaire uniquement</b></> : <>au périmètre <b>global</b></>} : « lecture seule » pour consulter, « Administrateur Groupe scolaire » pour créer/modifier des écoles.
+        <Eye size={14} /> Les comptes créés ci-dessous sont rattachés {iefId ? <>à <b>votre IEF uniquement</b></> : <>au périmètre <b>global</b></>} : « lecture seule » pour consulter, « Administrateur IEF » pour créer/modifier des écoles.
       </div>
 
       {isGlobalAdmin && (
         <div className="sygenop-card p-5 space-y-2">
           <div className="font-bold text-sm text-ink">Votre code Super Administrateur (racine)</div>
           <p className="text-xs text-muted">
-            C'est votre propre code, celui qui donne un accès complet à tous les groupes scolaires. Vous pouvez le changer ici.
+            C'est votre propre code, celui qui donne un accès complet à toutes les IEF. Vous pouvez le changer ici.
           </p>
           <div className="flex gap-2 max-w-md">
             <div className="relative flex-1">
@@ -12489,8 +12531,8 @@ function IEFAccountsTab({ notify, session, iefIdOverride, iefList }) {
 
       <div className="flex items-center justify-between">
         <div>
-          <div className="font-bold text-sm text-ink">Comptes Groupe scolaire {iefId ? `— ${session.iefName || ''}` : '(périmètre global)'}</div>
-          <p className="text-xs text-muted">Chacun se connecte via l'onglet « Groupe scolaire » ou « Super Admin » de l'écran de connexion, avec son propre code.</p>
+          <div className="font-bold text-sm text-ink">Comptes IEF {iefId ? `— ${session.iefName || ''}` : '(périmètre global)'}</div>
+          <p className="text-xs text-muted">Chacun se connecte via l'onglet « IEF » ou « Super Admin » de l'écran de connexion, avec son propre code.</p>
         </div>
         {!missingTable && (
           <button onClick={() => setModal('new')} className="px-3.5 py-2 rounded-lg text-sm font-semibold text-white flex items-center gap-1.5 whitespace-nowrap" style={{ background: 'var(--green-d)' }}>
@@ -12511,7 +12553,7 @@ function IEFAccountsTab({ notify, session, iefIdOverride, iefList }) {
             <AlertTriangle size={16} /> Fonctionnalité non activée
           </div>
           <p className="text-xs text-muted">
-            Pour pouvoir ajouter des comptes Groupe scolaire (chacun avec son propre code), exécutez une fois ce script dans l'éditeur SQL de Supabase, puis rechargez cette page :
+            Pour pouvoir ajouter des comptes IEF (chacun avec son propre code), exécutez une fois ce script dans l'éditeur SQL de Supabase, puis rechargez cette page :
           </p>
           <pre className="text-[11px] p-3 rounded-lg overflow-auto" style={{ background: 'var(--bg)', color: 'var(--ink)' }}>{ADMINS_TABLE_SQL}</pre>
           <button onClick={() => copyToClipboard(ADMINS_TABLE_SQL, notify)} className="px-3 py-2 rounded-lg text-xs font-semibold sygenop-btn sygenop-btn--ghost">
@@ -12551,7 +12593,7 @@ function IEFAccountsTab({ notify, session, iefIdOverride, iefList }) {
                     </div>
                   </td>
                   <td className="px-4 py-3">
-                    <Pill tone="gold">{a.role === 'admin' ? 'Administrateur Groupe scolaire' : 'Groupe scolaire — lecture seule'}</Pill>
+                    <Pill tone="gold">{a.role === 'admin' ? 'Administrateur IEF' : 'IEF — lecture seule'}</Pill>
                   </td>
                   <td className="px-4 py-3">
                     <div className="flex justify-end gap-1.5">
@@ -12612,19 +12654,19 @@ function IEFModal({ ief, onSave, onClose }) {
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
       <form onSubmit={submit} className="sygenop-card p-6 max-w-md w-full sygenop-fade max-h-[90vh] overflow-auto">
         <div className="flex items-center justify-between mb-4">
-          <div className="font-bold text-ink">{isEdit ? 'Modifier le Groupe scolaire' : 'Nouveau Groupe scolaire'}</div>
+          <div className="font-bold text-ink">{isEdit ? 'Modifier l\'IEF' : 'Nouvelle IEF'}</div>
           <button type="button" onClick={onClose} style={{ color: 'var(--muted)' }}><X size={18} /></button>
         </div>
         <p className="text-xs mb-4 text-muted">
-          Un Groupe scolaire regroupe des écoles. Chaque école créée est rattachée à un Groupe scolaire.
+          Une IEF (circonscription) regroupe des écoles. Chaque école créée est rattachée à une IEF.
         </p>
         <div className="space-y-3">
           <div>
-            <label className="text-xs font-semibold block mb-1 text-muted">Nom du Groupe scolaire *</label>
-            <input autoFocus value={form.nom} onChange={(e) => set('nom', e.target.value)} className="w-full px-3 py-2.5 rounded-lg border text-sm" style={fieldStyle} placeholder="Ex : Groupe scolaire Dakar Centre" />
+            <label className="text-xs font-semibold block mb-1 text-muted">Nom de l'IEF *</label>
+            <input autoFocus value={form.nom} onChange={(e) => set('nom', e.target.value)} className="w-full px-3 py-2.5 rounded-lg border text-sm" style={fieldStyle} placeholder="Ex : IEF Dakar Centre" />
           </div>
           <div>
-            <label className="text-xs font-semibold block mb-1 text-muted">Code « Groupe scolaire (lecture seule) »</label>
+            <label className="text-xs font-semibold block mb-1 text-muted">Code « IEF (lecture seule) »</label>
             <div className="flex gap-2">
               <div className="relative flex-1">
                 <KeyRound size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-muted" />
@@ -12633,10 +12675,10 @@ function IEFModal({ ief, onSave, onClose }) {
               </div>
               <button type="button" onClick={() => set('code_lecture', generateAccessCode())} className="px-3 py-2 rounded-lg text-xs font-semibold whitespace-nowrap sygenop-btn sygenop-btn--ghost">Générer</button>
             </div>
-            <p className="text-[11px] mt-1 text-muted">Permet de consulter (sans modifier) toutes les écoles de ce Groupe scolaire via l'onglet « Groupe scolaire ».</p>
+            <p className="text-[11px] mt-1 text-muted">Permet de consulter (sans modifier) toutes les écoles de cette IEF via l'onglet « IEF ».</p>
           </div>
           <div>
-            <label className="text-xs font-semibold block mb-1 text-muted">Code « Administrateur Groupe scolaire »</label>
+            <label className="text-xs font-semibold block mb-1 text-muted">Code « Administrateur IEF »</label>
             <div className="flex gap-2">
               <div className="relative flex-1">
                 <KeyRound size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-muted" />
@@ -12645,7 +12687,7 @@ function IEFModal({ ief, onSave, onClose }) {
               </div>
               <button type="button" onClick={() => set('code_admin', generateAccessCode())} className="px-3 py-2 rounded-lg text-xs font-semibold whitespace-nowrap sygenop-btn sygenop-btn--ghost">Générer</button>
             </div>
-            <p className="text-[11px] mt-1 text-muted">Donne un accès complet (créer/modifier des écoles, comptes) mais limité à ce seul Groupe scolaire.</p>
+            <p className="text-[11px] mt-1 text-muted">Donne un accès complet (créer/modifier des écoles, comptes) mais limité à cette seule IEF.</p>
           </div>
           <div>
             <label className="text-xs font-semibold text-muted">Cycles couverts</label>
@@ -12672,7 +12714,7 @@ function IEFModal({ ief, onSave, onClose }) {
         <div className="flex justify-end gap-2 mt-6">
           <button type="button" onClick={onClose} className="px-3.5 py-2 rounded-lg text-sm font-semibold" style={{ background: 'var(--bg)', color: 'var(--ink)' }}>Annuler</button>
           <button type="submit" disabled={busy} className="px-3.5 py-2 rounded-lg text-sm font-semibold text-white disabled:opacity-60" style={{ background: 'var(--green-d)' }}>
-            {busy ? 'Enregistrement…' : (isEdit ? 'Enregistrer' : 'Créer le Groupe scolaire')}
+            {busy ? 'Enregistrement…' : (isEdit ? 'Enregistrer' : 'Créer l\'IEF')}
           </button>
         </div>
       </form>
@@ -12708,7 +12750,7 @@ function IEFsAdminTab({ notify, iefId }) {
       if (isSentinel) {
         setIefs([{
           id: GRAND_DAKAR_FAKE_ID,
-          nom: 'Groupe scolaire GRAND DAKAR',
+          nom: 'IEF GRAND DAKAR',
           code_lecture: 'IEF-DAKAR',
           code_admin: 'ADMIN-DAKAR',
           actif: true,
@@ -12726,7 +12768,7 @@ function IEFsAdminTab({ notify, iefId }) {
         if (!hasGrandDakar) {
           rows.push({
             id: GRAND_DAKAR_FAKE_ID,
-            nom: 'Groupe scolaire GRAND DAKAR',
+          nom: 'IEF GRAND DAKAR',
             code_lecture: 'IEF-DAKAR',
             code_admin: 'ADMIN-DAKAR',
             actif: true,
@@ -12755,7 +12797,7 @@ function IEFsAdminTab({ notify, iefId }) {
 
   async function handleSave(form) {
     if (modal && modal.id === GRAND_DAKAR_FAKE_ID) {
-      notify('Groupe scolaire historique gérée automatiquement — ses accès ne peuvent pas être modifiés ici.', true);
+      notify('IEF historique gérée automatiquement — ses accès ne peuvent pas être modifiés ici.', true);
       setModal(null);
       return;
     }
@@ -12772,7 +12814,7 @@ function IEFsAdminTab({ notify, iefId }) {
             await sb('PATCH', 'iefs', `id=eq.${modal.id}`, payload);
           } else throw e;
         }
-        notify('Groupe scolaire modifié avec succès');
+        notify('IEF modifiée avec succès');
       } else {
         let res;
         try {
@@ -12784,7 +12826,7 @@ function IEFsAdminTab({ notify, iefId }) {
           } else throw e;
         }
         savedIefId = res?.data?.[0]?.id || res?.[0]?.id || null;
-        notify('Groupe scolaire créé avec succès — communiquez ses codes à l\u2019équipe concernée');
+        notify('IEF créée avec succès — communiquez ses codes à l\u2019équipe concernée');
       }
       const checkedCycles = form.cycles || [];
       if (savedIefId && checkedCycles.length) {
@@ -12820,10 +12862,10 @@ function IEFsAdminTab({ notify, iefId }) {
     } catch (e) { notify('Erreur : ' + sbErrMsg(e), true); }
   }
   async function handleDelete(ief) {
-if (schoolCounts[ief.id]) { notify('Impossible : ce Groupe scolaire a encore des écoles rattachées', true); return; }
+if (schoolCounts[ief.id]) { notify('Impossible : cette IEF a encore des écoles rattachées', true); return; }
     try {
       await sb('DELETE', 'iefs', `id=eq.${ief.id}`);
-      notify('Groupe scolaire supprimé');
+      notify('IEF supprimée');
       setToDelete(null);
       refresh();
     } catch (e) { notify('Erreur : ' + sbErrMsg(e), true); }
@@ -12854,14 +12896,14 @@ if (schoolCounts[ief.id]) { notify('Impossible : ce Groupe scolaire a encore des
 <div className="sygenop-card px-4 py-2.5 text-xs font-semibold flex items-center gap-2" style={{ background: 'var(--gold-l)', color: '#92710c' }}>
         <Building2 size={14} />
         {isGlobal
-          ? <>Chaque Groupe scolaire fonctionne de façon indépendante : ses écoles et ses comptes ne sont visibles que par son propre administrateur, jamais par les autres.</>
-          : <>Vous consultez le Groupe scolaire <b>{iefs[0]?.nom || ''}</b> — ses codes d'accès sont affichés ci-dessous. La création/suppression n'est possible qu'en mode global.</>}
+          ? <>Chaque IEF fonctionne de façon indépendante : ses écoles et ses comptes ne sont visibles que par son propre administrateur, jamais par les autres.</>
+          : <>Vous consultez l'IEF <b>{iefs[0]?.nom || ''}</b> — ses codes d'accès sont affichés ci-dessous. La création/suppression n'est possible qu'en mode global.</>}
       </div>
       <div className="flex items-center justify-between">
-        <div className="font-bold text-sm text-ink">Groupes scolaires — chaque école créée est rattachée à un Groupe scolaire</div>
+        <div className="font-bold text-sm text-ink">IEF — chaque école créée est rattachée à une IEF</div>
         {isGlobal && (
           <button onClick={() => setModal('new')} className="px-3.5 py-2.5 rounded-lg text-sm font-semibold text-white flex items-center gap-1.5 justify-center" style={{ background: 'var(--green-d)' }}>
-            <Plus size={15} /> Nouveau Groupe scolaire
+            <Plus size={15} /> Nouvelle IEF
           </button>
         )}
       </div>
@@ -12870,7 +12912,7 @@ if (schoolCounts[ief.id]) { notify('Impossible : ce Groupe scolaire a encore des
       ) : error ? (
         <div className="text-sm py-6 text-center" style={{ color: '#c0392b' }}>{error}</div>
       ) : iefs.length === 0 ? (
-        <div className="sygenop-card p-6 text-sm text-center text-muted">Aucun Groupe scolaire pour ce périmètre.</div>
+        <div className="sygenop-card p-6 text-sm text-center text-muted">Aucune IEF pour ce périmètre.</div>
       ) : (
         <div className="grid gap-3 sm:grid-cols-2">
           {iefs.map((ief) => (
@@ -12931,7 +12973,7 @@ if (schoolCounts[ief.id]) { notify('Impossible : ce Groupe scolaire a encore des
       )}
       {toDelete && isGlobal && (
         <ConfirmModal
-          title="Supprimer ce Groupe scolaire ?"
+          title="Supprimer cette IEF ?"
           message={`« ${toDelete.nom} » sera définitivement supprimée. Cette action est impossible si des écoles y sont encore rattachées.`}
           onConfirm={() => handleDelete(toDelete)}
           onCancel={() => setToDelete(null)}
@@ -12951,7 +12993,7 @@ const [iefList, setIefList] = useState([]);
 
   // IEF GRAND DAKAR — l'IEF historique du système (avant décentralisation).
   // Les écoles sans ief_id (ief_id null) y appartiennent.
-  const grandDakarEntry = { id: GRAND_DAKAR_FAKE_ID, nom: 'Groupe scolaire GRAND DAKAR', actif: true };
+  const grandDakarEntry = { id: GRAND_DAKAR_FAKE_ID, nom: 'IEF GRAND DAKAR', actif: true };
 
   // Chargement de la liste des IEF pour le sélecteur (root admin uniquement)
   useEffect(() => {
@@ -12985,12 +13027,12 @@ const [iefList, setIefList] = useState([]);
 
   const selectedIefName = isGlobalAdmin
     ? (mergedIefList.find((i) => i.id === adminIefId)?.nom || 'Tous les groupes scolaires')
-    : (session.iefName || 'Votre Groupe scolaire');
+    : (session.iefName || 'Votre IEF');
 
   const tabs = [
     { id: 'ecoles', label: 'Écoles', icon: Building2 },
-    { id: 'admins', label: 'Comptes Groupe scolaire', icon: UserCog },
-    { id: 'iefs', label: 'Gestion des Groupes scolaires', icon: Database },
+    { id: 'admins', label: 'Comptes IEF', icon: UserCog },
+    { id: 'iefs', label: 'Gestion des IEF', icon: Database },
   ];
 
   const activeIefId = isGlobalAdmin ? adminIefId : (session && session.iefId);
@@ -13016,20 +13058,20 @@ const [iefList, setIefList] = useState([]);
         <Building2 size={14} />
         {isGlobalAdmin ? (
           <span className="flex items-center gap-2 flex-wrap">
-            Super Admin — Groupe scolaire administré :
+            Super Admin — IEF administrée :
             <select
               value={adminIefId || ''}
               onChange={(e) => setAdminIefId(e.target.value || null)}
               className="px-2 py-1 rounded-lg border text-xs font-semibold"
               style={{ borderColor: 'var(--green-d)', background: 'var(--panel)', color: 'var(--green-d)', maxWidth: 220 }}
             >
-              <option value="">— Tous les groupes scolaires (mode global) —</option>
+              <option value="">— Toutes les IEF (mode global) —</option>
               {mergedIefList.map((i) => <option key={i.id} value={i.id}>{i.nom}</option>)}
             </select>
             {loadingIefs && <Loader2 size={12} className="animate-spin" />}
           </span>
         ) : (
-          <>Vous administrez le Groupe scolaire <b>{session.iefName || ''}</b> : les écoles et comptes créés ici seront automatiquement rattachés à ce Groupe scolaire, sans impact sur les autres.</>
+          <>Vous administrez l'IEF <b>{session.iefName || ''}</b> : les écoles et comptes créés ici seront automatiquement rattachés à cette IEF, sans impact sur les autres.</>
         )}
       </div>
 
@@ -13172,7 +13214,7 @@ setSession(saved);
       } catch (e) {
         if (/cycles|does not exist|could not find|schema cache/i.test(sbErrMsg(e))) missing.push('migration_school_cycles');
       }
-      // Vérifie check_groupe_code (migration_groupe_login.sql) : le login
+      // Vérifie check_groupe_code (migration_groupes_scolaires.sql) : le login
       // « Groupe scolaire » s'appuie sur cette RPC — s'il manque, abandonner.
       try {
         await sb('POST', 'rpc/check_groupe_code', '', { p_code: '--- migration probe ---' });
@@ -13447,7 +13489,7 @@ function handleLogin(sessionData) {
       // Persiste le code d'accès de l'école : indispensable pour que admin-write
       // puisse vérifier l'identité du directeur côté serveur (Mode 2). Sans ça,
       // toute écriture (y compris l'entrée d'audit "Connexion") est rejetée en 401.
-      // NB : le compte « Groupe scolaire » (role ief) reste LECTURE SEULE : on ne
+      // NB : le compte « IEF » (role ief) reste LECTURE SEULE : on ne
       // persiste jamais son code (session.iefCode) ici, uniquement l'école ouverte.
       if (sessionData.role === 'school' && sessionData.schoolCode) {
         setActiveSchoolCode(sessionData.schoolCode);
@@ -13459,7 +13501,7 @@ function handleLogin(sessionData) {
         setActiveSchoolName(school.name);
         saveJSON(LS_SCHOOL_NAME, school.name);
       } else if (sessionData.iefName) {
-        // Login « Groupe scolaire » : le nom de l'école est renvoyé par la RPC.
+        // Login « IEF » : le nom du groupe scolaire est renvoyé par la RPC.
         setActiveSchoolName(sessionData.iefName);
         saveJSON(LS_SCHOOL_NAME, sessionData.iefName);
       }
@@ -13558,7 +13600,7 @@ function handleLogout() {
   }, [session, activeSchoolId, schoolState]);
 function openSchool(id, name, actif) {
     if (actif === false) {
-      notify('Cette école est désactivée. Elle est inaccessible à tous (directeur, enseignants, lecteur du groupe scolaire).', true);
+      notify('Cette école est désactivée. Elle est inaccessible à tous (directeur, enseignants, lecteur de l\'IEF).', true);
       return;
     }
     setActiveSchoolId(id);
@@ -13595,7 +13637,7 @@ function openSchool(id, name, actif) {
   const authorName = session.role === 'school'
     ? ((schoolState && schoolState.header && schoolState.header.directeur) || 'La direction')
     : session.role === 'admin' ? 'Super Administrateur'
-    : session.role === 'ief' ? (session.iefName || 'Groupe scolaire')
+    : session.role === 'ief' ? (session.iefName || 'IEF')
     : personFullName(currentStaff) || teacherName || '';
 
   let body;

@@ -12,7 +12,7 @@ export default function ChesterWidget({ dark, session, landing }) {
   const tip = !session
     ? landing
       ? 'Bienvenue sur EduLink Pro, la plateforme intelligente de gestion scolaire. Parcourez les modules, la version 1 et nos coordonnées, puis connectez-vous pour accéder à votre espace école.'
-      : 'Bienvenue sur EduLink Pro. Sélectionnez votre école et saisissez votre code d’accès, ou utilisez un des onglets Enseignant / Groupe scolaire / Super Admin.'
+      : 'Bienvenue sur EduLink Pro. Sélectionnez votre école et saisissez votre code d’accès, ou utilisez un des onglets Enseignant / IEF / Super Admin.'
     : session.role === 'teacher'
       ? 'Vous êtes connecté(e) en tant qu’enseignant(e). Vous pouvez saisir les notes de votre classe dans « Évaluation → Saisie des notes ».'
       : session.role === 'ief'
@@ -27,8 +27,8 @@ export default function ChesterWidget({ dark, session, landing }) {
         <div
           className="sygenop-fade"
           style={{
-            background: dark ? '#0f172a' : '#ffffff',
-            border: dark ? '1px solid #1e293b' : '1px solid #e2e8f0',
+            background: dark ? '#1e293b' : '#ffffff',
+            border: dark ? '1px solid #334155' : '1px solid #e5e9f1',
             borderRadius: 16,
             boxShadow: dark
               ? '0 12px 30px -8px rgba(0,0,0,.5)'
@@ -52,25 +52,25 @@ export default function ChesterWidget({ dark, session, landing }) {
               textDecoration: 'none',
               fontSize: 11,
               fontWeight: 700,
-              color: '#4A90D9',
+              color: '#0a1e3d',
               marginBottom: 7,
               paddingBottom: 7,
-              borderBottom: dark ? '1px solid #1e293b' : '1px solid #e2e8f0',
+              borderBottom: dark ? '1px solid #334155' : '1px solid #e5e9f1',
             }}
           >
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="#22d3ee" aria-hidden="true">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="#ffd100" aria-hidden="true">
               <path d="M12.04 2C6.58 2 2.13 6.45 2.13 11.91c0 1.75.46 3.45 1.32 4.95L2 22l5.25-1.38a9.9 9.9 0 0 0 4.78 1.22h.01c5.46 0 9.91-4.45 9.91-9.91C21.95 6.45 17.5 2 12.04 2m5.83 14.12c-.25.7-1.45 1.33-2 1.38-.53.05-1.03.24-3.46-.72-2.92-1.15-4.77-4.13-4.92-4.32-.14-.2-1.17-1.56-1.17-2.97 0-1.41.74-2.1 1-2.39.26-.28.57-.35.76-.35.19 0 .38 0 .54.01.18.01.41-.07.64.49.24.57.8 1.97.87 2.11.07.14.12.31.02.5-.1.19-.14.31-.29.48-.14.17-.3.38-.43.5-.14.14-.29.3-.12.58.17.28.74 1.22 1.59 1.97 1.09.97 2 1.27 2.29 1.42.29.14.45.12.62-.07.17-.2.72-.84.91-1.13.19-.29.38-.24.64-.14.26.09 1.66.78 1.95.93.28.14.47.21.54.33.07.11.07.66-.18 1.29z" />
             </svg>
             +221 77 417 01 28
           </a>
-          <div style={{ color: dark ? '#e2e8f0' : '#0f172a', fontWeight: 700, marginBottom: 4 }}>
+          <div style={{ color: dark ? '#e2e8f0' : '#172033', fontWeight: 700, marginBottom: 4 }}>
             <span
               style={{
                 display: 'inline-block',
                 width: 8,
                 height: 8,
                 borderRadius: '50%',
-                background: '#22d3ee',
+                background: '#ffd100',
                 marginRight: 7,
               }}
             />
@@ -91,7 +91,7 @@ export default function ChesterWidget({ dark, session, landing }) {
           alignItems: 'center',
           justifyContent: 'center',
           color: '#fff',
-          background: 'linear-gradient(135deg,#22d3ee,#020617)',
+          background: 'linear-gradient(135deg,#ffd100,#0a1e3d)',
           border: 'none',
           cursor: 'pointer',
           boxShadow: '0 10px 24px -8px rgba(2,6,23,.55)',
