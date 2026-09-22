@@ -1977,7 +1977,7 @@ function GlobalStyles({ dark }) {
 
       .bull-sheet{ background:#fff; color:#172033; width:210mm; min-height:297mm; margin:0 auto; padding:14mm 12mm; box-sizing:border-box; font-size:11.5px; }
       .bull-sheet table{ width:100%; border-collapse:collapse; }
-      .bull-sheet th, .bull-sheet td{ border:1px solid #e5e9f1; padding:4px 6px; }
+      .bull-sheet th, .bull-sheet td{ border:1px solid var(--line); padding:4px 6px; }
       .bull-sheet .domrow td{ background:#dde6f2; font-weight:700; color:#0a1e3d; text-align:left; }
       .bull-sheet tr.tot td{ background:#fff8cf; font-weight:800; }
 
