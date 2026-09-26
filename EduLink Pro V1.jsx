@@ -839,8 +839,19 @@ function studentPaiements(student) {
 function studentTotalPaid(student) {
   return studentPaiements(student).reduce((s, p) => s + (Number(p.montant) || 0), 0);
 }
+// Paiements hérités (avant l'ajout du champ type_paiement) : on déduit la
+// nature à partir des lignes cochées du reçu (rubriques « À l'entrée »), sinon
+// on considère qu'il s'agit d'une mensualité (caisse mensuelle).
+const INSCRIPTION_LINE_KEYS = ["frais d'inscription", 'inscription', 'tenue scolaire', 'tenu scolaire', 'ass', 'ape'];
+function paymentTypeKey(p) {
+  if (p && (p.type_paiement === 'inscription' || p.type_paiement === 'mensualite')) return p.type_paiement;
+  const lignes = Array.isArray(p && p.lignes) ? p.lignes.filter((l) => l && l.checked) : [];
+  const text = lignes.map((l) => `${l.label || ''} ${l.id || ''}`).join(' ').toLowerCase();
+  if (text && INSCRIPTION_LINE_KEYS.some((k) => text.includes(k))) return 'inscription';
+  return 'mensualite';
+}
 function studentPaidByType(student, type) {
-  return studentPaiements(student).reduce((s, p) => s + (p.type_paiement === type ? (Number(p.montant) || 0) : 0), 0);
+  return studentPaiements(student).reduce((s, p) => s + (paymentTypeKey(p) === type ? (Number(p.montant) || 0) : 0), 0);
 }
 function studentDueByType(state, level, student) {
   const inscriptionDue = studentInscriptionDue(state, level, student);
@@ -853,13 +864,15 @@ function studentReliquatByType(state, level, student) {
     inscription: studentPaidByType(student, 'inscription'),
     mensualite: studentPaidByType(student, 'mensualite'),
   };
-  return {
-    inscription: Math.max(0, due.inscription - paid.inscription),
-    mensualite: Math.max(0, due.mensualite - paid.mensualite),
-    total: Math.max(0, due.total - paid.inscription - paid.mensualite),
-    due,
-    paid,
-  };
+  const paidTotal = paid.inscription + paid.mensualite;
+  // Trop-perçus croisés : un excédent d'inscription s'impute sur la
+  // scolarité (et réciproquement) avant d'apparaître en reliquat.
+  const excessInscription = Math.max(0, paid.inscription - due.inscription);
+  const excessMensualite = Math.max(0, paid.mensualite - due.mensualite);
+  const inscription = Math.max(0, due.inscription - paid.inscription - excessMensualite);
+  const mensualite = Math.max(0, due.mensualite - paid.mensualite - excessInscription);
+  const total = Math.max(0, due.total - paidTotal);
+  return { inscription, mensualite, total, due, paid };
 }
 function paymentStatus(due, paid) {
   if (due <= 0) return { key: 'sans_frais', label: 'Frais non définis', tone: 'muted' };
@@ -880,7 +893,7 @@ function studentPaidInMonth(student, month) {
   return studentPaiements(student).reduce((s, p) => s + (paymentMonthKey(p) === month ? (Number(p.montant) || 0) : 0), 0);
 }
 function studentPaidInMonthByType(student, month, type) {
-  return studentPaiements(student).reduce((s, p) => s + (paymentMonthKey(p) === month && p.type_paiement === type ? (Number(p.montant) || 0) : 0), 0);
+  return studentPaiements(student).reduce((s, p) => s + (paymentMonthKey(p) === month && paymentTypeKey(p) === type ? (Number(p.montant) || 0) : 0), 0);
 }
 function schoolYearMonths(state) {
   const annee = String((state && state.header && state.header.annee) || '');
@@ -8261,9 +8274,9 @@ function ReceiptSheet({ state, cls, student, payment }) {
   const reliquat = studentReliquatByType(state, cls.level, student);
   const list = studentPaiements(student);
   const idx = list.findIndex((p) => p.id === payment.id);
-  const isTypeInscription = payment.type_paiement === 'inscription';
+  const isTypeInscription = paymentTypeKey(payment) === 'inscription';
   const typeDue = isTypeInscription ? reliquat.due.inscription : reliquat.due.mensualite;
-  const paidBeforeType = list.slice(0, idx < 0 ? list.length : idx).filter((p) => isTypeInscription ? p.type_paiement === 'inscription' : p.type_paiement === 'mensualite').reduce((s, p) => s + (Number(p.montant) || 0), 0);
+  const paidBeforeType = list.slice(0, idx < 0 ? list.length : idx).filter((p) => isTypeInscription ? paymentTypeKey(p) === 'inscription' : paymentTypeKey(p) === 'mensualite').reduce((s, p) => s + (Number(p.montant) || 0), 0);
   const paidTotalType = paidBeforeType + (Number(payment.montant) || 0);
   const soldeType = Math.max(0, typeDue - paidTotalType);
   const now = new Date();
@@ -8271,7 +8284,7 @@ function ReceiptSheet({ state, cls, student, payment }) {
   const rubrique = feeForLevel(state, cls.level).rubriques.find((item) => item.id === payment.rubrique);
   const periodeLabel = rubrique?.label || (payment.rubrique === 'general' ? 'Scolarité générale' : payment.periode || 'Scolarité');
   const moisPaiement = payment.mois || (payment.date || '').slice(0, 7);
-  const totalMoisType = studentPaiements(student).filter((item) => (item.mois || (item.date || '').slice(0, 7)) === moisPaiement && (isTypeInscription ? item.type_paiement === 'inscription' : item.type_paiement === 'mensualite')).reduce((sum, item) => sum + (Number(item.montant) || 0), 0);
+  const totalMoisType = studentPaiements(student).filter((item) => (item.mois || (item.date || '').slice(0, 7)) === moisPaiement && (isTypeInscription ? paymentTypeKey(item) === 'inscription' : paymentTypeKey(item) === 'mensualite')).reduce((sum, item) => sum + (Number(item.montant) || 0), 0);
   const reliquatMensuel = Math.max(0, studentMonthlyDue(state, cls.level, student) - totalMoisType);
 
   return (
@@ -9693,9 +9706,9 @@ function PaiementsView({ state, loading, updateState, notify, activeSchoolId, ro
                             className="w-32 px-2 py-1 rounded border text-xs disabled:opacity-60 sygenop-input"
                           />
                         </td>
-                        <td className="px-4 py-3 whitespace-nowrap font-semibold" style={{ color: reliquat.inscription > 0 ? 'var(--gold)' : 'var(--muted)' }}>{fmtFCFA(reliquat.inscription)}</td>
-                        <td className="px-4 py-3 whitespace-nowrap font-semibold" style={{ color: reliquat.mensualite > 0 ? 'var(--red)' : 'var(--muted)' }}>{fmtFCFA(reliquat.mensualite)}</td>
-                        <td className="px-4 py-3 whitespace-nowrap font-semibold" style={{ color: solde > 0 ? 'var(--red)' : 'var(--muted)' }}>{fmtFCFA(solde)}</td>
+                        <td className="px-4 py-3 whitespace-nowrap font-semibold" style={{ color: reliquat.inscription > 0 ? 'var(--gold)' : 'var(--muted)' }}>{reliquat.inscription > 0 ? fmtFCFA(reliquat.inscription) : '—'}</td>
+                        <td className="px-4 py-3 whitespace-nowrap font-semibold" style={{ color: reliquat.mensualite > 0 ? 'var(--red)' : 'var(--muted)' }}>{reliquat.mensualite > 0 ? fmtFCFA(reliquat.mensualite) : '—'}</td>
+                        <td className="px-4 py-3 whitespace-nowrap font-semibold" style={{ color: solde > 0 ? 'var(--red)' : 'var(--muted)' }}>{solde > 0 ? fmtFCFA(solde) : '—'}</td>
                         <td className="px-4 py-3"><Pill tone={status.tone}>{status.label}</Pill></td>
                         <td className="px-4 py-3">
                           <div className="flex items-center gap-1.5 flex-wrap">
