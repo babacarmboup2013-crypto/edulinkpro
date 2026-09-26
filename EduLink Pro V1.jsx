@@ -13291,7 +13291,7 @@ setSession(saved);
         if (rejectedSchoolId && rejectedSchoolId === activeSchoolId) setLoadNonce((n) => n + 1);
         return;
       }
-      notify("Une modification n'a pas pu être synchronisée (accès refusé ou code d'accès introuvable). Elle reste enregistrée sur cet appareil : reconnectez-vous avec le bon compte, puis effectuez une nouvelle modification pour tout renvoyer.", true);
+      notify("Une modification n'a pas pu être synchronisée (accès refusé ou code d'accès introuvable). Elle est conservée sur cet appareil et dans la file d'attente : reconnectez-vous avec le bon compte puis appuyez sur « Réessayer » (ou effectuez une nouvelle modification) pour tout renvoyer au serveur.", true);
     };
     window.addEventListener('offline-sync-rejected', onRejected);
     return () => { unsub(); window.removeEventListener('offline-sync-rejected', onRejected); };
@@ -13521,6 +13521,11 @@ function handleLogin(sessionData) {
     setAbsTarget(Date.now() + SESSION_ABS_TIMEOUT_MS);
     // Nouvelle connexion : on repart de la page d'accueil du rôle.
     setActive(homePageFor(sessionData.role));
+    // Reconnexion a priori = credentials possibles valides : on relance
+    // immédiatement les saisies en attente (y compris celles SUSPENDUES faute
+    // de code d'accès valable — auparavant définitivement perdues pour le
+    // serveur). Aucune saisie n'est perdue.
+    retrySync().catch(() => {});
     if (['school', 'teacher', 'guard', 'accountant', 'secretary', 'ief'].includes(sessionData.role)) {
       saveJSON(LS_SCHOOL_ID, sessionData.schoolId);
       // Persiste le code d'accès de l'école : indispensable pour que admin-write
@@ -13849,26 +13854,32 @@ function OfflineBanner({ status, onRetry }) {
           <Loader2 size={14} className="animate-spin" />
           Synchronisation en cours…
         </>
+      ) : status.suspended ? (
+        <>
+          <AlertTriangle size={14} />
+          <span>{status.pendingCount} école(s) dont des saisies n'ont pas pu être envoyées (accès refusé / code d'accès introuvable).</span>
+          <span style={{ color: '#8a2f24' }}>Les saisies sont conservées sur cet appareil — reconnectez-vous avec le bon compte puis réessayez.</span>
+          {status.lastError && <span style={{ color: '#8a2f24', opacity: .8 }}>Détail : {status.lastError}</span>}
+          {onRetry && <button type="button" onClick={onRetry} className="px-2 py-1 rounded font-semibold" style={{ background: 'var(--panel)', color: 'var(--green-d)', border: '1px solid var(--line)' }}>Réessayer</button>}
+          <button
+            type="button"
+            onClick={async () => {
+              if (!window.confirm('Abandonner définitivement l\'envoi de ces saisies au serveur ? Elles restent enregistrées sur cet appareil mais ne seront jamais synchronisées.')) return;
+              await clearQueue();
+              onRetry && onRetry();
+            }}
+            className="px-2 py-1 rounded font-semibold"
+            style={{ background: 'transparent', color: '#8a2f24', border: '1px solid #8a2f24' }}
+          >
+            Abandonner la synchro
+          </button>
+        </>
       ) : (
         <>
           <RotateCcw size={14} />
-          <span>{status.pendingCount} école(s) avec des données non encore synchronisées.</span>
-          {status.lastError && <span style={{ color: '#8a2f24' }}>Erreur : {status.lastError}</span>}
-          {onRetry && <button type="button" onClick={onRetry} className="px-2 py-1 rounded font-semibold" style={{ background: 'var(--panel)', color: 'var(--green-d)', border: '1px solid var(--line)' }}>Réessayer</button>}
-          {status.lastError && (
-            <button
-              type="button"
-              onClick={async () => {
-                if (!window.confirm('Abandonner la synchronisation des données en attente ? Les saisies restent enregistrées sur cet appareil mais ne seront pas envoyées au serveur.')) return;
-                await clearQueue();
-                onRetry && onRetry();
-              }}
-              className="px-2 py-1 rounded font-semibold"
-              style={{ background: 'transparent', color: '#8a2f24', border: '1px solid #8a2f24' }}
-            >
-              Abandonner la synchro
-            </button>
-          )}
+          <span>{status.pendingCount} école(s) avec des données non encore synchronisées — envoi automatique dès que possible.</span>
+          {status.lastError && <span style={{ color: '#8a2f24', opacity: .8 }}>Erreur : {status.lastError}</span>}
+          {onRetry && <button type="button" onClick={onRetry} className="px-2 py-1 rounded font-semibold" style={{ background: 'var(--panel)', color: 'var(--green-d)', border: '1px solid var(--line)' }}>Réessayer maintenant</button>}
         </>
       )}
     </div>

@@ -14,7 +14,7 @@ const STORE = 'school_state';
 
 let dbPromise = null;
 const listeners = new Set();
-let status = { online: typeof navigator !== 'undefined' ? navigator.onLine : true, pendingCount: 0, syncing: false, lastError: '', storagePersistent: null };
+let status = { online: typeof navigator !== 'undefined' ? navigator.onLine : true, pendingCount: 0, syncing: false, suspended: false, lastError: '', storagePersistent: null };
 
 /* ---------- Base IndexedDB ---------- */
 function openDB() {
@@ -83,27 +83,46 @@ function removeQueue(id) {
   return tx('queue', 'readwrite', (store) => store.delete(id));
 }
 
-/* ---------- Politique de rejet des éléments impossibles à synchroniser ----------
-   Sans elle, un élément de la file dont les codes d'accès sont introuvables
-   (session expirée, snapshot absent des anciennes versions…) était retenté
-   TOUTES LES 15 SECONDES à l'infini : la bannière « données non encore
-   synchronisées » avec « Erreur : Code d'accès absent pour cette école »
-   réapparaissait sans fin. Désormais :
-   - erreur DÉFINITIVE (accès refusé par le serveur, 401/403…) → abandon
-     immédiat de l'élément ;
-   - autre erreur (« Code d'accès absent », réseau…) → nouvelles tentatives,
-     puis abandon après MAX_SYNC_ATTEMPTS échecs consécutifs (laisse le temps
-     d'une reconnexion qui fournirait de nouveaux codes valides).
-   Dans les deux cas l'élément SORT de la file et l'application est prévenue
-   UNE SEULE FOIS via l'événement « offline-sync-rejected ». Les saisies
-   restent dans le cache local de l'appareil : rien n'est perdu côté client,
-   et la prochaine écriture réussie renvoie l'état complet de l'école. */
-const MAX_SYNC_ATTEMPTS = 20;
+// Remplace ou crée l'élément de la file pour UNE école donnée (une seule entrée
+// par école, gardée à jour avec le DERNIER brouillon). Évite d'empiler des
+// doublons (chaque modification hors-ligne produirait sinon une entrée) et
+// garantit qu'aucune saisie n'est perdue : l'élément existant est simplement
+// recouvert par le brouillon plus récent, jamais effacé.
+async function upsertQueueForSchool(schoolId, draft, access, patch) {
+  const q = await listQueue().catch(() => []);
+  const existing = q.find((i) => i && i.schoolId === schoolId);
+  const entry = { ...(existing || {}), schoolId, draft, access, ts: Date.now(), ...(patch || {}) };
+  if (existing) await tx('queue', 'readwrite', (store) => store.put(entry));
+  else await pushQueue(entry);
+}
 
-// Écoles dont des éléments en file ont été ABANDONNÉS (rejet définitif du
-// serveur, ou échec répété au-delà de MAX_SYNC_ATTEMPTS) : leur version locale
-// est restée NON synchronisée et la version serveur est périmée. L'app garde
-// alors l'affichage local (ne le fait pas écraser par le serveur) tant que
+/* ---------- Politique de synchronisation : on n'abandonne JAMAIS une saisie ----------
+   Une saisie qui n'a pas pu partir vers le serveur ne sort jamais de la file,
+   sauf action explicite de l'utilisateur (clearQueue via « Abandonner la
+   synchro ») ou succès de l'envoi. Deux comportements selon la nature de
+   l'erreur :
+   - erreur DÉFINITIVE (accès refusé, 401/403, code d'accès introuvable) →
+     l'élément est conservé mais SUSPENDU : plus de recyclage automatique
+     toutes les 15 s (cela faisait spammer la bannière à l'infini), il ne
+     repart que sur action manuelle (« Réessayer ») ou après une reconnexion
+     (handleLogin → retrySync). La saisie reste donc conservée — sur l'appareil
+     ET dans la file — jusqu'à ce qu'un compte valide la renvoie,
+   - erreur PASSAGÈRE (réseau, timeout…) → nouvelles tentatives à chaque cycle,
+     sans limite d'abandon.
+   Dans tous les cas l'application est prévenue via « offline-sync-rejected »
+   (une fois par épisode) et l'école est « bloquée » : l'écran local est
+   conservé au lieu d'être écrasé par la version serveur périmée. */
+function reportRejected(schoolId, message) {
+  try {
+    blockSchool(schoolId);
+    window.dispatchEvent(new CustomEvent('offline-sync-rejected', { detail: { schoolId, message: String(message || '') } }));
+  } catch (_) {}
+}
+
+// Écoles dont des éléments en file sont bloqués (rejet définitif du serveur,
+// ou code d'accès introuvable) : leur version locale est restée NON
+// synchronisée et la version serveur est périmée. L'app garde alors
+// l'affichage local (ne le fait pas écraser par le serveur) tant que
 // l'élément n'a pas été ré-synchronisé avec succès après reconnexion.
 const blockedSchoolsSet = new Set();
 const BLOCKED_LS_KEY = 'sygenop_blocked_schools';
@@ -155,6 +174,17 @@ function isDefinitiveSyncError(message) {
   );
 }
 
+// Décision de synchronisation d'un élément de la file après un échec :
+//   - « suspended » → rejet définitif (accès refusé, 401/403, code introuvable) :
+//     l'élément est conservé MAIS non recyclé automatiquement (relancé sur
+//     « Réessayer » ou après reconnexion) ;
+//   - sinon → échec passager : retenté à chaque cycle, sans limite d'abandon.
+// Fonction pure, exposée pour les tests.
+export function classifySyncFailure(message) {
+  const m = String(message || '');
+  return { suspended: isDefinitiveSyncError(m) || isCodeAbsentError(m) };
+}
+
 // Conflit de verrouillage optimiste (voir save_school_data côté serveur) :
 // quelqu'un d'autre a sauvegardé entretemps. Retenter avec le même
 // brouillon ne peut QUE re-échouer — il faut recharger les données fraîches
@@ -168,18 +198,11 @@ function isVersionConflictError(message) {
 // Ce n'est ni définitif (l'utilisateur peut se reconnecter avec le bon compte)
 // ni passager (les retries ne font rien) : re-tenter en boucle est inutile et
 // maintenait la bande d'alerte « Code d'accès absent » de façon permanente.
-// On retire l'élément de la file (données conservées dans le cache local) et
-// on prévient l'utilisateur une seule fois ; la reconnexion débloquera.
+// L'élément est conservé mais SUSPENDU — relancé sur « Réessayer » ou après
+// reconnexion (handleLogin → retrySync) — et l'utilisateur prévenu une seule fois.
 function isCodeAbsentError(message) {
   const m = String(message || '');
   return /Code d’accès absent pour cette école|Code d'accès absent pour cette école/i.test(m);
-}
-
-function reportRejected(schoolId, message) {
-  try {
-    blockSchool(schoolId);
-    window.dispatchEvent(new CustomEvent('offline-sync-rejected', { detail: { schoolId, message: String(message || '') } }));
-  } catch (_) {}
 }
 
 /* ---------- Statut & abonnés ---------- */
@@ -298,6 +321,11 @@ async function drainQueue() {
       return;
     }
     for (const item of q) {
+      // Élément suspendu (rejet définitif / code d'accès introuvable) : on ne
+      // recycle pas automatiquement — rien ne changerait — mais la saisie est
+      // CONSERVÉE dans la file. Elle ne repart que sur action manuelle
+      // (« Réessayer ») ou après reconnexion (handleLogin → retrySync).
+      if (item.suspended) continue;
       try {
         const newVersion = await saveFnRef(item.schoolId, item.draft, item.access);
         // Propage la nouvelle version aux autres éléments encore en attente
@@ -319,21 +347,21 @@ async function drainQueue() {
       } catch (e) {
         const message = e?.message || 'Erreur de synchronisation serveur';
         console.error('queueSave sync failed:', e);
-        const attempts = (item.attempts || 0) + 1;
-        // « Code d'accès absent » : aucune credential n'est disponible. Les
-        // retries ne résoudront rien (contrairement aux pannes réseau), ils ne
-        // faisaient que maintenir la bande d'alerte en boucle. On retire donc
-        // l'élément immédiatement (données conservées dans le cache local) et
-        // on prévient l'utilisateur une seule fois ; la reconnexion le débloquera.
-        if (isCodeAbsentError(message) || isDefinitiveSyncError(message) || attempts >= MAX_SYNC_ATTEMPTS) {
-          // Abandon : on sort l'élément de la file au lieu de le retenter à
-          // l'infini, et on prévient l'application une seule fois.
-          await removeQueue(item.id).catch(() => {});
-          reportRejected(item.schoolId, message);
+        if (isCodeAbsentError(message) || isDefinitiveSyncError(message)) {
+          // Rejet définitif (accès refusé, 401/403, code introuvable) : on
+          // SUSPEND l'élément au lieu de l'abandonner — la saisie n'est
+          // JAMAIS perdue. Il ne sera retenté que sur « Réessayer » ou après
+          // reconnexion, avec des credentials éventuellement valides. Pas de
+          // recyclage automatique (cela spammerait la bannière toutes les 15 s).
+          const reported = !!(item && item.reported);
+          try { await tx('queue', 'readwrite', (store) => store.put({ ...item, suspended: true, attempts: (item.attempts || 0) + 1, lastError: message, reported: true })); } catch (_) {}
+          if (!reported) reportRejected(item.schoolId, message);
+          setStatus({ lastError: message });
         } else {
-          // Échec passager : on mémorise le nombre de tentatives (persisté
-          // avec l'élément pour survivre à un rechargement de la page).
-          try { await tx('queue', 'readwrite', (store) => store.put({ ...item, attempts })); } catch (_) {}
+          // Échec passager (réseau, timeout…) : nouvelle tentative au prochain
+          // cycle, SANS limite d'abandon — la saisie reste dans la file tant
+          // qu'elle n'est pas réellement partie.
+          try { await tx('queue', 'readwrite', (store) => store.put({ ...item, attempts: (item.attempts || 0) + 1, lastError: message })); } catch (_) {}
           setStatus({ lastError: message });
         }
       }
@@ -342,23 +370,38 @@ async function drainQueue() {
     console.error('drainQueue error:', e);
   }
   const pendingCount = await countPending();
-  // File vide → plus d'erreur résiduelle : la bannière disparaît net.
-  if (pendingCount === 0) setStatus({ syncing: false, pendingCount, lastError: '' });
-  else setStatus({ syncing: false, pendingCount });
+  const hasSuspended = (await listQueue().catch(() => [])).some((i) => i && i.suspended);
+  // File vide → plus d'erreur résiduelle : la bannière disparaît net. Sinon on
+  // distingue « en attente » (réseau) de « rejet » (suspendu, à relancer).
+  if (pendingCount === 0) setStatus({ syncing: false, pendingCount, lastError: '', suspended: false });
+  else setStatus({ syncing: false, pendingCount, suspended: hasSuspended });
 }
 
 /* ---------- API publique ---------- */
+// Réessaye la synchronisation : lève la suspension des éléments en attente
+// (rejets définitifs / code introuvable) puis rejoue la file. Appelé par le
+// bouton « Réessayer » et automatiquement à chaque reconnexion (handleLogin),
+// qui peut fournir des credentials valides pour des éléments suspendus.
 export async function retrySync() {
   if (!status.online || status.syncing) return;
+  try {
+    const q = await listQueue();
+    for (const item of q) {
+      if (item && item.suspended) {
+        const { suspended, lastError, reported, ...rest } = item;
+        void suspended; void lastError; void reported;
+        try { await tx('queue', 'readwrite', (store) => store.put(rest)); } catch (_) {}
+      }
+    }
+  } catch (_) {}
   await drainQueue();
 }
 
-// Échappatoire pour un élément de la file définitivement bloqué (ex. mis en
-// attente avant une correction, ou dont la session d'origine a expiré sans
-// snapshot d'accès valable). Supprime tout ce qui est en attente pour CETTE
-// école : la donnée reste dans le cache local (writeCache déjà appelé), donc
-// rien n'est perdu tant que l'appareil n'est pas réinitialisé — seule la
-// synchronisation vers le serveur est abandonnée pour ces éléments précis.
+// Échappatoire explicite pour une école dont la synchronisation semble
+// impossible (session d'origine expirée sans snapshot valable, accès refusé…).
+// Supprime tout ce qui est en attente pour CETTE école : la donnée reste dans
+// le cache local de l'appareil, mais la synchronisation vers le serveur est
+// abandonnée pour ces éléments précis. L'utilisateur confirme avant tout appel.
 export async function clearQueue(schoolId) {
   try {
     const q = await listQueue();
@@ -368,7 +411,7 @@ export async function clearQueue(schoolId) {
     // l'école n'est plus « bloquée » — le serveur redevient la source de vérité.
     if (schoolId) unblockSchool(schoolId);
   } catch (_) {}
-  setStatus({ lastError: '', pendingCount: await countPending() });
+  setStatus({ lastError: '', pendingCount: await countPending(), suspended: false });
 }
 
 export async function getInstantCache(schoolId) {
@@ -424,25 +467,31 @@ export async function queueSave(schoolId, draft, opts) {
     } catch (e) {
       console.error('save failed, queueing:', e);
       const message = e?.message || 'Erreur de synchronisation serveur';
-      if (isDefinitiveSyncError(message) || isCodeAbsentError(message)) {
-        // Rejet définitif OU code d'accès absent : inutile d'encombrer la file
-        // avec un élément qui ne partira pas par des retries. Prévention unique
-        // + cache local conservé (writeCache a déjà été appelé plus haut).
-        reportRejected(schoolId, message);
-      } else {
-        // Réseau instable… : on met en file — une reconnexion ou un changement
-        // de session peut fournir des codes valides ; drainQueue plafonnera les
-        // tentatives si rien ne change.
-        try { await pushQueue({ schoolId, draft, access, ts: Date.now(), attempts: 1 }); } catch (_) {}
-      }
+      const reportedBefore = (await listQueue().catch(() => [])).some((i) => i && i.schoolId === schoolId && i.reported);
+      const suspended = isDefinitiveSyncError(message) || isCodeAbsentError(message);
+      // On met TOUJOURS en file (une seule entrée par école, dernier brouillon
+      // conservé) y compris sur rejet définitif : la saisie ne disparaît pas.
+      // Sur rejet définitif l'élément est suspendu — relancé sur « Réessayer »
+      // ou après reconnexion — et l'utilisateur prévenu une seule fois.
+      try {
+        await upsertQueueForSchool(schoolId, draft, access, {
+          attempts: 1,
+          lastError: message,
+          suspended: !!suspended,
+          reported: reportedBefore,
+        });
+      } catch (_) {}
+      if (suspended && !reportedBefore) reportRejected(schoolId, message);
+      setStatus({ lastError: message, suspended });
     }
     setStatus({ syncing: false, pendingCount: await countPending() });
   } else {
-    // Hors ligne → mise en file d'attente (données uniquement, sérialisables)
-    try {
-      await pushQueue({ schoolId, draft, access, ts: Date.now(), attempts: 0 });
-    } catch (_) {}
-    setStatus({ online, pendingCount: await countPending() });
+    // Hors ligne → file d'attente (données uniquement, sérialisables). Une
+    // seule entrée par école : le DERNIER brouillon recouvre le précédent.
+    const reportedBefore = (await listQueue().catch(() => [])).some((i) => i && i.schoolId === schoolId && i.reported);
+    try { await upsertQueueForSchool(schoolId, draft, access, { attempts: 0, reported: reportedBefore }); } catch (_) {}
+    const pendingSuspended = (await listQueue().catch(() => [])).some((i) => i && i.suspended);
+    setStatus({ online, pendingCount: await countPending(), suspended: pendingSuspended });
   }
 }
 
