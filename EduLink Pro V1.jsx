@@ -789,9 +789,20 @@ function feeForLevel(state, level) {
 //  - « rubriquesMois » : { rubriqueId: [YYYY-MM] } l'ensemble des mois où
 //    l'élève est abonné à la rubrique. Absent = abonné tous les mois de
 //    l'année scolaire. Liste vide = jamais abonné.
+// « Cas social » : réduction en % (0-100) appliquée au montant de chaque rubrique.
+// Les anciennes fiches stockaient une chaîne « Oui »/« Non » : on les convertit
+// (« Oui » → 50 % par défaut, « Non »/vide → 0). Modèle unique pour tous les cycles.
+function normalizeCasSocial(value) {
+  if (value === undefined || value === null || value === '') return 0;
+  if (value === 'Oui') return 50;
+  if (value === 'Non') return 0;
+  const n = Number(value);
+  if (!Number.isFinite(n)) return 0;
+  return Math.max(0, Math.min(100, Math.round(n)));
+}
 function studentFeesFor(state, level, student) {
   const f = feeForLevel(state, level);
-  const remise = Math.max(0, Math.min(100, Number(student && student.casSocial) || 0));
+  const remise = normalizeCasSocial(student && student.casSocial);
   const coef = remise > 0 ? (100 - remise) / 100 : 1;
   const rubriquesMois = (student && student.rubriquesMois) || {};
   const yearMonths = schoolYearMonths(state);
@@ -5988,7 +5999,7 @@ function AddStudentModal({ onSave, onClose }) {
     e.preventDefault();
     if (!form.nom.trim() && !form.prenom.trim()) { return; }
     const id = uid('stu');
-    onSave({ id, cardCode: `ELV-${id.slice(-8).toUpperCase()}`, prenom: form.prenom.trim(), nom: form.nom.trim(), dateNaissance: form.dateNaissance, lieuNaissance: form.lieuNaissance.trim(), age: ageFromBirth(form.dateNaissance), genre: form.genre.trim().toUpperCase().slice(0, 1), adresse: form.adresse.trim(), handicap: form.handicap, typeHandicap: form.handicap === 'Oui' ? form.typeHandicap.trim() : '', casSocial: form.casSocial, scores: {}, validated: {} });
+    onSave({ id, cardCode: `ELV-${id.slice(-8).toUpperCase()}`, prenom: form.prenom.trim(), nom: form.nom.trim(), dateNaissance: form.dateNaissance, lieuNaissance: form.lieuNaissance.trim(), age: ageFromBirth(form.dateNaissance), genre: form.genre.trim().toUpperCase().slice(0, 1), adresse: form.adresse.trim(), handicap: form.handicap, typeHandicap: form.handicap === 'Oui' ? form.typeHandicap.trim() : '', casSocial: normalizeCasSocial(form.casSocial), scores: {}, validated: {} });
   }
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
@@ -6060,13 +6071,9 @@ function AddStudentModal({ onSave, onClose }) {
               </select>
             </div>
             <div>
-              <label className="text-xs font-semibold block mb-1 text-muted">Cas social</label>
-              <select value={form.casSocial} onChange={(e) => set('casSocial', e.target.value)}
-                className="w-full px-3 py-2 rounded-lg border text-sm" style={fieldStyle}>
-                <option value="">—</option>
-                <option value="Oui">Oui</option>
-                <option value="Non">Non</option>
-              </select>
+              <label className="text-xs font-semibold block mb-1 text-muted">Réduction cas social (%)</label>
+              <input type="number" min="0" max="100" value={form.casSocial} onChange={(e) => set('casSocial', e.target.value)}
+                className="w-full px-3 py-2 rounded-lg border text-sm" style={fieldStyle} placeholder="0" />
             </div>
           </div>
           {form.handicap === 'Oui' && (
@@ -6125,7 +6132,7 @@ function StudentFicheModal({ student, clsName, onCard, onCert, onEdit, onClose }
           {row('Sexe', student.genre === 'F' ? 'Féminin' : student.genre === 'M' ? 'Masculin' : student.genre)}
           {row('Adresse', student.adresse)}
           {row('Handicap', student.handicap ? (student.handicap === 'Oui' && student.typeHandicap ? `Oui — ${student.typeHandicap}` : student.handicap) : '')}
-          {row('Cas social', student.casSocial)}
+          {row('Cas social', normalizeCasSocial(student.casSocial) > 0 ? `${normalizeCasSocial(student.casSocial)}%` : '—')}
           {row('Tuteur / Responsable', student.tuteurNom)}
           {row('Contact tuteur', student.tuteurTel)}
         </div>
@@ -6153,7 +6160,7 @@ function EditStudentModal({ student, onSave, onClose }) {
     adresse: student.adresse || '',
     handicap: student.handicap || '',
     typeHandicap: student.typeHandicap || '',
-    casSocial: student.casSocial || '',
+    casSocial: String(normalizeCasSocial(student.casSocial)),
   });
   const fieldStyle = { borderColor: 'var(--line)', background: 'var(--panel)', color: 'var(--ink)' };
   function set(k, v) { setForm((f) => ({ ...f, [k]: v })); }
@@ -6173,7 +6180,7 @@ function EditStudentModal({ student, onSave, onClose }) {
       adresse: form.adresse.trim(),
       handicap: form.handicap,
       typeHandicap: form.handicap === 'Oui' ? form.typeHandicap.trim() : '',
-      casSocial: form.casSocial,
+      casSocial: normalizeCasSocial(form.casSocial),
     });
   }
 return (
@@ -6246,13 +6253,9 @@ return (
               </select>
             </div>
             <div>
-              <label className="text-xs font-semibold block mb-1 text-muted">Cas social</label>
-              <select value={form.casSocial} onChange={(e) => set('casSocial', e.target.value)}
-                className="w-full px-3 py-2 rounded-lg border text-sm" style={fieldStyle}>
-                <option value="">—</option>
-                <option value="Oui">Oui</option>
-                <option value="Non">Non</option>
-              </select>
+              <label className="text-xs font-semibold block mb-1 text-muted">Réduction cas social (%)</label>
+              <input type="number" min="0" max="100" value={form.casSocial} onChange={(e) => set('casSocial', e.target.value)}
+                className="w-full px-3 py-2 rounded-lg border text-sm" style={fieldStyle} placeholder="0" />
             </div>
           </div>
           {form.handicap === 'Oui' && (
@@ -8022,7 +8025,7 @@ function FeesModal({ level, fees, onSave, onClose }) {
 function StudentFeesModal({ level, fees, months, student, onSave, onClose }) {
   const rubriques = (fees && fees.rubriques) || [];
   const mensualites = (fees && fees.mensualites) || 10;
-  const [casSocial, setCasSocial] = useState(Number(student && student.casSocial) || 0);
+  const [casSocial, setCasSocial] = useState(normalizeCasSocial(student && student.casSocial));
   const [rubriquesMois, setRubriquesMois] = useState(() => {
     const existing = (student && student.rubriquesMois) || {};
     return Object.fromEntries(rubriques.map((r) => [r.id, existing[r.id] === undefined ? months.slice() : (Array.isArray(existing[r.id]) ? existing[r.id].slice() : [])]));
@@ -8038,7 +8041,7 @@ function StudentFeesModal({ level, fees, months, student, onSave, onClose }) {
   }
   function submit(e) {
     e.preventDefault();
-    onSave({ casSocial: Math.max(0, Math.min(100, Number(casSocial) || 0)), rubriquesMois });
+    onSave({ casSocial: normalizeCasSocial(casSocial), rubriquesMois });
   }
   const coef = casSocial > 0 ? (100 - casSocial) / 100 : 1;
   // Même logique que studentAnnualDue : somme les montants bruts des rubriques
@@ -9628,10 +9631,10 @@ function PaiementsView({ state, loading, updateState, notify, activeSchoolId, ro
                       const resteMois = Math.max(0, sDue - paidMonth);
                       const covered = sDue > 0 && paidMonth >= sDue;
                       const status = paidMonth <= 0 ? { label: 'Pas à jour', tone: 'red' } : covered ? { label: 'À jour', tone: 'green' } : { label: 'Partiel', tone: 'gold' };
-                      const sCas = Number(s.casSocial) > 0;
+                      const sCas = normalizeCasSocial(s.casSocial) > 0;
                       return (
                         <tr key={s.id} style={{ borderBottom: '1px solid var(--line)' }}>
-                          <td className="px-4 py-3 font-semibold whitespace-nowrap text-ink">{s.prenom || ''} {s.nom || ''}{sCas && <span className="ml-1.5 px-1.5 py-0.5 rounded-full text-[9px] font-bold uppercase align-middle" style={{ background: 'var(--gold-l)', color: 'var(--gold)' }}>Cas social −{s.casSocial}%</span>}</td>
+                          <td className="px-4 py-3 font-semibold whitespace-nowrap text-ink">{s.prenom || ''} {s.nom || ''}{sCas && <span className="ml-1.5 px-1.5 py-0.5 rounded-full text-[9px] font-bold uppercase align-middle" style={{ background: 'var(--gold-l)', color: 'var(--gold)' }}>Cas social −{normalizeCasSocial(s.casSocial)}%</span>}</td>
                           <td className="px-4 py-3 whitespace-nowrap font-semibold" style={{ color: reliquatInscription > 0 ? 'var(--gold)' : 'var(--muted)' }}>{reliquatInscription > 0 ? fmtFCFA(reliquatInscription) : '—'}</td>
                           <td className="px-4 py-3 whitespace-nowrap font-semibold" style={{ color: paidMonth > 0 ? 'var(--green-d)' : 'var(--muted)' }}>{paidMonth > 0 ? fmtFCFA(paidMonth) : '—'}</td>
                           <td className="px-4 py-3"><Pill tone={status.tone}>{status.label}</Pill></td>
@@ -9690,12 +9693,12 @@ function PaiementsView({ state, loading, updateState, notify, activeSchoolId, ro
                   {filteredStudents.map((s) => {
                     const paid = studentTotalPaid(s);
                     const reliquat = studentReliquatByType(state, level, s);
-                    const sCas = Number(s.casSocial) > 0;
+                    const sCas = normalizeCasSocial(s.casSocial) > 0;
                     const solde = reliquat.inscription + reliquat.mensualite;
                     const status = paymentStatus(studentTotalDue(state, level, s), paid);
                     return (
                       <tr key={s.id} style={{ borderBottom: '1px solid var(--line)' }}>
-                        <td className="px-4 py-3 font-semibold whitespace-nowrap text-ink">{s.prenom || ''} {s.nom || ''}{sCas && <span className="ml-1.5 px-1.5 py-0.5 rounded-full text-[9px] font-bold uppercase align-middle" style={{ background: 'var(--gold-l)', color: 'var(--gold)' }}>Cas social −{s.casSocial}%</span>}</td>
+                        <td className="px-4 py-3 font-semibold whitespace-nowrap text-ink">{s.prenom || ''} {s.nom || ''}{sCas && <span className="ml-1.5 px-1.5 py-0.5 rounded-full text-[9px] font-bold uppercase align-middle" style={{ background: 'var(--gold-l)', color: 'var(--gold)' }}>Cas social −{normalizeCasSocial(s.casSocial)}%</span>}</td>
                         <td className="px-4 py-3">
                           <input
                             defaultValue={s.tuteurTel || ''}
