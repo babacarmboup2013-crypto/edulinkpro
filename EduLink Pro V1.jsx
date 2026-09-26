@@ -11867,31 +11867,36 @@ async function refresh() {
       let rows = null;
       let keepActif = true;
       let keepCycles = true;
-      let doSelect = async () => {
-        const cols = `id,name,type,cycle${keepCycles ? ',cycles' : ''},directeur,code${keepActif ? ',actif' : ''}`;
-        rows = (await sb('GET', 'schools', `select=${cols}${params ? '&' + params : ''}`)) || [];
+      let keepIef = true;
+      const cols = () => {
+        const parts = ['id', 'name', 'type', 'cycle'];
+        if (keepCycles) parts.push('cycles');
+        if (keepIef) parts.push('ief_id', 'groupe_id');
+        parts.push('directeur', 'code');
+        if (keepActif) parts.push('actif');
+        return parts.join(',');
       };
+      const attempt = async () => {
+        rows = (await sb('GET', 'schools', `select=${cols()}${params ? '&' + params : ''}`)) || [];
+      };
+      // Dégradation séquentielle : si une colonne manque (base pré-migration),
+      // on la retire et on relit — sans échouer sur l'ensemble de la liste.
       try {
-        await doSelect();
-      } catch (e) {
-        const msg = sbErrMsg(e);
-        if (/cycles/gi.test(msg) && keepCycles) {
-          keepCycles = false;
-          try { await doSelect(); }
-          catch (e2) {
-            if (/actif|schema cache/gi.test(sbErrMsg(e2)) && keepActif) { keepActif = false; await doSelect(); }
-            else throw e2;
-          }
-        } else if (/actif|schema cache/gi.test(msg) && keepActif) {
-          keepActif = false;
-          try { await doSelect(); }
-          catch (e2) {
-            if (/cycles/gi.test(sbErrMsg(e2)) && keepCycles) { keepCycles = false; await doSelect(); }
-            else throw e2;
-          }
-        } else {
-          throw e;
+        await attempt();
+} catch (e) {
+        let lastErr = e;
+        let retried = true;
+        while (retried) {
+          const msg = sbErrMsg(lastErr);
+          retried = false;
+          if (/cycles/.test(msg) && keepCycles) { keepCycles = false; retried = true; }
+          else if (/ief_id|groupe_id/.test(msg) && keepIef) { keepIef = false; retried = true; }
+          else if (/actif|schema cache/.test(msg) && keepActif) { keepActif = false; retried = true; }
+          if (!retried) break;
+          try { await attempt(); retried = false; }
+          catch (e2) { lastErr = e2; retried = true; }
         }
+        if (!rows) throw lastErr;
       }
       if (!keepActif) rows.forEach((r) => { r.actif = true; });
       // Les valeurs récentes sont aussi conservées dans school_data.header,
@@ -11943,8 +11948,44 @@ async function refresh() {
     try {
       let directeurSaved = true;
       if (modal && modal !== 'new' && modal.id) {
+        // RÉAFFECTATION (Super Admin) : le PATCH générique « schools » ne
+        // modifie JAMAIS ief_id/groupe_id côté serveur (frontière d'isolation
+        // entre circonscriptions) — l'ancien code l'acceptait silencieusement.
+        // Le changement passe désormais par la RPC dédiée reaffecter_ecole,
+        // vérifiée et validée par le code maître ; un refus = message clair.
+        if (isGlobalAdmin) {
+          const prevIef = (modal && modal.ief_id) || null;
+          const prevGroupe = (modal && modal.groupe_id) || null;
+          const nextIef = form.ief_id || null;
+          const nextGroupe = form.groupe_id || null;
+          if (prevIef !== nextIef || prevGroupe !== nextGroupe) {
+            try {
+              const raw = await sb('POST', 'rpc/reaffecter_ecole', '', {
+                p_school_id: modal.id,
+                p_nouvel_ief_id: nextIef,
+                p_nouveau_groupe_id: nextGroupe,
+                p_admin_code: (session && session.adminCode) || '',
+              });
+              const rr = raw && (raw.data || raw);
+              if (!rr || rr.ok !== true) {
+                notify((rr && rr.error) ? ('Réaffectation refusée : ' + rr.error) : 'Réaffectation refusée par le serveur', true);
+                return;
+              }
+            } catch (e2) {
+              const m2 = sbErrMsg(e2);
+              if (/PGRST202|could not find|does not exist|not find/i.test(m2)) {
+                notify('Réaffectation d\u2019IEF indisponible : exécutez une fois sql/migration_reaffectation_ecole.sql dans l\u2019éditeur SQL Supabase, puis réessayez.', true);
+              } else {
+                notify('Réaffectation impossible : ' + m2, true);
+              }
+              return;
+            }
+          }
+        }
         const res = await upsertSchoolRow('PATCH', `id=eq.${modal.id}`, {
-          name: form.name, type: form.type, cycle: form.cycle, cycles: form.cycles, directeur: form.directeur, code: form.code, actif: form.actif, ...iefField, ...groupeField,
+          name: form.name, type: form.type, cycle: form.cycle, cycles: form.cycles, directeur: form.directeur, code: form.code, actif: form.actif,
+          ...(isGlobalAdmin ? {} : iefField),
+          ...(isGlobalAdmin ? {} : groupeField),
         });
         directeurSaved = res.directeurSaved;
         // Répercute le nom/directeur dans les données de l'école si elle existe déjà
