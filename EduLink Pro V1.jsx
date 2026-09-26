@@ -8299,8 +8299,8 @@ function ReceiptSheet({ state, cls, student, payment }) {
       </div>
       <div className="text-center font-bold py-1.5" style={{ background: '#0a1e3d', color: '#fff', borderRadius: 4, fontSize: 12, marginTop: 8 }}>
         REÇU DE PAIEMENT N° {payment.recu}
-        {payment.type_paiement === 'inscription' && <div style={{ fontSize: 9, fontWeight: 600, marginTop: 2, background: '#ffd100', display: 'inline-block', padding: '1px 8px', borderRadius: 3 }}>INSCRIPTION / RÉINSCRIPTION</div>}
-        {payment.type_paiement === 'mensualite' && <div style={{ fontSize: 9, fontWeight: 600, marginTop: 2, background: '#0a1e3d', border: '1px solid #fff', display: 'inline-block', padding: '1px 8px', borderRadius: 3 }}>MENSUALITÉ / SCOLARITÉ</div>}
+        {isTypeInscription && <div style={{ fontSize: 9, fontWeight: 600, marginTop: 2, background: '#ffd100', display: 'inline-block', padding: '1px 8px', borderRadius: 3 }}>INSCRIPTION / RÉINSCRIPTION</div>}
+        {!isTypeInscription && <div style={{ fontSize: 9, fontWeight: 600, marginTop: 2, background: '#0a1e3d', border: '1px solid #fff', display: 'inline-block', padding: '1px 8px', borderRadius: 3 }}>MENSUALITÉ / SCOLARITÉ</div>}
       </div>
       <div className="flex justify-end mt-2"><QRBadge value={`SYGENOP|CARTE|${student.cardCode || `ELV-${String(student.id || '').slice(-8).toUpperCase()}`}|${student.id}`} /></div>
       <div className="grid grid-cols-2 gap-2" style={{ fontSize: 11, margin: '10px 0' }}>
@@ -8314,8 +8314,7 @@ function ReceiptSheet({ state, cls, student, payment }) {
         <tbody>
           {(payment.lignes?.length ? payment.lignes : [{ label: periodeLabel, montant: payment.montant }]).map((line, index) => <tr key={index}><td>{line.label}{moisPaiement ? ` — ${moisPaiement}` : ''}{payment.note && index === 0 ? ` — ${payment.note}` : ''}</td><td className="text-center">{fmtFCFA(line.montant)}</td></tr>)}
           <tr className="recu-total"><td>Montant reçu</td><td className="text-center">{fmtFCFA(payment.montant)}</td></tr>
-          {payment.type_paiement === 'inscription' && <tr><td>Reliquat inscription</td><td className="text-center" style={{ color: reliquat.inscription > 0 ? '#dc2626' : '#0a1e3d', fontWeight: 700 }}>{fmtFCFA(reliquat.inscription)}</td></tr>}
-          {payment.type_paiement === 'mensualite' && <>
+          {isTypeInscription ? <tr><td>Reliquat inscription</td><td className="text-center" style={{ color: reliquat.inscription > 0 ? '#dc2626' : '#0a1e3d', fontWeight: 700 }}>{fmtFCFA(reliquat.inscription)}</td></tr> : <>
             <tr><td>Reliquat scolarité</td><td className="text-center" style={{ color: reliquat.mensualite > 0 ? '#dc2626' : '#0a1e3d', fontWeight: 700 }}>{fmtFCFA(reliquat.mensualite)}</td></tr>
             <tr><td>Reliquat mensuel</td><td className="text-center">{fmtFCFA(reliquatMensuel)}</td></tr>
           </>}
