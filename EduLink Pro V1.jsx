@@ -334,6 +334,21 @@ function levelsForSchool(state) {
 function cycleForLevel(level) {
   return LEVEL_GROUPS.find((group) => group.levels.includes(level))?.id || LEGACY_DEFAULT_CYCLE;
 }
+// Plusieurs enseignants dans une même classe : uniquement au cycle élémentaire.
+// Modèle de données rétro-compatible : `teacher` reste le titulaire (chaîne,
+// utilisée partout depuis toujours) et `coTeachers` (tableau de noms complets)
+// liste les enseignants supplémentaires. Les anciennes classes, sans
+// `coTeachers`, continuent de fonctionner à l'identique.
+function supportsMultiTeachers(level) {
+  return cycleForLevel(level) === 'elementaire';
+}
+function classTeacherNames(cls) {
+  const extra = Array.isArray(cls?.coTeachers) ? cls.coTeachers : [];
+  return [...new Set([cls?.teacher, ...extra].map((name) => String(name || '').trim()).filter(Boolean))];
+}
+function classHasTeacher(cls, teacherName) {
+  return !!teacherName && classTeacherNames(cls).includes(teacherName);
+}
 
 /* ---- Barème officiel par niveau — repris tel quel de SYGENOP_V1.html ---- */
 const BAREME_SCHEMA = {
@@ -3257,7 +3272,7 @@ function DashboardView({ state, loading, teacherName, teacherStaffId, role, upda
   const stats = useMemo(() => {
     if (!state) return null;
     const allEntries = Object.entries(state.classes || {});
-    const classEntries = isTeacherScoped ? allEntries.filter(([, c]) => c.teacher === teacherName) : allEntries;
+    const classEntries = isTeacherScoped ? allEntries.filter(([, c]) => classHasTeacher(c, teacherName)) : allEntries;
     const schoolLevels = levelsForSchool(state);
     let total = 0, garcons = 0, filles = 0;
     const byLevel = schoolLevels.map((lvl) => ({ niveau: lvl, effectif: 0 }));
@@ -3297,7 +3312,7 @@ function DashboardView({ state, loading, teacherName, teacherStaffId, role, upda
     ...(stats.personnelUnknown ? [{ name: 'Non renseigné', value: stats.personnelUnknown }] : []),
   ];
   const PERSONNEL_GENDER_COLORS = ['#0a1e3d', '#ffd100', '#94a3b8'];
-  const visibleClassIds = Object.entries(state.classes || {}).filter(([, cls]) => !isTeacherScoped || cls.teacher === teacherName).map(([id]) => id);
+  const visibleClassIds = Object.entries(state.classes || {}).filter(([, cls]) => !isTeacherScoped || classHasTeacher(cls, teacherName)).map(([id]) => id);
   const visibleAssignments = (state.affectationsMateriel || []).filter((a) => visibleClassIds.includes(a.classId));
 
   if (role === 'accountant' || role === 'secretary') {
@@ -3803,10 +3818,27 @@ function ClassModal({ cls, level, personnel, materiel = [], affectations = [], c
     });
   }
 
+  // Enseignants supplémentaires (élémentaire uniquement) : tout le personnel
+  // « Enseignant(e) » sauf le titulaire déjà choisi.
+  const multiTeachers = supportsMultiTeachers(level);
+  const coTeacherCandidates = useMemo(
+    () => (personnel || []).filter((p) => p.role === 'Enseignant(e)' && personFullName(p) !== form.teacher),
+    [personnel, form.teacher]
+  );
+  function toggleCoTeacher(name) {
+    setForm((f) => {
+      const current = Array.isArray(f.coTeachers) ? f.coTeachers : [];
+      return { ...f, coTeachers: current.includes(name) ? current.filter((n) => n !== name) : [...current, name] };
+    });
+  }
+
   function submit(e) {
     e.preventDefault();
     if (!form.name.trim()) return;
-    onSave(form);
+    const coTeachers = multiTeachers
+      ? [...new Set((Array.isArray(form.coTeachers) ? form.coTeachers : []).filter((n) => n && n !== form.teacher))]
+      : [];
+    onSave({ ...form, coTeachers });
   }
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
@@ -3827,7 +3859,7 @@ function ClassModal({ cls, level, personnel, materiel = [], affectations = [], c
             />
           </div>
           <div>
-            <label className="text-xs font-semibold block mb-1 text-muted">{cycleTerminology(cycle).teacher}</label>
+            <label className="text-xs font-semibold block mb-1 text-muted">{multiTeachers ? `${cycleTerminology(cycle).teacher} titulaire` : cycleTerminology(cycle).teacher}</label>
             <select
               value={form.teacher || ''}
               onChange={(e) => set('teacher', e.target.value)}
@@ -3837,6 +3869,30 @@ function ClassModal({ cls, level, personnel, materiel = [], affectations = [], c
               {(personnel || []).map((p) => <option key={p.id} value={personFullName(p)}>{personFullName(p)}</option>)}
             </select>
           </div>
+          {multiTeachers && (
+            <div className="rounded-lg border p-3" style={{ borderColor: 'var(--line)', background: 'var(--bg)' }}>
+              <div className="text-xs font-semibold text-ink">Autres enseignants de cette classe</div>
+              <p className="text-[11px] mt-1 text-muted">
+                Ils voient et saisissent les élèves, notes et présences de la classe au même titre que le titulaire.
+              </p>
+              {coTeacherCandidates.length ? (
+                <div className="flex flex-col gap-2 mt-2.5 max-h-40 overflow-y-auto">
+                  {coTeacherCandidates.map((p) => {
+                    const name = personFullName(p);
+                    const checked = (form.coTeachers || []).includes(name);
+                    return (
+                      <label key={p.id} className="flex items-center gap-1.5 text-sm cursor-pointer text-ink">
+                        <input type="checkbox" checked={checked} onChange={() => toggleCoTeacher(name)} className="rounded" style={{ accentColor: 'var(--green-d)' }} />
+                        {name}
+                      </label>
+                    );
+                  })}
+                </div>
+              ) : (
+                <p className="text-[11px] mt-2 text-muted">Aucun autre enseignant disponible. Ajoutez-les d'abord dans Personnel.</p>
+              )}
+            </div>
+          )}
           {selectedProf && ['moyen', 'secondaire'].includes(cycle) && (
             <div className="rounded-lg border p-3" style={{ borderColor: 'var(--line)', background: 'var(--bg)' }}>
               <div className="text-xs font-semibold text-ink">Matière(s) tenue(s) par ce professeur dans {level}</div>
@@ -4380,7 +4436,7 @@ function StudentTransferRequestsPanel({ state, updateState, notify, mode, teache
   const [reason, setReason] = useState('');
 
   const teacherClasses = Object.entries(classes)
-    .filter(([, cls]) => cls.teacher === teacherName || cls.teacherId === teacherStaffId)
+    .filter(([, cls]) => classHasTeacher(cls, teacherName) || cls.teacherId === teacherStaffId)
     .sort((a, b) => (a[1].name || '').localeCompare(b[1].name || ''));
   const effectiveSourceId = sourceId || teacherClasses[0]?.[0] || '';
   const sourceClass = classes[effectiveSourceId] || null;
@@ -4414,7 +4470,7 @@ function StudentTransferRequestsPanel({ state, updateState, notify, mode, teache
       fromClassId: effectiveSourceId,
       fromClassName: sourceClass.name,
       fromLevel: sourceClass.level,
-      fromTeacher: sourceClass.teacher || teacherName || '',
+      fromTeacher: teacherName || sourceClass.teacher || '',
       fromTeacherId: sourceClass.teacherId || teacherStaffId || '',
       toClassId: targetId,
       toClassName: target.name,
@@ -4500,7 +4556,7 @@ function StudentTransferRequestsPanel({ state, updateState, notify, mode, teache
             <label className="text-xs font-semibold">Classe cible
               <select value={targetId} onChange={(event) => setTargetId(event.target.value)} className="sygenop-input mt-1" required>
                 <option value="">— Choisir —</option>
-                {targetClasses.map(([id, cls]) => <option key={id} value={id}>{cls.name} — {cls.teacher || 'Enseignant non affecté'}</option>)}
+                {targetClasses.map(([id, cls]) => <option key={id} value={id}>{cls.name} — {classTeacherNames(cls).join(', ') || 'Enseignant non affecté'}</option>)}
               </select>
             </label>
             <button type="submit" className="sygenop-btn sygenop-btn--gold text-sm"><RotateCcw size={14} /> Soumettre</button>
@@ -5743,10 +5799,10 @@ const classes = (state && state.classes) || {};
     if (globalPeriode && globalPeriode !== period && schoolPeriods.some((p) => p.key === globalPeriode)) setPeriod(globalPeriode);
   }, [globalPeriode]);
   const availableLevels = isTeacherScoped
-    ? schoolLevels.filter((l) => Object.values(classes).some((c) => c.level === l && c.teacher === teacherName))
+    ? schoolLevels.filter((l) => Object.values(classes).some((c) => c.level === l && classHasTeacher(c, teacherName)))
     : schoolLevels;
   const classEntries = Object.entries(classes)
-    .filter(([, c]) => c.level === level && (!isTeacherScoped || c.teacher === teacherName))
+    .filter(([, c]) => c.level === level && (!isTeacherScoped || classHasTeacher(c, teacherName)))
     .sort((a, b) => (a[1].name || '').localeCompare(b[1].name || ''));
 
   useEffect(() => {
@@ -5774,10 +5830,10 @@ function saveClass(form) {
     updateState((prev) => {
       const next = { ...prev, classes: { ...(prev.classes || {}) } };
       if (classModal && classModal.__key) {
-        next.classes[classModal.__key] = { ...next.classes[classModal.__key], name: form.name.trim(), teacher: form.teacher || '', matieres: form.teacher ? (form.matieres || []) : [] };
+        next.classes[classModal.__key] = { ...next.classes[classModal.__key], name: form.name.trim(), teacher: form.teacher || '', coTeachers: supportsMultiTeachers(next.classes[classModal.__key].level) ? (form.coTeachers || []) : [], matieres: form.teacher ? (form.matieres || []) : [] };
       } else {
         const id = uid('cls');
-        next.classes[id] = { id, name: form.name.trim(), level, teacher: form.teacher || '', matieres: form.teacher ? (form.matieres || []) : [], students: [] };
+        next.classes[id] = { id, name: form.name.trim(), level, teacher: form.teacher || '', coTeachers: supportsMultiTeachers(level) ? (form.coTeachers || []) : [], matieres: form.teacher ? (form.matieres || []) : [], students: [] };
         setClassId(id);
       }
       return next;
@@ -5883,8 +5939,10 @@ function saveClass(form) {
             onClick={() => setClassId(id)}
             className="px-3 py-1.5 rounded-full text-xs font-semibold flex items-center gap-1.5"
             style={classId === id ? { background: 'var(--gold)', color: '#fff' } : { background: 'var(--bg)', color: 'var(--muted)' }}
+            title={classTeacherNames(c).length ? classTeacherNames(c).join(', ') : undefined}
           >
             {c.name} <span style={{ opacity: 0.7 }}>· {(c.students || []).length}</span>
+            {classTeacherNames(c).length > 1 && <span style={{ opacity: 0.7 }}>· {classTeacherNames(c).length} ens.</span>}
           </button>
         ))}
 {!isTeacherScoped && !readOnly && (
@@ -6560,7 +6618,7 @@ function AppelView({ state: incomingState, updateState, notify, teacherName, tea
   const state = incomingState || { classes: {}, header: {} };
   const isTeacherScoped = role === 'teacher';
   const classEntries = fixedClassId ? [] : Object.entries(state.classes || {})
-    .filter(([, c]) => !isTeacherScoped || c.teacher === teacherName)
+    .filter(([, c]) => !isTeacherScoped || classHasTeacher(c, teacherName))
     .sort((a, b) => (a[1].name || '').localeCompare(b[1].name || ''));
   const [classId, setClassId] = useState(fixedClassId || classEntries[0]?.[0] || '');
   useEffect(() => {
@@ -6774,7 +6832,7 @@ function PresenceRapportView({ state, session, fixedClassId }) {
   const isTeacherScoped = session?.role === 'teacher';
   const teacherName = isTeacherScoped ? teacherNameFromSession(state, session) : null;
   const classEntries = fixedClassId ? [] : Object.entries(state?.classes || {})
-    .filter(([, c]) => !isTeacherScoped || c.teacher === teacherName)
+    .filter(([, c]) => !isTeacherScoped || classHasTeacher(c, teacherName))
     .sort((a, b) => (a[1].name || '').localeCompare(b[1].name || ''));
   const [classId, setClassId] = useState(fixedClassId || ''); // '' = toutes les classes (dans le périmètre autorisé)
   useEffect(() => { if (fixedClassId) setClassId(fixedClassId); }, [fixedClassId]);
@@ -7368,7 +7426,7 @@ function synthGroups(cfg) {
 function SynthLevelTable({ state, level, period, teacherName }) {
   const cfg = cfgForLevel(state, level);
   const groups = synthGroups(cfg);
-  const entries = classesOfLevel(state, level).filter(([, c]) => !teacherName || c.teacher === teacherName);
+  const entries = classesOfLevel(state, level).filter(([, c]) => !teacherName || classHasTeacher(c, teacherName));
   const rowsData = [];
   let totalB = 0, totalF = 0;
   const grandB = groups.map(() => 0), grandF = groups.map(() => 0);
@@ -7530,10 +7588,10 @@ function SynthView({ state, loading, teacherName }) {
   const isTeacherScoped = !!teacherName;
   const availableLevels = useMemo(() => {
     if (!isTeacherScoped || !state) return [];
-    const set = new Set(Object.values(state.classes || {}).filter((c) => c.teacher === teacherName).map((c) => c.level));
+    const set = new Set(Object.values(state.classes || {}).filter((c) => classHasTeacher(c, teacherName)).map((c) => c.level));
     return levelsForSchool(state).filter((l) => set.has(l));
   }, [isTeacherScoped, teacherName, state]);
-  const [level, setLevel] = useState(isTeacherScoped ? (teacherName && state ? (Object.values(state.classes || {}).find((c) => c.teacher === teacherName)?.level || levelsForSchool(state)[0]) : levelsForSchool(state)[0]) : '__ALL__');
+  const [level, setLevel] = useState(isTeacherScoped ? (teacherName && state ? (Object.values(state.classes || {}).find((c) => classHasTeacher(c, teacherName))?.level || levelsForSchool(state)[0]) : levelsForSchool(state)[0]) : '__ALL__');
   const [period, setPeriod] = useState('T1');
   const [evaluationType, setEvaluationType] = useState('controle');
   const schoolPeriods = periodsForSchool(state);
@@ -7807,7 +7865,7 @@ function BulletinSheet({ state, cls, level, cfg, student, studentIndex, period }
         <div style={{ border: '1px solid #cbd5e1', borderRadius: 6, minHeight: 40, marginTop: 4 }}></div>
       </div>
       <div className="grid grid-cols-3 gap-3" style={{ marginTop: 14, fontSize: 11, textAlign: 'center' }}>
-        <div><div className="font-semibold">Le/La Maître(sse)</div><div style={{ marginTop: 24, borderTop: '1px solid #cbd5e1', paddingTop: 4 }}>{cls.teacher || ''}</div></div>
+        <div><div className="font-semibold">Le/La Maître(sse)</div><div style={{ marginTop: 24, borderTop: '1px solid #cbd5e1', paddingTop: 4 }}>{classTeacherNames(cls).join(' / ')}</div></div>
         <div><div className="font-semibold">{cycleTerminology(h.cycle).head}</div><div style={{ marginTop: 24, borderTop: '1px solid #cbd5e1', paddingTop: 4 }}>{h.directeur || ''}</div></div>
         <div><div className="font-semibold">Cachet de l'école</div><div style={{ marginTop: 24, borderTop: '1px solid #cbd5e1', paddingTop: 4 }}>&nbsp;</div></div>
       </div>
@@ -7837,7 +7895,7 @@ function BulletinView({ state, loading, teacherName }) {
   }, [globalPeriode]);
   const schoolLevels = levelsForSchool(state);
   const sheets = Object.entries(classes)
-    .filter(([, c]) => (c.students || []).length && schoolLevels.includes(c.level) && (!teacherName || c.teacher === teacherName))
+    .filter(([, c]) => (c.students || []).length && schoolLevels.includes(c.level) && (!teacherName || classHasTeacher(c, teacherName)))
     .sort((a, b) => (a[1].name || '').localeCompare(b[1].name || ''));
 
   useEffect(() => {
@@ -10500,7 +10558,7 @@ function buildPersonnelCSVRows(state) {
   const rows = [header];
   const classesByTeacher = {};
   Object.values((state && state.classes) || {}).forEach((c) => {
-    if (c.teacher) (classesByTeacher[c.teacher] = classesByTeacher[c.teacher] || []).push(c.name);
+    classTeacherNames(c).forEach((name) => { (classesByTeacher[name] = classesByTeacher[name] || []).push(c.name); });
   });
   ((state && state.personnel) || []).forEach((p) => {
     const full = personFullName(p);
