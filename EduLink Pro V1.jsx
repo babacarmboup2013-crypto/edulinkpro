@@ -1234,16 +1234,8 @@ async function loadSchoolData(id) {
     } else if (session?.role === 'ief') {
       const iefCode = session.iefCode || '';
       if (iefCode) {
-        // Session « Groupe scolaire » : lecture dédiée (migration_groupe_lecture.sql) ;
-        // si elle n'est pas encore installée ou refuse, repli sur la lecture IEF existante.
-        let result = null;
-        if (session.groupeId) {
-          try {
-            const r = await sb('POST', 'rpc/get_school_data_groupe', '', { p_school_id: id, p_code: iefCode });
-            if (r && r.ok !== false) result = r;
-          } catch (_) { result = null; }
-        }
-        if (!result) result = await sb('POST', 'rpc/get_school_data_ief', '', { p_school_id: id, p_code: iefCode });
+        // La RPC get_school_data_ief gère aussi les codes de Groupe scolaire (lecture seule).
+        const result = await sb('POST', 'rpc/get_school_data_ief', '', { p_school_id: id, p_code: iefCode });
         if (result?.ok === false) throw new Error(result.error || 'Accès refusé');
         payload = result?.data || result;
         serverVersion = result?.version ?? null;
