@@ -2016,7 +2016,14 @@ function GlobalStyles({ dark }) {
         pointer-events:none;
         z-index:0;
       }
-      #sygenop-print-area > *{ position:relative; z-index:1; }
+      /* Le filigrane (::before, z-index 0) reste sous le contenu grâce à l'ordre
+         du DOM. IMPORTANT : ne PAS donner de z-index aux vues (z-index:1 créait
+         un contexte d'empilement qui enfermait les modales z-50 SOUS la barre
+         du haut et le menu latéral : en-tête de la modale masqué/tronqué). */
+      #sygenop-print-area > *{ position:relative; }
+      /* Une carte qui contient une modale ne doit jamais devenir son bloc
+         conteneur (will-change/transform piègent les éléments fixed). */
+      .sygenop-root .sygenop-card:has(.fixed.inset-0.z-50){ will-change:auto; transform:none; }
       .dark #sygenop-print-area::before{
         background:url('${import.meta.env.BASE_URL}edulink-logo-dark.png') center/contain no-repeat;
         opacity:.06;
