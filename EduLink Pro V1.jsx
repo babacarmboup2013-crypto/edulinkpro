@@ -9,7 +9,7 @@ import {
   MessageCircle, Receipt, History, Trophy, Building2, Printer, FileSpreadsheet,
   Upload, Save, RotateCcw, AlertCircle, Globe, TrendingDown, ArrowUpCircle,
   ArrowDownCircle, Scale, Package, ScanLine, FileText, Award, ClipboardCheck,
-  CalendarX
+  CalendarX, Layers
 } from 'lucide-react';
 import {
   ResponsiveContainer, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip,
@@ -1234,6 +1234,7 @@ async function loadSchoolData(id) {
     } else if (session?.role === 'ief') {
       const iefCode = session.iefCode || '';
       if (iefCode) {
+        // La RPC get_school_data_ief gère aussi les codes de Groupe scolaire (lecture seule).
         const result = await sb('POST', 'rpc/get_school_data_ief', '', { p_school_id: id, p_code: iefCode });
         if (result?.ok === false) throw new Error(result.error || 'Accès refusé');
         payload = result?.data || result;
@@ -2228,7 +2229,25 @@ function ActualitesTicker({ actualites, onOpen }) {
    ÉCRAN DE CONNEXION — 4 rôles (École / Enseignant / IEF / Super Admin)
    ============================================================ */
 function LoginScreen({ onLogin, dark, setDark, notify, onBack }) {
-  const [tab, setTab] = useState('school'); // school | personnel | ief | admin
+  // Onglets publics : école | personnel | groupe (Groupe scolaire). Les accès
+  // « IEF » et « Super Admin » restent discrets : lien en bas de l'écran ou
+  // adresse #ief / #superadmin.
+  const tabFromHash = () => {
+    try {
+      const h = String(window.location.hash || '').replace('#', '').toLowerCase();
+      if (h === 'ief') return 'ief';
+      if (h === 'superadmin' || h === 'admin') return 'admin';
+      if (h === 'groupe' || h === 'groupe-scolaire') return 'groupe';
+    } catch (_) { /* hors navigateur */ }
+    return 'school';
+  };
+  const [tab, setTab] = useState(tabFromHash); // school | personnel | groupe | ief | admin
+  useEffect(() => {
+    const onHash = () => { setTab(tabFromHash()); setCode(''); };
+    window.addEventListener('hashchange', onHash);
+    return () => window.removeEventListener('hashchange', onHash);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
   const [code, setCode] = useState('');
   const [showCode, setShowCode] = useState(false);
   const [busy, setBusy] = useState(false);
@@ -2429,10 +2448,15 @@ async function submitTeacher(e) {
       return;
     }
   }
-async function submitIEF(e) {
+// Connexion par code de Groupe scolaire (kind 'groupe') ou, accès discret, par
+  // code IEF (kind 'ief') : même RPC check_groupe_code, session en lecture seule.
+  const submitGroupe = (e) => submitCodeLecture(e, 'groupe');
+  const submitIEF = (e) => submitCodeLecture(e, 'ief');
+  async function submitCodeLecture(e, kind) {
     e.preventDefault();
     setBusy(true);
     const entered = String(code).trim();
+    const labelCode = kind === 'groupe' ? 'du groupe scolaire' : 'IEF';
     const lock = loginLockInfo('ief:' + entered);
     if (lock.locked) {
       const min = Math.ceil(lock.remainingMs / 60000);
@@ -2449,14 +2473,14 @@ async function submitIEF(e) {
         setBusy(false); return;
       }
     } catch (e2) { notify('Erreur : ' + sbErrMsg(e2), true); setBusy(false); return; }
-    if (ok) { recordLoginSuccess('ief:' + entered); onLogin({ role: 'ief', groupeId, iefName, iefCode: entered }); }
+    if (ok) { recordLoginSuccess('ief:' + entered); onLogin({ role: 'ief', kind, groupeId, iefName, iefCode: entered }); }
     else {
       recordLoginFailure('ief:' + entered);
       const nxt = getLoginAttempts('ief:' + entered);
       if (nxt.lockedUntil > Date.now()) {
-        notify(`Code IEF incorrect. Accès bloqué 15 min après ${MAX_LOGIN_ATTEMPTS} échecs.`, true);
+        notify(`Code ${labelCode} incorrect. Accès bloqué 15 min après ${MAX_LOGIN_ATTEMPTS} échecs.`, true);
       } else {
-        notify(`Code IEF incorrect (${nxt.fails}/${MAX_LOGIN_ATTEMPTS} essais).`, true);
+        notify(`Code ${labelCode} incorrect (${nxt.fails}/${MAX_LOGIN_ATTEMPTS} essais).`, true);
       }
     }
     setBusy(false);
@@ -2500,8 +2524,10 @@ const entered = String(code).trim();
   const tabs = [
     { id: 'school', label: 'École', icon: School },
     { id: 'personnel', label: 'Personnel', icon: Users },
-    { id: 'ief', label: 'IEF', icon: Building2 },
-    { id: 'admin', label: 'Super Admin', icon: UserCog },
+    { id: 'groupe', label: 'Groupe scolaire', icon: Layers },
+    // Accès discrets : affichés seulement une fois ouverts (lien ou #ief / #superadmin).
+    ...(tab === 'ief' ? [{ id: 'ief', label: 'IEF', icon: Building2 }] : []),
+    ...(tab === 'admin' ? [{ id: 'admin', label: 'Super Admin', icon: UserCog }] : []),
   ];
 
   return (
@@ -2571,7 +2597,7 @@ const entered = String(code).trim();
             <img src={`${import.meta.env.BASE_URL}edulink-favicon.svg`} alt="" style={{ width: 300, maxWidth: '80%', height: 'auto' }} />
           </div>
           <div className="relative" style={{ position: 'relative', zIndex: 1 }}>
-          <div className="grid grid-cols-4 gap-1 mb-6 p-1 rounded-xl bg-bg">
+          <div className="grid gap-1 mb-6 p-1 rounded-xl bg-bg" style={{ gridTemplateColumns: `repeat(${tabs.length}, minmax(0, 1fr))` }}>
             {tabs.map((t) => (
               <button
                 key={t.id}
@@ -2640,6 +2666,18 @@ const entered = String(code).trim();
             </form>
           )}
 
+          {tab === 'groupe' && (
+            <form onSubmit={submitGroupe} className="space-y-4">
+              <p className="text-xs leading-relaxed text-muted">
+                Saisissez le code d'accès de votre <b style={{ color: 'var(--green-d)' }}>Groupe scolaire</b>
+                {' '}pour consulter en <b>lecture seule</b> les écoles qui le composent :
+                élèves, notes, personnel, finances. Aucune modification n'est possible.
+              </p>
+              <CodeField code={code} setCode={setCode} show={showCode} setShow={setShowCode} label="Code d'accès du groupe scolaire" />
+              <SubmitBtn busy={busy}>Se connecter</SubmitBtn>
+            </form>
+          )}
+
           {tab === 'ief' && (
             <form onSubmit={submitIEF} className="space-y-4">
               <p className="text-xs leading-relaxed text-muted">
@@ -2661,9 +2699,19 @@ const entered = String(code).trim();
           </div>
         </div>
 
+        <div className="mt-4 flex items-center justify-center gap-4 text-[11px] text-muted">
+          {(tab === 'ief' || tab === 'admin') ? (
+            <button type="button" onClick={() => { setTab('school'); setCode(''); }} className="underline opacity-80 hover:opacity-100">← Retour à la connexion</button>
+          ) : (
+            <>
+              <button type="button" onClick={() => { setTab('ief'); setCode(''); }} className="underline opacity-60 hover:opacity-100">Accès IEF</button>
+              <button type="button" onClick={() => { setTab('admin'); setCode(''); }} className="underline opacity-60 hover:opacity-100">Administration</button>
+            </>
+          )}
+        </div>
         <button
           onClick={() => setDark(!dark)}
-          className="mx-auto mt-5 flex items-center gap-2 text-xs font-medium text-muted"
+          className="mx-auto mt-3 flex items-center gap-2 text-xs font-medium text-muted"
         >
           {dark ? <Sun size={14} /> : <Moon size={14} />} {dark ? 'Thème clair' : 'Thème sombre'}
         </button>
@@ -2971,7 +3019,7 @@ function Sidebar({ session, active, setActive, mobileOpen, setMobileOpen, hasAct
 
 function Topbar({ title, sub, session, schoolName, dark, setDark, onLogout, setMobileOpen, countdownMs, annee, periodeKey, periodeLabel, periodeOptions = [], canEditPeriode, onPeriodeChange }) {
   const roleLabel = {
-    ief: session.iefName ? `IEF — ${session.iefName}` : 'IEF (lecture seule)', admin: 'Super Administrateur', teacher: 'Enseignant(e)', accountant: 'Comptable/Gestionnaire', secretary: 'Secrétaire', school: schoolName || 'Compte école',
+    ief: session.kind === 'groupe' ? (session.iefName ? `Groupe scolaire — ${session.iefName}` : 'Groupe scolaire (lecture seule)') : (session.iefName ? `IEF — ${session.iefName}` : 'IEF (lecture seule)'), admin: 'Super Administrateur', teacher: 'Enseignant(e)', accountant: 'Comptable/Gestionnaire', secretary: 'Secrétaire', school: schoolName || 'Compte école',
   }[session.role];
   function fmtCountdown(ms) {
     if (ms == null || ms <= 0) return null;
@@ -9909,7 +9957,7 @@ function actorLabel(session, state) {
     const dir = state && state.header && state.header.directeur;
     return dir ? `${dir} (Direction)` : 'Direction de l\u2019école';
   }
-  if (session.role === 'ief') return 'IEF (lecture seule)';
+  if (session.role === 'ief') return session.kind === 'groupe' ? 'Groupe scolaire (lecture seule)' : 'IEF (lecture seule)';
   if (session.role === 'admin') return 'Super Administrateur';
   return 'Utilisateur';
 }
