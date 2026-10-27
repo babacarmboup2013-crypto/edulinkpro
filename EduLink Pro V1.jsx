@@ -52,6 +52,43 @@ async function fetchWithTimeout(url, options = {}, timeoutMs = SB_REQUEST_TIMEOU
   try { return await fetch(url, { ...options, signal: controller.signal }); }
   finally { clearTimeout(timer); }
 }
+
+// Lit une image choisie par l'utilisateur et la RÉDUIT avant stockage : une
+// photo/logo brut (plusieurs Mo en base64) est enregistré dans les données de
+// l'école et rechargé à CHAQUE connexion — d'où des chargements très lents.
+// Logo : 400 px max (PNG, transparence conservée). Photo : 480 px max (JPEG).
+// Repli sur le fichier d'origine si le navigateur ne sait pas le redimensionner.
+function readImageCompressed(file, { maxSize = 480, type = 'image/jpeg', quality = 0.82 } = {}) {
+  return new Promise((resolve) => {
+    const raw = () => {
+      const reader = new FileReader();
+      reader.onload = () => resolve(String(reader.result || ''));
+      reader.onerror = () => resolve('');
+      reader.readAsDataURL(file);
+    };
+    try {
+      const url = URL.createObjectURL(file);
+      const img = new Image();
+      img.onload = () => {
+        try {
+          const ratio = Math.min(1, maxSize / Math.max(img.width, img.height, 1));
+          const w = Math.max(1, Math.round(img.width * ratio));
+          const h = Math.max(1, Math.round(img.height * ratio));
+          const canvas = document.createElement('canvas');
+          canvas.width = w; canvas.height = h;
+          const ctx = canvas.getContext('2d');
+          if (type === 'image/jpeg') { ctx.fillStyle = '#fff'; ctx.fillRect(0, 0, w, h); }
+          ctx.drawImage(img, 0, 0, w, h);
+          const out = canvas.toDataURL(type, quality);
+          URL.revokeObjectURL(url);
+          if (out && out.length > 20) resolve(out); else raw();
+        } catch (_) { URL.revokeObjectURL(url); raw(); }
+      };
+      img.onerror = () => { URL.revokeObjectURL(url); raw(); };
+      img.src = url;
+    } catch (_) { raw(); }
+  });
+}
 async function sb(method, table, params = '', body = null) {
   if (ADMIN_SECURED_TABLES.has(table)) {
     // admins / iefs / ief_config : GET compris, tout passe par admin-write
@@ -5571,7 +5608,7 @@ function PersonnelView({ state, loading, updateState, notify, session, readOnly 
       )}
 
       {cardPerson && (
-        <div id="staff-card-print" className="fixed inset-0 z-50 overflow-auto p-4"><div className="max-w-2xl mx-auto mt-4"><div className="no-print flex flex-wrap justify-end gap-2 mb-2"><label className="px-3 py-2 rounded-lg text-sm font-semibold cursor-pointer" style={{ background: 'var(--gold-l)', color: 'var(--gold)' }}>Ajouter / changer la photo<input type="file" accept="image/*" className="hidden" onChange={(e) => { const file = e.target.files?.[0]; if (!file) return; const reader = new FileReader(); reader.onload = () => saveStaffPhoto(cardPerson.id, String(reader.result || '')); reader.readAsDataURL(file); }} /></label><button onClick={() => window.print()} className="px-3 py-2 rounded-lg text-white flex items-center gap-1" style={{ background: 'var(--green-d)' }}><Printer size={14} /> Imprimer / PDF</button><button onClick={() => setCardPerson(null)} className="px-3 py-2 rounded-lg bg-panel">Fermer</button></div><StaffIdentityCard state={state} person={cardPerson} /></div></div>
+        <div id="staff-card-print" className="fixed inset-0 z-50 overflow-auto p-4"><div className="max-w-2xl mx-auto mt-4"><div className="no-print flex flex-wrap justify-end gap-2 mb-2"><label className="px-3 py-2 rounded-lg text-sm font-semibold cursor-pointer" style={{ background: 'var(--gold-l)', color: 'var(--gold)' }}>Ajouter / changer la photo<input type="file" accept="image/*" className="hidden" onChange={(e) => { const file = e.target.files?.[0]; if (!file) return; readImageCompressed(file).then((data) => { if (data) saveStaffPhoto(cardPerson.id, data); }); }} /></label><button onClick={() => window.print()} className="px-3 py-2 rounded-lg text-white flex items-center gap-1" style={{ background: 'var(--green-d)' }}><Printer size={14} /> Imprimer / PDF</button><button onClick={() => setCardPerson(null)} className="px-3 py-2 rounded-lg bg-panel">Fermer</button></div><StaffIdentityCard state={state} person={cardPerson} /></div></div>
       )}
 
       {attestPerson && (
@@ -6399,7 +6436,7 @@ return (
             <label className="text-xs font-semibold block mb-1 text-muted">Photo de l'élève</label>
             <div className="flex items-center gap-3">
               <div className="w-14 h-16 rounded-lg border overflow-hidden flex items-center justify-center" style={{ borderColor: 'var(--line)', background: 'var(--bg)' }}>{form.photoData ? <img src={form.photoData} alt="Aperçu" className="w-full h-full object-cover" /> : <span className="text-[10px] text-center text-muted">Aucune photo</span>}</div>
-              <input type="file" accept="image/*" onChange={(e) => { const file = e.target.files?.[0]; if (!file) return; const reader = new FileReader(); reader.onload = () => set('photoData', String(reader.result || '')); reader.readAsDataURL(file); }} className="text-xs" />
+              <input type="file" accept="image/*" onChange={(e) => { const file = e.target.files?.[0]; if (!file) return; readImageCompressed(file).then((data) => { if (data) set('photoData', data); }); }} className="text-xs" />
             </div>
           </div>
         </div>
@@ -7437,7 +7474,7 @@ function addStudent(student) {
       )}
 
       {cardStudent && (
-        <div id="student-card-print" className="fixed inset-0 z-50 overflow-auto p-4"><div className="max-w-2xl mx-auto mt-4"><div className="no-print flex flex-wrap justify-end gap-2 mb-2"><label className="px-3 py-2 rounded-lg text-sm font-semibold cursor-pointer" style={{ background: 'var(--gold-l)', color: 'var(--gold)' }}>Ajouter / changer la photo<input type="file" accept="image/*" className="hidden" onChange={(e) => { const file = e.target.files?.[0]; if (!file) return; const reader = new FileReader(); reader.onload = () => { const photoData = String(reader.result || ''); const next = students.map((s) => s.id === cardStudent.id ? { ...s, photoData } : s); updateStudents(next); setCardStudent((s) => ({ ...s, photoData })); }; reader.readAsDataURL(file); }} /></label><button onClick={() => window.print()} className="px-3 py-2 rounded-lg text-white flex items-center gap-1" style={{ background: 'var(--green-d)' }}><Printer size={14} /> Imprimer / PDF</button><button onClick={() => setCardStudent(null)} className="px-3 py-2 rounded-lg bg-panel">Fermer</button></div><StudentIdentityCard state={state} cls={cls} student={cardStudent} /></div></div>
+        <div id="student-card-print" className="fixed inset-0 z-50 overflow-auto p-4"><div className="max-w-2xl mx-auto mt-4"><div className="no-print flex flex-wrap justify-end gap-2 mb-2"><label className="px-3 py-2 rounded-lg text-sm font-semibold cursor-pointer" style={{ background: 'var(--gold-l)', color: 'var(--gold)' }}>Ajouter / changer la photo<input type="file" accept="image/*" className="hidden" onChange={(e) => { const file = e.target.files?.[0]; if (!file) return; readImageCompressed(file).then((photoData) => { if (!photoData) return; const next = students.map((s) => s.id === cardStudent.id ? { ...s, photoData } : s); updateStudents(next); setCardStudent((s) => ({ ...s, photoData })); }); }} /></label><button onClick={() => window.print()} className="px-3 py-2 rounded-lg text-white flex items-center gap-1" style={{ background: 'var(--green-d)' }}><Printer size={14} /> Imprimer / PDF</button><button onClick={() => setCardStudent(null)} className="px-3 py-2 rounded-lg bg-panel">Fermer</button></div><StudentIdentityCard state={state} cls={cls} student={cardStudent} /></div></div>
       )}
 
       {certStudent && (
@@ -10498,7 +10535,7 @@ function PresenceElevesCard({ state, updateState, notify, readOnly, session }) {
             {!readOnly && <>
               <label className="px-3 py-2 rounded-lg text-sm font-semibold cursor-pointer text-white" style={{ background: 'var(--green-d)' }}>
                 {form.logo ? 'Changer le logo' : 'Ajouter un logo'}
-                <input type="file" accept="image/*" className="hidden" onChange={(e) => { const file = e.target.files?.[0]; if (!file) return; const reader = new FileReader(); reader.onload = () => set('logo', String(reader.result || '')); reader.readAsDataURL(file); }} />
+                <input type="file" accept="image/*" className="hidden" onChange={(e) => { const file = e.target.files?.[0]; if (!file) return; readImageCompressed(file, { maxSize: 400, type: 'image/png' }).then((data) => { if (data) set('logo', data); }); }} />
               </label>
               {form.logo && <button type="button" onClick={() => set('logo', '')} className="px-3 py-2 rounded-lg text-sm font-semibold" style={{ background: 'var(--bg)', color: 'var(--red)' }}>Retirer le logo</button>}
             </>}
