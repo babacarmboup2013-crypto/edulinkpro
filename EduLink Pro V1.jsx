@@ -53,6 +53,28 @@ async function fetchWithTimeout(url, options = {}, timeoutMs = SB_REQUEST_TIMEOU
   finally { clearTimeout(timer); }
 }
 
+// Les rafraîchissements automatiques (toutes les X secondes) ne tournent QUE
+// quand l'onglet est visible : un onglet laissé ouvert en arrière-plan (nuit,
+// week-end) ne doit pas solliciter la base en continu. La base Supabase est
+// sur l'offre gratuite (peu de CPU / connexions) : chaque appel compte.
+// Télécharge les données des écoles PAR PETITS LOTS (au lieu d'une seule
+// requête de plusieurs dizaines de Mo qui dépasse le délai de 20 s et surcharge
+// la base) : un lot en échec n'empêche pas d'afficher les autres.
+async function fetchSchoolPayloads(ids, chunk = 10) {
+  const byId = {};
+  let lastError = null;
+  for (let i = 0; i < ids.length; i += chunk) {
+    const part = ids.slice(i, i + chunk);
+    try {
+      const datas = (await sb('GET', 'school_data', `select=school_id,payload&school_id=in.(${part.join(',')})`)) || [];
+      datas.forEach((d) => { byId[d.school_id] = d.payload; });
+    } catch (e) { lastError = e; }
+  }
+  if (lastError && !Object.keys(byId).length) throw lastError;
+  return byId;
+}
+const pageIsVisible = () => typeof document === 'undefined' || document.visibilityState !== 'hidden';
+
 // Lit une image choisie par l'utilisateur et la RÉDUIT avant stockage : une
 // photo/logo brut (plusieurs Mo en base64) est enregistré dans les données de
 // l'école et rechargé à CHAQUE connexion — d'où des chargements très lents.
@@ -2867,6 +2889,9 @@ function SubmitBtn({ children, busy }) {
 function homePageFor(role) {
   if (role === 'guard') return 'gate';
   if (['school', 'teacher', 'accountant', 'secretary'].includes(role)) return 'dash';
+  // Le Super Admin arrive sur la liste légère des écoles : le tableau de bord
+  // consolidé télécharge les données de TOUTES les écoles (plus de 10 Mo).
+  if (role === 'admin') return 'superadmin';
   return 'ief';
 }
 
@@ -11274,11 +11299,7 @@ function IEFSchoolsView({ onOpenSchool, session }) {
         // Isolement strict : on ne télécharge QUE les payloads des écoles
         // de la circonscription affichée — jamais ceux des autres IEF.
         const ids = rows.map((r) => r && r.id).filter(Boolean);
-        const datas = ids.length
-          ? ((await sb('GET', 'school_data', `select=school_id,payload&school_id=in.(${ids.join(',')})`)) || [])
-          : [];
-        const byId = {};
-        datas.forEach((d) => { byId[d.school_id] = d.payload; });
+        const byId = await fetchSchoolPayloads(ids);
         if (!cancelled) { setSchools(rows); setPayloadsById(byId); }
       } catch (e) {
         if (!cancelled) setError(sbErrMsg(e));
@@ -11293,6 +11314,7 @@ function IEFSchoolsView({ onOpenSchool, session }) {
   useEffect(() => {
     let active = true;
     const poll = async () => {
+      if (!pageIsVisible()) return;
       try {
         let params = 'order=name.asc';
         if (effectiveGroupeId) {
@@ -11304,15 +11326,11 @@ function IEFSchoolsView({ onOpenSchool, session }) {
         }
         const rows = (await sb('GET', 'schools', params)) || [];
         const ids = rows.map((r) => r && r.id).filter(Boolean);
-        const datas = ids.length
-          ? ((await sb('GET', 'school_data', `select=school_id,payload&school_id=in.(${ids.join(',')})`)) || [])
-          : [];
-        const byId = {};
-        datas.forEach((d) => { byId[d.school_id] = d.payload; });
+        const byId = await fetchSchoolPayloads(ids);
         if (active) { setSchools(rows); setPayloadsById(byId); }
       } catch (_) {}
     };
-    const id = setInterval(poll, 60000);
+    const id = setInterval(poll, 300000); // 5 min (était 60 s : ~11 Mo téléchargés par minute)
     return () => { active = false; clearInterval(id); };
   }, [effectiveIefId, effectiveGroupeId, isGrandDakar]);
 
@@ -12056,7 +12074,15 @@ async function refresh() {
       // sinon la liste devient très lente dès quelques dizaines d'écoles.
       if (rows.length && rows.some((s) => s.directeur === undefined || !s.directeur || !s.cycle)) {
         try {
-          const datas = (await sb('GET', 'school_data', 'select=school_id,payload->header')) || [];
+          // On ne lit QUE directeur / cycle / cycles : payload->header contient
+          // aussi le LOGO en base64 (jusqu'à 5,8 Mo par école !).
+          let datas;
+          try {
+            datas = ((await sb('GET', 'school_data', 'select=school_id,directeur:payload->header->>directeur,cycle:payload->header->>cycle,cycles:payload->header->cycles')) || [])
+              .map((d) => ({ school_id: d.school_id, payload: { directeur: d.directeur, cycle: d.cycle, cycles: d.cycles } }));
+          } catch (_) {
+            datas = (await sb('GET', 'school_data', 'select=school_id,payload->header')) || [];
+          }
           const byId = {};
           datas.forEach((d) => { byId[d.school_id] = d.payload; });
           rows.forEach((s) => {
@@ -12087,7 +12113,7 @@ async function refresh() {
   // Polling : recharger la liste des écoles toutes les 30 secondes
   // pour que le Super Admin voie les changements faits par les écoles.
   useEffect(() => {
-    const id = setInterval(refresh, 30000);
+    const id = setInterval(() => { if (pageIsVisible()) refresh(); }, 300000);
     return () => clearInterval(id);
   }, [iefId]);
 
@@ -13553,6 +13579,7 @@ setSession(saved);
       return { pending: (latest && latest.studentTransferRequests || []).filter((request) => request.status === 'pending'), latest };
     };
     const checkForNewTransfers = async () => {
+      if (!pageIsVisible()) return;
       try {
         const { pending, latest } = await loadPending();
         if (cancelled) return;
@@ -13574,7 +13601,7 @@ setSession(saved);
       }
     };
     const firstCheck = window.setTimeout(checkForNewTransfers, 10000);
-    const timer = window.setInterval(checkForNewTransfers, 30000);
+    const timer = window.setInterval(checkForNewTransfers, 120000); // 2 min (était 30 s)
     return () => { cancelled = true; window.clearTimeout(firstCheck); window.clearInterval(timer); };
   }, [session?.role, activeSchoolId, notify]);
 
@@ -13649,6 +13676,7 @@ setSession(saved);
     if (!readerRole || !activeSchoolId) return undefined;
     let cancelled = false;
     const refresh = async () => {
+      if (!pageIsVisible()) return;
       try {
         const [localCache, st] = await Promise.all([
           getInstantCache(activeSchoolId),
@@ -13672,7 +13700,7 @@ setSession(saved);
         // une panne réseau ne doit pas faire disparaître l'affichage.
       }
     };
-    const timer = window.setInterval(refresh, 30000);
+    const timer = window.setInterval(refresh, 120000); // 2 min (était 30 s : payload complet à chaque fois)
     return () => { cancelled = true; window.clearInterval(timer); };
   }, [session?.role, activeSchoolId]);
 
