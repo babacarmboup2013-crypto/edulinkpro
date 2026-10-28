@@ -147,11 +147,19 @@ async function sb(method, table, params = '', body = null) {
         cred.school_id = sess.schoolId;
         cred.school_code = sess.schoolCode || getActiveSchoolCode() || '';
       }
-      const res = await fetchWithTimeout(`${SB_URL}/functions/v1/read-schools-secure`, {
+      const callFn = (slug, payload) => fetchWithTimeout(`${SB_URL}/functions/v1/${slug}`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', apikey: SB_KEY, Authorization: 'Bearer ' + SB_KEY },
-        body: JSON.stringify({ table, params, ...cred }),
+        body: JSON.stringify(payload),
       });
+      let res;
+      try { res = await callFn('read-schools-secure', { table, params, ...cred }); } catch (_) { res = null; }
+      // TEMPORAIRE : si la lecture sécurisée est indisponible, repli sur l'ancienne
+      // fonction le temps de la bascule (retiré dès la validation complète).
+      if (!res || !res.ok) {
+        console.warn('read-schools-secure indisponible (', res ? res.status : 'réseau', '), repli sur read-schools');
+        res = await callFn('read-schools', { table, params });
+      }
       const text = await res.text();
       if (!res.ok) throw new Error(text || `Erreur ${res.status}`);
       return text ? JSON.parse(text) : null;
