@@ -166,11 +166,30 @@ async function sb(method, table, params = '', body = null) {
   }
 
   const url = `${SB_URL}/rest/v1/${table}${params ? '?' + params : ''}`;
-  const res = await fetchWithTimeout(url, {
+  const doFetch = (timeoutMs) => fetchWithTimeout(url, {
     method,
     headers: SB_H,
     body: body ? JSON.stringify(body) : undefined,
-  });
+  }, timeoutMs);
+  // Lectures / RPC de connexion : une base lente ou « froide » ne doit pas faire
+  // échouer la connexion du premier coup. 1er essai à 12 s ; en cas de délai
+  // dépassé, d'erreur réseau ou d'erreur serveur transitoire (502/503/504/546),
+  // un second essai est lancé aussitôt (20 s). Les écritures ne sont JAMAIS
+  // rejouées automatiquement.
+  const retryable = method === 'GET' || (method === 'POST' && table.startsWith('rpc/')
+    && /^rpc\/(check_|get_school_data|search_|list_|get_)/.test(table));
+  let res;
+  if (retryable) {
+    const transient = (r) => [502, 503, 504, 546].includes(r.status);
+    try {
+      res = await doFetch(12000);
+      if (transient(res)) res = await doFetch(SB_REQUEST_TIMEOUT_MS);
+    } catch (_) {
+      res = await doFetch(SB_REQUEST_TIMEOUT_MS);
+    }
+  } else {
+    res = await doFetch(SB_REQUEST_TIMEOUT_MS);
+  }
   if (!res.ok) {
     const text = await res.text().catch(() => '');
     throw new Error(text || `Erreur ${res.status}`);
