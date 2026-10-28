@@ -132,10 +132,25 @@ async function sb(method, table, params = '', body = null) {
   }
   if (SECURED_TABLES.has(table)) {
     if (method === 'GET') {
-      const res = await fetchWithTimeout(`${SB_URL}/functions/v1/read-schools`, {
+      // Lecture authentifiée : la fonction vérifie côté serveur le code de la
+      // session et ne renvoie que le périmètre autorisé (Super Admin : tout ;
+      // IEF / groupe : leurs écoles, sans codes d'accès ; école : la sienne).
+      const sess = loadSessionJSON(LS_SESSION, null) || {};
+      const cred = {};
+      if (sess.role === 'admin') {
+        if (sess.iefId) { cred.ief_id = sess.iefId; cred.ief_admin_code = sess.iefAdminCode || ''; }
+        else cred.admin_code = sess.adminCode || sess.iefAdminCode || '';
+      } else if (sess.role === 'ief') {
+        cred.ief_code = sess.iefCode || '';
+        if (sess.kind === 'groupe') cred.ief_kind = 'groupe';
+      } else if (sess.schoolId) {
+        cred.school_id = sess.schoolId;
+        cred.school_code = sess.schoolCode || getActiveSchoolCode() || '';
+      }
+      const res = await fetchWithTimeout(`${SB_URL}/functions/v1/read-schools-secure`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', apikey: SB_KEY, Authorization: 'Bearer ' + SB_KEY },
-        body: JSON.stringify({ table, params }),
+        body: JSON.stringify({ table, params, ...cred }),
       });
       const text = await res.text();
       if (!res.ok) throw new Error(text || `Erreur ${res.status}`);
