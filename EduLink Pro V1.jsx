@@ -75,6 +75,42 @@ async function fetchSchoolPayloads(ids, chunk = 10) {
 }
 const pageIsVisible = () => typeof document === 'undefined' || document.visibilityState !== 'hidden';
 
+// ---- Réduction automatique des logos trop lourds ----
+// Un logo non compressé (jusqu'à 5,8 Mo en base64) est rechargé à CHAQUE connexion et
+// renvoyé à chaque enregistrement de l'école. Au-delà de LOGO_MAX_CHARS, le logo est
+// redimensionné (400 px max) automatiquement : à l'ouverture de l'école par la direction
+// ou le Super Admin, et en lot pour toutes les écoles par le Super Admin racine.
+const LOGO_MAX_CHARS = 120000;
+let logoBatchRan = false;
+function shrinkLogoDataUrl(dataUrl) {
+  return new Promise((resolve) => {
+    try {
+      const img = new Image();
+      img.onload = () => {
+        try {
+          const ratio = Math.min(1, 400 / Math.max(img.width, img.height, 1));
+          const w = Math.max(1, Math.round(img.width * ratio));
+          const h = Math.max(1, Math.round(img.height * ratio));
+          const canvas = document.createElement('canvas');
+          canvas.width = w; canvas.height = h;
+          const ctx = canvas.getContext('2d');
+          ctx.drawImage(img, 0, 0, w, h);
+          let out = canvas.toDataURL('image/png');
+          if (out.length > 150000) {
+            // PNG encore lourd (logo photographique) : JPEG sur fond blanc.
+            ctx.globalCompositeOperation = 'destination-over';
+            ctx.fillStyle = '#fff'; ctx.fillRect(0, 0, w, h);
+            out = canvas.toDataURL('image/jpeg', 0.85);
+          }
+          resolve(out && out.length > 20 && out.length < dataUrl.length ? out : null);
+        } catch (_) { resolve(null); }
+      };
+      img.onerror = () => resolve(null);
+      img.src = dataUrl;
+    } catch (_) { resolve(null); }
+  });
+}
+
 // Lit une image choisie par l'utilisateur et la RÉDUIT avant stockage : une
 // photo/logo brut (plusieurs Mo en base64) est enregistré dans les données de
 // l'école et rechargé à CHAQUE connexion — d'où des chargements très lents.
@@ -13309,6 +13345,36 @@ const [iefList, setIefList] = useState([]);
     return () => { cancelled = true; };
   }, [isGlobalAdmin]);
 
+  // Réduction automatique, en lot, des logos trop lourds de TOUTES les écoles
+  // (Super Admin racine, une fois par chargement de l'application). Les écoles
+  // concernées sont listées côté serveur ; les originaux sont sauvegardés (logo_backups).
+  useEffect(() => {
+    if (!isGlobalAdmin || !session || session.role !== 'admin' || !session.adminCode || logoBatchRan) return undefined;
+    logoBatchRan = true;
+    let cancelled = false;
+    (async () => {
+      try {
+        const list = (await sb('POST', 'rpc/list_oversized_logos', '', { p_code: session.adminCode, p_min: LOGO_MAX_CHARS })) || [];
+        let done = 0;
+        for (const it of list) {
+          if (cancelled) break;
+          try {
+            const st = await loadSchoolData(it.school_id);
+            const logo = st && st.header && st.header.logo;
+            if (typeof logo !== 'string' || logo.length <= LOGO_MAX_CHARS) continue;
+            const small = await shrinkLogoDataUrl(logo);
+            if (!small) continue;
+            await saveSchoolData(it.school_id, { ...st, header: { ...st.header, logo: small } });
+            done++;
+          } catch (_) { /* école suivante : on réessaiera au prochain chargement */ }
+        }
+        if (done && !cancelled) notify(`${done} logo(s) trop lourd(s) réduit(s) automatiquement.`);
+      } catch (_) { logoBatchRan = false; }
+    })();
+    return () => { cancelled = true; };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isGlobalAdmin]);
+
   // Fusionne la liste réelle avec l'IEF GRAND DAKAR (toujours en premier)
   const mergedIefList = useMemo(() => {
     const real = iefList || [];
@@ -13898,6 +13964,26 @@ function handleLogout() {
     if (!session || !activeSchoolId || session.role === 'ief') return;
     retrySync({ onlyDormant: true }).catch(() => {});
   }, [session?.role, activeSchoolId]);
+
+  // Réduction automatique du logo de l'école ouverte (direction / Super Admin).
+  const logoShrunkRef = useRef(new Set());
+  const openedLogo = schoolState && schoolState.header && schoolState.header.logo;
+  useEffect(() => {
+    if (!session || !['school', 'admin'].includes(session.role) || !activeSchoolId) return undefined;
+    if (typeof openedLogo !== 'string' || openedLogo.length <= LOGO_MAX_CHARS) return undefined;
+    if (logoShrunkRef.current.has(activeSchoolId)) return undefined;
+    logoShrunkRef.current.add(activeSchoolId);
+    let finished = false;
+    let cancelled = false;
+    shrinkLogoDataUrl(openedLogo).then((small) => {
+      finished = true;
+      if (cancelled || !small) return;
+      updateState((prev) => (prev && prev.header && prev.header.logo === openedLogo)
+        ? { ...prev, header: { ...prev.header, logo: small } }
+        : prev);
+    });
+    return () => { cancelled = true; if (!finished) logoShrunkRef.current.delete(activeSchoolId); };
+  }, [session?.role, activeSchoolId, openedLogo]);
 
   const loginAuditedRef = useRef(false);
   useEffect(() => {
