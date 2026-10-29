@@ -13887,6 +13887,15 @@ function handleLogout() {
   // Journalise la connexion réussie dans l'audit de l'école, une seule fois par
   // session (dès que l'école est chargée). `loginAuditedRef` évite de rejournaliser
   // à chaque rechargement de la page pendant la même session.
+  // Rejoue les saisies en attente dès qu'une école est ouverte avec une session
+  // valide (y compris après un simple rechargement de la page, où handleLogin
+  // n'est pas rappelé) : les éléments « dormants » faute de code d'accès repartent
+  // alors avec les identifiants de la session courante, au lieu de rester bloqués.
+  useEffect(() => {
+    if (!session || !activeSchoolId || session.role === 'ief') return;
+    retrySync({ onlyDormant: true }).catch(() => {});
+  }, [session?.role, activeSchoolId]);
+
   const loginAuditedRef = useRef(false);
   useEffect(() => {
     if (!session || session.role === 'ief' || !activeSchoolId || !schoolState || loginAuditedRef.current) return;

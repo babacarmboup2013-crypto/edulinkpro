@@ -49,3 +49,16 @@ describe('classifySyncFailure — politique « on n\'abandonne jamais une saisie
     expect(classifySyncFailure('Erreur de synchronisation serveur')).toEqual({ suspended: false });
   });
 });
+describe('isDormantItem', () => {
+  it('un élément suspendu faute de code d\'accès est dormant (aucune alerte)', async () => {
+    const { isDormantItem } = await import('./syncManager.js');
+    expect(isDormantItem({ suspended: true, lastError: 'Code d’accès absent pour cette école' })).toBe(true);
+    expect(isDormantItem({ suspended: true, lastError: "Code d'accès absent pour cette école" })).toBe(true);
+  });
+  it('un vrai rejet serveur ou un échec réseau n\'est pas dormant', async () => {
+    const { isDormantItem } = await import('./syncManager.js');
+    expect(isDormantItem({ suspended: true, lastError: 'Accès refusé' })).toBe(false);
+    expect(isDormantItem({ suspended: false, lastError: 'Code d’accès absent pour cette école' })).toBe(false);
+    expect(isDormantItem(null)).toBe(false);
+  });
+});

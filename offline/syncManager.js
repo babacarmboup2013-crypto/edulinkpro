@@ -305,10 +305,19 @@ export function initOfflineSync({ pingUrl, pingHeaders, saveSchoolData } = {}) {
 }
 
 /* ---------- File d'attente (queue) ---------- */
+// Élément « dormant » : suspendu uniquement faute de code d'accès pour cette
+// école (ex. brouillon resté d'une ancienne session). Il est CONSERVÉ dans la
+// file et rejoué dès qu'une session valide pour cette école existe (reconnexion),
+// mais il n'affiche JAMAIS de bandeau d'alerte ni ne compte comme « en attente » :
+// l'utilisateur ne peut rien y faire tant qu'il n'ouvre pas cette école.
+export function isDormantItem(item) {
+  return !!(item && item.suspended && isCodeAbsentError(item.lastError));
+}
+
 async function countPending() {
   try {
     const q = await listQueue();
-    return new Set(q.map((i) => i.schoolId)).size;
+    return new Set(q.filter((i) => !isDormantItem(i)).map((i) => i.schoolId)).size;
   } catch (_) { return 0; }
 }
 
@@ -355,8 +364,13 @@ async function drainQueue() {
           // recyclage automatique (cela spammerait la bannière toutes les 15 s).
           const reported = !!(item && item.reported);
           try { await tx('queue', 'readwrite', (store) => store.put({ ...item, suspended: true, attempts: (item.attempts || 0) + 1, lastError: message, reported: true })); } catch (_) {}
-          if (!reported) reportRejected(item.schoolId, message);
-          setStatus({ lastError: message });
+          if (isCodeAbsentError(message)) {
+            // Dormant : conservé, rejoué à la prochaine connexion à cette école, sans alerte.
+            blockSchool(item.schoolId);
+          } else {
+            if (!reported) reportRejected(item.schoolId, message);
+            setStatus({ lastError: message });
+          }
         } else {
           // Échec passager (réseau, timeout…) : nouvelle tentative au prochain
           // cycle, SANS limite d'abandon — la saisie reste dans la file tant
@@ -370,7 +384,7 @@ async function drainQueue() {
     console.error('drainQueue error:', e);
   }
   const pendingCount = await countPending();
-  const hasSuspended = (await listQueue().catch(() => [])).some((i) => i && i.suspended);
+  const hasSuspended = (await listQueue().catch(() => [])).some((i) => i && i.suspended && !isDormantItem(i));
   // File vide → plus d'erreur résiduelle : la bannière disparaît net. Sinon on
   // distingue « en attente » (réseau) de « rejet » (suspendu, à relancer).
   if (pendingCount === 0) setStatus({ syncing: false, pendingCount, lastError: '', suspended: false });
@@ -382,12 +396,12 @@ async function drainQueue() {
 // (rejets définitifs / code introuvable) puis rejoue la file. Appelé par le
 // bouton « Réessayer » et automatiquement à chaque reconnexion (handleLogin),
 // qui peut fournir des credentials valides pour des éléments suspendus.
-export async function retrySync() {
+export async function retrySync(opts) {
   if (!status.online || status.syncing) return;
   try {
     const q = await listQueue();
     for (const item of q) {
-      if (item && item.suspended) {
+      if (item && item.suspended && (!(opts && opts.onlyDormant) || isDormantItem(item))) {
         const { suspended, lastError, reported, ...rest } = item;
         void suspended; void lastError; void reported;
         try { await tx('queue', 'readwrite', (store) => store.put(rest)); } catch (_) {}
@@ -468,7 +482,8 @@ export async function queueSave(schoolId, draft, opts) {
       console.error('save failed, queueing:', e);
       const message = e?.message || 'Erreur de synchronisation serveur';
       const reportedBefore = (await listQueue().catch(() => [])).some((i) => i && i.schoolId === schoolId && i.reported);
-      const suspended = isDefinitiveSyncError(message) || isCodeAbsentError(message);
+      const codeAbsent = isCodeAbsentError(message);
+      const suspended = isDefinitiveSyncError(message) || codeAbsent;
       // On met TOUJOURS en file (une seule entrée par école, dernier brouillon
       // conservé) y compris sur rejet définitif : la saisie ne disparaît pas.
       // Sur rejet définitif l'élément est suspendu — relancé sur « Réessayer »
@@ -481,8 +496,14 @@ export async function queueSave(schoolId, draft, opts) {
           reported: reportedBefore,
         });
       } catch (_) {}
-      if (suspended && !reportedBefore) reportRejected(schoolId, message);
-      setStatus({ lastError: message, suspended });
+      if (codeAbsent) {
+        // Aucun code d'accès pour cette école : saisie conservée (dormante), sans alerte.
+        blockSchool(schoolId);
+        setStatus({ lastError: '', suspended: false });
+      } else {
+        if (suspended && !reportedBefore) reportRejected(schoolId, message);
+        setStatus({ lastError: message, suspended });
+      }
     }
     setStatus({ syncing: false, pendingCount: await countPending() });
   } else {
@@ -490,7 +511,7 @@ export async function queueSave(schoolId, draft, opts) {
     // seule entrée par école : le DERNIER brouillon recouvre le précédent.
     const reportedBefore = (await listQueue().catch(() => [])).some((i) => i && i.schoolId === schoolId && i.reported);
     try { await upsertQueueForSchool(schoolId, draft, access, { attempts: 0, reported: reportedBefore }); } catch (_) {}
-    const pendingSuspended = (await listQueue().catch(() => [])).some((i) => i && i.suspended);
+    const pendingSuspended = (await listQueue().catch(() => [])).some((i) => i && i.suspended && !isDormantItem(i));
     setStatus({ online, pendingCount: await countPending(), suspended: pendingSuspended });
   }
 }
