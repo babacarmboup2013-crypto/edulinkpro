@@ -13319,6 +13319,250 @@ if (schoolCounts[ief.id]) { notify('Impossible : cette IEF a encore des écoles 
   );
 }
 
+// ─── Super Admin : gestion des GROUPES SCOLAIRES ───────────────────────────
+// Création (un groupe = une école membre par cycle coché, chacune avec son code d'accès),
+// modification (nom, code de supervision, activation), suppression (si aucune école rattachée).
+function GroupesAdminTab({ notify, session, iefList }) {
+  const adminCode = (session && session.adminCode) || '';
+  const [groupes, setGroupes] = useState([]);
+  const [membres, setMembres] = useState({});
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
+  const [modal, setModal] = useState(null); // 'new' | groupe
+  const [form, setForm] = useState({ nom: '', code: '', cycles: [], ief_id: '', actif: true });
+  const [saving, setSaving] = useState(false);
+  const [created, setCreated] = useState(null);
+  const [toDelete, setToDelete] = useState(null);
+
+  async function refresh() {
+    setLoading(true);
+    setError(null);
+    try {
+      const rows = (await sb('POST', 'rpc/list_all_groupes', '', { p_code: adminCode })) || [];
+      setGroupes(Array.isArray(rows) ? rows : []);
+      try {
+        const sch = (await sb('GET', 'schools', 'select=id,name,cycle,code,groupe_id&groupe_id=not.is.null&order=name.asc')) || [];
+        const map = {};
+        sch.forEach((x) => { (map[x.groupe_id] = map[x.groupe_id] || []).push(x); });
+        setMembres(map);
+      } catch (_) { setMembres({}); }
+    } catch (e) {
+      setError(sbErrMsg(e));
+    } finally {
+      setLoading(false);
+    }
+  }
+  useEffect(() => { refresh(); }, []);
+
+  function openNew() {
+    setForm({ nom: '', code: '', cycles: [], ief_id: '', actif: true });
+    setModal('new');
+  }
+  function openEdit(g) {
+    setForm({ nom: g.nom || '', code: g.code || '', cycles: g.cycles || [], ief_id: '', actif: g.actif !== false });
+    setModal(g);
+  }
+  function toggleCycle(v) {
+    setForm((f) => ({ ...f, cycles: f.cycles.includes(v) ? f.cycles.filter((c) => c !== v) : [...f.cycles, v] }));
+  }
+  function genSupervisionCode() {
+    const alpha = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+    let out = '';
+    for (let i = 0; i < 6; i++) out += alpha[Math.floor(Math.random() * alpha.length)];
+    setForm((f) => ({ ...f, code: out }));
+  }
+  const rpcResult = (raw) => (raw && (raw.data || raw)) || null;
+
+  async function handleSave() {
+    if (!form.nom.trim()) { notify('Nom du groupe requis', true); return; }
+    if (!form.code.trim()) { notify('Code de supervision requis', true); return; }
+    if (!form.cycles.length) { notify('Cochez au moins un cycle', true); return; }
+    setSaving(true);
+    try {
+      if (modal === 'new') {
+        const ief = form.ief_id && form.ief_id !== GRAND_DAKAR_FAKE_ID ? form.ief_id : null;
+        const r = rpcResult(await sb('POST', 'rpc/creer_groupe_scolaire', '', {
+          p_nom: form.nom.trim(), p_code: form.code.trim().toUpperCase(), p_cycles: form.cycles, p_ief_id: ief, p_admin_code: adminCode,
+        }));
+        if (!r || r.ok !== true) { notify((r && r.error) || 'Création refusée par le serveur', true); return; }
+        setCreated({ nom: form.nom.trim(), code: form.code.trim().toUpperCase(), ecoles: r.ecoles || [] });
+        setModal(null);
+        notify('Groupe scolaire créé');
+      } else {
+        const r = rpcResult(await sb('POST', 'rpc/modifier_groupe_scolaire', '', {
+          p_groupe_id: modal.id, p_nom: form.nom.trim(), p_code: form.code.trim().toUpperCase(), p_cycles: form.cycles, p_actif: !!form.actif, p_admin_code: adminCode,
+        }));
+        if (!r || r.ok !== true) { notify((r && r.error) || 'Modification refusée par le serveur', true); return; }
+        setModal(null);
+        notify('Groupe scolaire modifié');
+      }
+      await refresh();
+    } catch (e) {
+      notify('Opération impossible : ' + sbErrMsg(e), true);
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  async function handleDelete() {
+    const g = toDelete;
+    if (!g) return;
+    try {
+      const r = rpcResult(await sb('POST', 'rpc/supprimer_groupe_scolaire', '', { p_groupe_id: g.id, p_admin_code: adminCode }));
+      if (!r || r.ok !== true) { notify((r && r.error) || 'Suppression refusée', true); return; }
+      notify('Groupe supprimé');
+      setToDelete(null);
+      await refresh();
+    } catch (e) {
+      notify('Suppression impossible : ' + sbErrMsg(e), true);
+    }
+  }
+
+  async function detach(school) {
+    try {
+      const r = rpcResult(await sb('POST', 'rpc/reaffecter_ecole', '', {
+        p_school_id: school.id, p_nouvel_ief_id: null, p_nouveau_groupe_id: null, p_admin_code: adminCode,
+      }));
+      if (!r || r.ok !== true) { notify((r && r.error) || 'Détachement refusé', true); return; }
+      notify('École détachée du groupe');
+      await refresh();
+    } catch (e) {
+      notify('Détachement impossible : ' + sbErrMsg(e), true);
+    }
+  }
+
+  return (
+    <div className="space-y-4" data-testid="groupes-tab">
+      <div className="flex items-center justify-between gap-2 flex-wrap">
+        <p className="text-sm text-slate-600">Un groupe scolaire regroupe plusieurs cycles : une école est créée automatiquement pour chaque cycle coché, avec son propre code d’accès.</p>
+        <button onClick={openNew} className="inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-indigo-600 text-white text-sm font-semibold hover:bg-indigo-700">
+          <Plus size={16} /> Créer un groupe scolaire
+        </button>
+      </div>
+
+      {error && <div className="p-3 rounded-lg bg-red-50 text-red-700 text-sm">{error}</div>}
+      {loading ? (
+        <div className="flex items-center gap-2 text-slate-500 text-sm"><Loader2 size={16} className="animate-spin" /> Chargement…</div>
+      ) : groupes.length === 0 ? (
+        <div className="p-6 text-center text-slate-500 text-sm border border-dashed rounded-xl">Aucun groupe scolaire pour le moment.</div>
+      ) : (
+        <div className="grid gap-3">
+          {groupes.map((g) => {
+            const ms = membres[g.id] || [];
+            return (
+              <div key={g.id} className="border rounded-xl p-4 bg-white">
+                <div className="flex items-start justify-between gap-3 flex-wrap">
+                  <div>
+                    <div className="flex items-center gap-2 font-semibold text-slate-800">
+                      <Layers size={16} /> {g.nom}
+                      {g.actif === false && <span className="text-xs px-2 py-0.5 rounded bg-slate-200 text-slate-600">Inactif</span>}
+                    </div>
+                    <div className="text-xs text-slate-500 mt-1">Code de supervision : <span className="font-mono font-semibold text-slate-700">{g.code}</span></div>
+                    <div className="flex gap-1 flex-wrap mt-2">
+                      {(g.cycles || []).map((c) => <span key={c} className="text-xs px-2 py-0.5 rounded-full bg-indigo-50 text-indigo-700">{cycleLabel(c)}</span>)}
+                    </div>
+                  </div>
+                  <div className="flex gap-2">
+                    <button onClick={() => openEdit(g)} className="p-2 rounded-lg border hover:bg-slate-50" title="Modifier"><Pencil size={15} /></button>
+                    <button onClick={() => setToDelete(g)} className="p-2 rounded-lg border text-red-600 hover:bg-red-50" title="Supprimer"><Trash2 size={15} /></button>
+                  </div>
+                </div>
+                {ms.length > 0 && (
+                  <div className="mt-3 border-t pt-2 space-y-1">
+                    {ms.map((m) => (
+                      <div key={m.id} className="flex items-center justify-between gap-2 text-sm">
+                        <span className="text-slate-700">{m.name} <span className="text-xs text-slate-400">· {cycleLabel(m.cycle)}</span></span>
+                        <button onClick={() => detach(m)} className="text-xs text-slate-500 underline hover:text-red-600">Détacher</button>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            );
+          })}
+        </div>
+      )}
+
+      {modal && (
+        <div className="fixed inset-0 z-50 bg-black/40 flex items-center justify-center p-4" onClick={() => !saving && setModal(null)}>
+          <div className="bg-white rounded-2xl w-full max-w-lg p-5 space-y-4 max-h-[90vh] overflow-y-auto" onClick={(e) => e.stopPropagation()}>
+            <h3 className="text-lg font-bold">{modal === 'new' ? 'Créer un groupe scolaire' : 'Modifier le groupe scolaire'}</h3>
+            <label className="block text-sm font-medium">Nom du groupe
+              <input value={form.nom} onChange={(e) => setForm({ ...form, nom: e.target.value })} className="mt-1 w-full border rounded-lg px-3 py-2" placeholder="Ex. GS Les Étoiles" />
+            </label>
+            <div>
+              <label className="block text-sm font-medium">Code de supervision</label>
+              <div className="flex gap-2 mt-1">
+                <input value={form.code} onChange={(e) => setForm({ ...form, code: e.target.value.toUpperCase() })} className="flex-1 border rounded-lg px-3 py-2 font-mono" />
+                <button type="button" onClick={genSupervisionCode} className="px-3 rounded-lg border text-sm hover:bg-slate-50">Générer</button>
+              </div>
+            </div>
+            <div>
+              <div className="text-sm font-medium mb-1">Cycles du groupe</div>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                {CYCLE_OPTIONS.map((c) => (
+                  <label key={c.value} className="flex items-center gap-2 border rounded-lg px-3 py-2 text-sm cursor-pointer">
+                    <input type="checkbox" checked={form.cycles.includes(c.value)} onChange={() => toggleCycle(c.value)} /> {c.label}
+                  </label>
+                ))}
+              </div>
+              {modal !== 'new' && <p className="text-xs text-slate-500 mt-1">Cocher un nouveau cycle ici ne crée pas l’école correspondante : seule la création d’un groupe génère les écoles.</p>}
+            </div>
+            {modal === 'new' && (
+              <label className="block text-sm font-medium">IEF de rattachement
+                <select value={form.ief_id} onChange={(e) => setForm({ ...form, ief_id: e.target.value })} className="mt-1 w-full border rounded-lg px-3 py-2">
+                  <option value="">IEF GRAND DAKAR (par défaut)</option>
+                  {(iefList || []).filter((i) => i.id !== GRAND_DAKAR_FAKE_ID).map((i) => <option key={i.id} value={i.id}>{i.nom}</option>)}
+                </select>
+              </label>
+            )}
+            {modal !== 'new' && (
+              <label className="flex items-center gap-2 text-sm"><input type="checkbox" checked={!!form.actif} onChange={(e) => setForm({ ...form, actif: e.target.checked })} /> Groupe actif</label>
+            )}
+            <div className="flex justify-end gap-2 pt-2">
+              <button disabled={saving} onClick={() => setModal(null)} className="px-4 py-2 rounded-lg border text-sm">Annuler</button>
+              <button disabled={saving} onClick={handleSave} className="px-4 py-2 rounded-lg bg-indigo-600 text-white text-sm font-semibold disabled:opacity-60 inline-flex items-center gap-2">
+                {saving && <Loader2 size={14} className="animate-spin" />} {modal === 'new' ? 'Créer le groupe' : 'Enregistrer'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {created && (
+        <div className="fixed inset-0 z-50 bg-black/40 flex items-center justify-center p-4" onClick={() => setCreated(null)}>
+          <div className="bg-white rounded-2xl w-full max-w-lg p-5 space-y-3" onClick={(e) => e.stopPropagation()}>
+            <h3 className="text-lg font-bold">Groupe « {created.nom} » créé</h3>
+            <p className="text-sm text-slate-600">Code de supervision : <span className="font-mono font-semibold">{created.code}</span></p>
+            <div className="border rounded-lg divide-y">
+              {created.ecoles.map((e) => (
+                <div key={e.code} className="flex items-center justify-between px-3 py-2 text-sm">
+                  <span>{e.name}</span><span className="font-mono font-semibold">{e.code}</span>
+                </div>
+              ))}
+            </div>
+            <p className="text-xs text-slate-500">Communiquez ces codes d’accès aux directions concernées.</p>
+            <div className="flex justify-end"><button onClick={() => setCreated(null)} className="px-4 py-2 rounded-lg bg-indigo-600 text-white text-sm font-semibold">Fermer</button></div>
+          </div>
+        </div>
+      )}
+
+      {toDelete && (
+        <div className="fixed inset-0 z-50 bg-black/40 flex items-center justify-center p-4" onClick={() => setToDelete(null)}>
+          <div className="bg-white rounded-2xl w-full max-w-sm p-5 space-y-3" onClick={(e) => e.stopPropagation()}>
+            <h3 className="text-lg font-bold">Supprimer ce groupe ?</h3>
+            <p className="text-sm text-slate-600">« {toDelete.nom} » sera supprimé. Impossible tant que des écoles y sont rattachées (détachez-les d’abord).</p>
+            <div className="flex justify-end gap-2">
+              <button onClick={() => setToDelete(null)} className="px-4 py-2 rounded-lg border text-sm">Annuler</button>
+              <button onClick={handleDelete} className="px-4 py-2 rounded-lg bg-red-600 text-white text-sm font-semibold">Supprimer</button>
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
 function SuperAdminView({ notify, onOpenSchool, session, migrationStatus }) {
   const isGlobalAdmin = !(session && session.iefId); // Super Admin racine (voit/gère toutes les IEF)
   const [tab, setTab] = useState('ecoles');
@@ -13396,6 +13640,7 @@ const [iefList, setIefList] = useState([]);
 
   const tabs = [
     { id: 'ecoles', label: 'Écoles', icon: Building2 },
+    ...(isGlobalAdmin ? [{ id: 'groupes', label: 'Groupes scolaires', icon: Layers }] : []),
     { id: 'admins', label: 'Comptes IEF', icon: UserCog },
     { id: 'iefs', label: 'Gestion des IEF', icon: Database },
   ];
@@ -13453,6 +13698,7 @@ const [iefList, setIefList] = useState([]);
         ))}
       </div>
       {tab === 'ecoles' && <EcolesAdminTab notify={notify} onOpenSchool={onOpenSchool} session={session} iefIdOverride={activeIefId} iefList={mergedIefList} />}
+      {tab === 'groupes' && isGlobalAdmin && <GroupesAdminTab notify={notify} session={session} iefList={mergedIefList} />}
       {tab === 'admins' && <IEFAccountsTab notify={notify} session={session} iefIdOverride={activeIefId} iefList={mergedIefList} />}
       {tab === 'iefs' && <IEFsAdminTab notify={notify} iefId={activeIefId} />}
     </div>

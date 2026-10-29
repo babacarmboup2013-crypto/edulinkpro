@@ -1,0 +1,5 @@
+-- Appliquée en production : gestion des groupes scolaires protégée par check_admin_code
+-- (verrouillage après essais répétés) + liste complète réservée au Super Admin racine.
+-- Fonctions : list_all_groupes(p_code), creer/modifier/supprimer_groupe_scolaire et
+-- reaffecter_ecole utilisent public.check_admin_code au lieu d'une comparaison directe
+-- avec ief_config (migration « groupes_scolaires_rate_limit_et_liste_complete »).
