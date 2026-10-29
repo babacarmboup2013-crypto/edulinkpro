@@ -335,6 +335,10 @@ async function drainQueue() {
       // CONSERVÉE dans la file. Elle ne repart que sur action manuelle
       // (« Réessayer ») ou après reconnexion (handleLogin → retrySync).
       if (item.suspended) continue;
+      // Reprise progressive : après un échec passager (réseau lent, délai dépassé),
+      // on attend de plus en plus longtemps (15 s, 30 s, 1 min… jusqu'à 5 min) au lieu
+      // de renvoyer plusieurs Mo en boucle, ce qui saturait aussi la base.
+      if (item.nextTry && Date.now() < item.nextTry) continue;
       try {
         const newVersion = await saveFnRef(item.schoolId, item.draft, item.access);
         // Propage la nouvelle version aux autres éléments encore en attente
@@ -375,7 +379,9 @@ async function drainQueue() {
           // Échec passager (réseau, timeout…) : nouvelle tentative au prochain
           // cycle, SANS limite d'abandon — la saisie reste dans la file tant
           // qu'elle n'est pas réellement partie.
-          try { await tx('queue', 'readwrite', (store) => store.put({ ...item, attempts: (item.attempts || 0) + 1, lastError: message })); } catch (_) {}
+          const attempts = (item.attempts || 0) + 1;
+          const nextTry = Date.now() + Math.min(15000 * Math.pow(2, Math.min(attempts - 1, 5)), 300000);
+          try { await tx('queue', 'readwrite', (store) => store.put({ ...item, attempts, lastError: message, nextTry })); } catch (_) {}
           setStatus({ lastError: message });
         }
       }
@@ -401,6 +407,9 @@ export async function retrySync(opts) {
   try {
     const q = await listQueue();
     for (const item of q) {
+      if (item && item.nextTry && !(opts && opts.onlyDormant)) {
+        try { await tx('queue', 'readwrite', (store) => store.put({ ...item, nextTry: 0 })); item.nextTry = 0; } catch (_) {}
+      }
       if (item && item.suspended && (!(opts && opts.onlyDormant) || isDormantItem(item))) {
         const { suspended, lastError, reported, ...rest } = item;
         void suspended; void lastError; void reported;

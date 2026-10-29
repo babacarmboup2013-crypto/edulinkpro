@@ -211,7 +211,10 @@ async function sb(method, table, params = '', body = null) {
       res = await doFetch(SB_REQUEST_TIMEOUT_MS);
     }
   } else {
-    res = await doFetch(SB_REQUEST_TIMEOUT_MS);
+    // Enregistrement d'une école (save_school_data*) : le payload complet peut peser
+    // plusieurs Mo (logo, photos) — sur une connexion lente, 20 s ne suffisent pas et
+    // la requête était coupée en boucle (« signal is aborted »). 90 s pour les envois.
+    res = await doFetch(/^rpc\/save_/.test(table) ? 90000 : SB_REQUEST_TIMEOUT_MS);
   }
   if (!res.ok) {
     const text = await res.text().catch(() => '');
@@ -14148,7 +14151,7 @@ function OfflineBanner({ status, onRetry }) {
         <>
           <RotateCcw size={14} />
           <span>{status.pendingCount} école(s) avec des données non encore synchronisées — envoi automatique dès que possible.</span>
-          {status.lastError && <span style={{ color: '#8a2f24', opacity: .8 }}>Erreur : {status.lastError}</span>}
+          {status.lastError && <span style={{ color: '#8a2f24', opacity: .8 }}>{/abort|timeout|failed to fetch|network/i.test(status.lastError) ? 'Connexion lente ou instable — nouvelle tentative automatique.' : 'Erreur : ' + status.lastError}</span>}
           {onRetry && <button type="button" onClick={onRetry} className="px-2 py-1 rounded font-semibold" style={{ background: 'var(--panel)', color: 'var(--green-d)', border: '1px solid var(--line)' }}>Réessayer maintenant</button>}
         </>
       )}
