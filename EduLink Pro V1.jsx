@@ -20,6 +20,7 @@ import {
   getInstantCache, primeCacheFromServer, retrySync, clearQueue, pendingSchools, blockedSchools,
 } from './offline/syncManager';
 import ChesterWidget from './components/Chester';
+import { invoicesPdfBlob, invoiceFileName } from './invoices/invoicePdf';
 import flagSenegal from './assets/flag-senegal.webp';
 
 /* ============================================================
@@ -8611,6 +8612,125 @@ function ReceiptSheet({ state, cls, student, payment }) {
   );
 }
 
+// ─── Facture à payer (à envoyer aux parents, PDF) ──────────────────────────
+// Ce n'est PAS un reçu : elle porte sur ce qui reste à régler pour un mois
+// (mensualité du mois − déjà versé ce mois + arriérés des mois précédents).
+function shortHash(s) {
+  let h = 0;
+  const str = String(s || '');
+  for (let i = 0; i < str.length; i += 1) h = (h * 31 + str.charCodeAt(i)) >>> 0;
+  return h.toString(36).toUpperCase().padStart(5, '0').slice(-5);
+}
+function buildInvoiceData(state, cls, student, month, opts = {}) {
+  const level = cls.level;
+  const fe = studentFeesFor(state, level, student);
+  const lines = fe.rubriques
+    .filter((r) => r.nature !== 'entree' && r.activeMonths.includes(month))
+    .map((r) => ({ label: r.label, amount: Math.round((Number(r.montant) || 0) / fe.mensualites) }))
+    .filter((l) => l.amount > 0);
+  const monthDue = lines.reduce((s, l) => s + l.amount, 0);
+  const paidMonth = studentPaidInMonthByType(student, month, 'mensualite');
+  const paidThisMonth = Math.min(paidMonth, monthDue);
+  const arrears = schoolYearMonths(state).filter((m) => m < month).reduce((sum, m) => (
+    sum + Math.max(0, studentMonthlyDue(state, level, student, m) - studentPaidInMonthByType(student, m, 'mensualite'))
+  ), 0);
+  const inscription = opts.includeInscription ? studentReliquatByType(state, level, student).inscription : 0;
+  const total = Math.max(0, monthDue - paidThisMonth) + arrears + inscription;
+  const h = state.header || {};
+  const dueIso = opts.dueDate || `${month}-05`;
+  return {
+    school: { name: h.ecole || '', ief: h.ief || '', annee: h.annee || '', logo: schoolLogoData(state) },
+    invoiceNo: `FAC-${month.replace('-', '')}-${shortHash(student.id)}`,
+    monthKey: month,
+    monthLabel: monthLabelFr(month),
+    issueDate: new Date().toLocaleDateString('fr-FR'),
+    dueDate: new Date(dueIso + 'T00:00:00').toLocaleDateString('fr-FR'),
+    student: { name: `${student.prenom || ''} ${student.nom || ''}`.trim(), className: cls.name },
+    parent: { name: student.tuteurNom || '', tel: student.tuteurTel || '' },
+    lines, monthDue, paidThisMonth, arrears, inscription, total,
+  };
+}
+async function downloadBlob(blob, name) {
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url; a.download = name;
+  document.body.appendChild(a); a.click(); a.remove();
+  setTimeout(() => URL.revokeObjectURL(url), 4000);
+}
+function InvoiceModal({ state, cls, student, months, initialMonth, notify, onClose }) {
+  const [month, setMonth] = useState(initialMonth);
+  const [dueDate, setDueDate] = useState(`${initialMonth}-05`);
+  const [withInscription, setWithInscription] = useState(false);
+  const [busy, setBusy] = useState(false);
+  const relInscription = studentReliquatByType(state, cls.level, student).inscription;
+  const data = buildInvoiceData(state, cls, student, month, { includeInscription: withInscription, dueDate });
+  const fileName = invoiceFileName(data);
+  async function makeBlob() { return invoicesPdfBlob([data]); }
+  async function handleDownload() {
+    setBusy(true);
+    try { await downloadBlob(await makeBlob(), fileName); notify('Facture PDF téléchargée'); }
+    catch (e) { notify('Génération du PDF impossible : ' + sbErrMsg(e), true); }
+    finally { setBusy(false); }
+  }
+  async function handleShare() {
+    setBusy(true);
+    try {
+      const blob = await makeBlob();
+      const file = new File([blob], fileName, { type: 'application/pdf' });
+      const msg = `Bonjour${data.parent.name ? ' ' + data.parent.name : ''}, veuillez trouver ci-joint la facture de ${data.student.name} (${data.student.className}) pour ${data.monthLabel} : ${fmtFCFA(data.total)} à régler avant le ${data.dueDate}. ${data.school.name}.`;
+      if (navigator.canShare && navigator.canShare({ files: [file] })) {
+        await navigator.share({ files: [file], text: msg, title: fileName });
+      } else {
+        await downloadBlob(blob, fileName);
+        const tel = phoneDigits(student.tuteurTel);
+        window.open('https://wa.me/' + (tel ? encodeURIComponent(tel) : '') + '?text=' + encodeURIComponent(msg + ' (PDF téléchargé : joignez-le à ce message.)'), '_blank');
+      }
+    } catch (e) {
+      if (!(e && e.name === 'AbortError')) notify('Envoi impossible : ' + sbErrMsg(e), true);
+    } finally { setBusy(false); }
+  }
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4" style={{ background: 'rgba(0,0,0,.4)' }} data-testid="invoice-modal">
+      <div className="sygenop-card p-5 max-w-lg w-full max-h-[90vh] overflow-auto">
+        <div className="flex items-start justify-between mb-3">
+          <div>
+            <div className="font-bold text-ink">Facture à envoyer au parent</div>
+            <div className="text-xs text-muted">{student.prenom} {student.nom} · {cls.name} · {data.parent.name || 'tuteur non renseigné'}</div>
+          </div>
+          <button onClick={onClose} style={{ color: 'var(--muted)' }}><X size={18} /></button>
+        </div>
+        <div className="grid grid-cols-2 gap-3 mb-3">
+          <label className="text-xs font-semibold block">Mois facturé
+            <select value={month} onChange={(e) => { setMonth(e.target.value); setDueDate(`${e.target.value}-05`); }} className="mt-1 w-full px-3 py-2 rounded-lg border text-sm sygenop-input">
+              {months.map((m) => <option key={m} value={m}>{monthLabelFr(m)}</option>)}
+            </select>
+          </label>
+          <label className="text-xs font-semibold block">À régler avant le
+            <input type="date" value={dueDate} onChange={(e) => setDueDate(e.target.value || `${month}-05`)} className="mt-1 w-full px-3 py-2 rounded-lg border text-sm sygenop-input" />
+          </label>
+        </div>
+        {relInscription > 0 && (
+          <label className="flex items-center gap-2 text-xs mb-3"><input type="checkbox" checked={withInscription} onChange={(e) => setWithInscription(e.target.checked)} /> Inclure le reliquat d’inscription ({fmtFCFA(relInscription)})</label>
+        )}
+        <div className="rounded-lg border text-sm mb-3" style={{ borderColor: 'var(--line)' }}>
+          {data.lines.length === 0 && <div className="p-3 text-xs text-muted">Aucune rubrique mensuelle pour ce mois (frais non définis ou élève non abonné).</div>}
+          {data.lines.map((l) => <div key={l.label} className="flex justify-between px-3 py-2" style={{ borderBottom: '1px solid var(--line)' }}><span>{l.label}</span><b>{fmtFCFA(l.amount)}</b></div>)}
+          {data.paidThisMonth > 0 && <div className="flex justify-between px-3 py-2" style={{ borderBottom: '1px solid var(--line)', color: 'var(--green-d)' }}><span>Déjà versé ce mois</span><b>− {fmtFCFA(data.paidThisMonth)}</b></div>}
+          {data.arrears > 0 && <div className="flex justify-between px-3 py-2" style={{ borderBottom: '1px solid var(--line)', color: 'var(--red)' }}><span>Arriérés des mois précédents</span><b>{fmtFCFA(data.arrears)}</b></div>}
+          {data.inscription > 0 && <div className="flex justify-between px-3 py-2" style={{ borderBottom: '1px solid var(--line)', color: 'var(--red)' }}><span>Reliquat d’inscription</span><b>{fmtFCFA(data.inscription)}</b></div>}
+          <div className="flex justify-between px-3 py-2.5 font-bold" style={{ background: 'var(--gold-l)' }}><span>Total à payer</span><span data-testid="invoice-total">{fmtFCFA(data.total)}</span></div>
+        </div>
+        {data.total <= 0 && <div className="text-xs mb-3 p-2 rounded-lg" style={{ background: 'var(--green-l)', color: 'var(--green-d)' }}>Rien à payer pour ce mois : l’élève est à jour.</div>}
+        <div className="flex flex-wrap justify-end gap-2">
+          <button onClick={onClose} className="px-3.5 py-2 rounded-lg text-sm font-semibold" style={{ background: 'var(--bg)', color: 'var(--ink)' }}>Fermer</button>
+          <button disabled={busy || data.total <= 0} onClick={handleShare} className="px-3.5 py-2 rounded-lg text-sm font-semibold flex items-center gap-1.5 disabled:opacity-40" style={{ background: 'var(--green-l)', color: 'var(--green-d)' }}><MessageCircle size={15} /> Envoyer au parent</button>
+          <button disabled={busy || data.total <= 0} onClick={handleDownload} className="px-3.5 py-2 rounded-lg text-sm font-semibold text-white flex items-center gap-1.5 disabled:opacity-40" style={{ background: 'var(--green-d)' }}>{busy ? <Loader2 size={15} className="animate-spin" /> : <Download size={15} />} Télécharger le PDF</button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 function StudentHistoryModal({ state, student, cls, due, monthlyDue = 0, onClose, onPrint, onEdit, onDelete }) {
   const payments = studentPaiements(student).slice().sort((a, b) => (a.date || '').localeCompare(b.date || ''));
   const paid = studentTotalPaid(student);
@@ -9315,6 +9435,8 @@ function PaiementsView({ state, loading, updateState, notify, activeSchoolId, ro
   const [viewMode, setViewMode] = useState('suivi'); // suivi | classement | depenses | recap | materiel
   const [feesModalOpen, setFeesModalOpen] = useState(false);
   const [paymentModalStudent, setPaymentModalStudent] = useState(null);
+  const [invoiceStudent, setInvoiceStudent] = useState(null);
+  const [batchBusy, setBatchBusy] = useState(false);
   const [editingPayment, setEditingPayment] = useState(null); // { student, payment }
   const [historyStudent, setHistoryStudent] = useState(null);
   const [printing, setPrinting] = useState(null); // { studentId, paymentId }
@@ -9591,6 +9713,22 @@ function PaiementsView({ state, loading, updateState, notify, activeSchoolId, ro
     downloadCSV(`depenses_${ecole}.csv`, [header, ...rows]);
   }
 
+  async function exportClassInvoices() {
+    if (!currentClass) return;
+    setBatchBusy(true);
+    try {
+      const items = filteredStudents
+        .map((st) => buildInvoiceData(state, currentClass, st, effectiveMonth))
+        .filter((d) => d.total > 0);
+      if (!items.length) { notify('Aucune facture à émettre : tous les élèves sont à jour pour ce mois.'); return; }
+      const blob = await invoicesPdfBlob(items);
+      await downloadBlob(blob, `Factures_${currentClass.name.replace(/[^a-zA-Z0-9]+/g, '_')}_${effectiveMonth}.pdf`);
+      notify(`${items.length} facture(s) générée(s) dans un seul PDF`);
+    } catch (e) {
+      notify('Génération du PDF impossible : ' + sbErrMsg(e), true);
+    } finally { setBatchBusy(false); }
+  }
+
   function printMonthRecap() {
     if (!currentClass) return;
     const esc = (value) => String(value ?? '').replace(/[&<>"']/g, (char) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[char]));
@@ -9859,6 +9997,9 @@ function PaiementsView({ state, loading, updateState, notify, activeSchoolId, ro
                   {allMonths.map((month) => <option key={month} value={month}>{monthLabel(month)}</option>)}
                 </select>
                 <div className="flex-1"></div>
+                <button type="button" disabled={batchBusy} onClick={exportClassInvoices} className="px-3.5 py-2.5 rounded-lg text-sm font-semibold flex items-center justify-center gap-1.5 whitespace-nowrap disabled:opacity-50" style={{ background: 'var(--gold-l)', color: 'var(--gold)' }} title="Un seul PDF avec une facture par élève ayant un solde à payer">
+                  {batchBusy ? <Loader2 size={15} className="animate-spin" /> : <FileText size={15} />} Factures de la classe (PDF)
+                </button>
                 <button type="button" onClick={printMonthRecap} className="px-3.5 py-2.5 rounded-lg text-sm font-semibold text-white flex items-center justify-center gap-1.5 whitespace-nowrap" style={{ background: 'var(--green-d)' }}>
                   <Printer size={15} /> Récap du mois (PDF)
                 </button>
@@ -9909,6 +10050,9 @@ function PaiementsView({ state, loading, updateState, notify, activeSchoolId, ro
                               )}
                               <button onClick={() => setHistoryStudent(s)} className="p-1.5 rounded-lg" style={{ background: 'var(--bg)', color: 'var(--muted)' }} title="Historique">
                                 <History size={14} />
+                              </button>
+                              <button onClick={() => setInvoiceStudent(s)} className="px-2.5 py-1.5 rounded-lg text-xs font-semibold flex items-center gap-1" style={{ background: 'var(--gold-l)', color: 'var(--gold)' }} title={`Facture ${monthLabel(effectiveMonth)} à envoyer au parent (PDF)`}>
+                                <FileText size={13} /> Facture
                               </button>
                               <button
                                 onClick={() => sendWhatsappReminder(s, solde)} disabled={solde <= 0}
@@ -9983,6 +10127,9 @@ function PaiementsView({ state, loading, updateState, notify, activeSchoolId, ro
                             <button onClick={() => setHistoryStudent(s)} className="p-1.5 rounded-lg" style={{ background: 'var(--bg)', color: 'var(--muted)' }} title="Historique">
                               <History size={14} />
                             </button>
+                            <button onClick={() => setInvoiceStudent(s)} className="px-2.5 py-1.5 rounded-lg text-xs font-semibold flex items-center gap-1" style={{ background: 'var(--gold-l)', color: 'var(--gold)' }} title="Facture à envoyer au parent (PDF)">
+                              <FileText size={13} /> Facture
+                            </button>
                             <button
                               onClick={() => sendWhatsappReminder(s, solde)} disabled={solde <= 0}
                               className="p-1.5 rounded-lg disabled:opacity-30" style={{ background: 'var(--green-l)', color: 'var(--green-d)' }} title="Rappel WhatsApp"
@@ -10023,6 +10170,9 @@ function PaiementsView({ state, loading, updateState, notify, activeSchoolId, ro
           onSave={saveEditedPayment}
           onClose={() => setEditingPayment(null)}
         />
+      )}
+      {invoiceStudent && currentClass && (
+        <InvoiceModal state={state} cls={currentClass} student={invoiceStudent} months={allMonths} initialMonth={effectiveMonth} notify={notify} onClose={() => setInvoiceStudent(null)} />
       )}
       {historyStudent && currentClass && (
         <StudentHistoryModal
