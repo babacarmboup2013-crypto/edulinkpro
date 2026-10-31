@@ -28,6 +28,19 @@
           "value": "max-age=63072000; includeSubDomains; preload"
         }
       ]
+    },
+    {
+      "source": "/admin(.*)",
+      "headers": [
+        {
+          "key": "X-Robots-Tag",
+          "value": "noindex, nofollow, noarchive"
+        },
+        {
+          "key": "Cache-Control",
+          "value": "no-store"
+        }
+      ]
     }
   ],
   "redirects": [
@@ -38,6 +51,10 @@
     }
   ],
   "rewrites": [
+    {
+      "source": "/admin/?",
+      "destination": "/admin.html"
+    },
     {
       "source": "/((?!.*\\.(?:jpg|jpeg|png|svg|gif|webp|ico|json|webmanifest|js|css|woff2?)$).*)",
       "destination": "/home.html"

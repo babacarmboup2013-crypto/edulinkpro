@@ -2395,15 +2395,17 @@ function ActualitesTicker({ actualites, onOpen }) {
 /* ============================================================
    ÉCRAN DE CONNEXION — 4 rôles (École / Enseignant / IEF / Super Admin)
    ============================================================ */
-function LoginScreen({ onLogin, dark, setDark, notify, onBack }) {
+function LoginScreen({ onLogin, dark, setDark, notify, onBack, adminOnly = false }) {
   // Onglets publics : école | personnel | groupe (Groupe scolaire). Les accès
   // « IEF » et « Super Admin » restent discrets : lien en bas de l'écran ou
   // adresse #ief / #superadmin.
   const tabFromHash = () => {
+    // Page /admin : uniquement la connexion Super Admin. Page publique : plus
+    // d'entrée Super Admin (ni lien, ni #superadmin).
+    if (adminOnly) return 'admin';
     try {
       const h = String(window.location.hash || '').replace('#', '').toLowerCase();
       if (h === 'ief') return 'ief';
-      if (h === 'superadmin' || h === 'admin') return 'admin';
       if (h === 'groupe' || h === 'groupe-scolaire') return 'groupe';
     } catch (_) { /* hors navigateur */ }
     return 'school';
@@ -2696,6 +2698,7 @@ const entered = String(code).trim();
     ...(tab === 'ief' ? [{ id: 'ief', label: 'IEF', icon: Building2 }] : []),
     ...(tab === 'admin' ? [{ id: 'admin', label: 'Super Admin', icon: UserCog }] : []),
   ];
+  if (adminOnly) tabs.length = 0;
 
   return (
     <div className="sygenop-root relative flex items-center justify-center p-6 pb-10" style={{
@@ -2764,6 +2767,13 @@ const entered = String(code).trim();
             <img src={`${import.meta.env.BASE_URL}edulink-favicon.svg`} alt="" style={{ width: 300, maxWidth: '80%', height: 'auto' }} />
           </div>
           <div className="relative" style={{ position: 'relative', zIndex: 1 }}>
+          {adminOnly && (
+            <div className="flex flex-col items-center gap-1 mb-6">
+              <UserCog size={22} style={{ color: 'var(--green-d)' }} />
+              <div className="font-bold text-ink">Espace Administration</div>
+            </div>
+          )}
+          {!adminOnly && (
           <div className="grid gap-1 mb-6 p-1 rounded-xl bg-bg" style={{ gridTemplateColumns: `repeat(${tabs.length}, minmax(0, 1fr))` }}>
             {tabs.map((t) => (
               <button
@@ -2777,6 +2787,7 @@ const entered = String(code).trim();
               </button>
             ))}
           </div>
+          )}
 
           {tab === 'school' && (
             <form onSubmit={submitSchool} className="space-y-4">
@@ -2867,12 +2878,8 @@ const entered = String(code).trim();
         </div>
 
         <div className="mt-4 flex items-center justify-center gap-4 text-[11px] text-muted">
-          {(tab === 'ief' || tab === 'admin') ? (
+          {tab === 'ief' && !adminOnly && (
             <button type="button" onClick={() => { setTab('school'); setCode(''); }} className="underline opacity-80 hover:opacity-100">← Retour à la connexion</button>
-          ) : (
-            <>
-              <button type="button" onClick={() => { setTab('admin'); setCode(''); }} className="underline opacity-60 hover:opacity-100">Administration</button>
-            </>
           )}
         </div>
         <button
@@ -13889,7 +13896,7 @@ const [iefList, setIefList] = useState([]);
 /* ============================================================
    APP RACINE
    ============================================================ */
-export default function SygenopApp({ onBack, connectHome }) {
+export default function SygenopApp({ onBack, connectHome, adminOnly = false }) {
   const [dark, setDark] = useState(loadJSON(LS_THEME, false));
   const [session, setSession] = useState(null); // {role, schoolId?, staffId?}
   const [activeSchoolId, setActiveSchoolId] = useState(loadJSON(LS_SCHOOL_ID, null));
@@ -14444,7 +14451,7 @@ function openSchool(id, name, actif) {
   if (!session) {
     return (
       <>
-        <LoginScreen onLogin={handleLogin} dark={dark} setDark={setDark} notify={notify} onBack={connectHome ? onBack : null} />
+        <LoginScreen onLogin={handleLogin} dark={dark} setDark={setDark} notify={notify} onBack={connectHome ? onBack : null} adminOnly={adminOnly} />
         <ChesterWidget dark={dark} />
       </>
     );

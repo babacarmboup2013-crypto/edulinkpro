@@ -13,6 +13,7 @@ export default defineConfig({
         main: 'index.html',
         home: 'home.html',
         connect: 'connect.html',
+        admin: 'admin.html',
       },
       output: {
         manualChunks: {
