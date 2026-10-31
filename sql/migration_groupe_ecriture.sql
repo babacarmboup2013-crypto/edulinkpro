@@ -1,0 +1,8 @@
+-- Appliquée en production : le compte « Groupe scolaire » peut écrire dans les écoles de SON groupe.
+-- * get_school_data_ief renvoie aussi « version » (verrou optimiste).
+-- * save_school_data_groupe(p_school_id, p_code, p_payload, p_expected_version) :
+--     - code de groupe actif exigé (verrouillage par essais via _rl_*), école du groupe uniquement ;
+--     - conflit de version géré ;
+--     - les codes d'accès du personnel (masqués à la lecture groupe) sont réinjectés depuis la version
+--       enregistrée : ils ne peuvent jamais être effacés par une sauvegarde du groupe.
+-- Voir la migration « groupe_scolaire_ecriture_et_version » dans Supabase.

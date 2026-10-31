@@ -1421,6 +1421,7 @@ function buildAccessSnapshot() {
     staffId: s.staffId ?? null,
     staffCode: s.staffCode || '',
     adminCode: s.adminCode || s.iefAdminCode || '',
+    groupeCode: (s.role === 'ief' && s.kind === 'groupe') ? (s.iefCode || '') : '',
   };
 }
 
@@ -1469,13 +1470,23 @@ function mergePayloadAdditive(serverData, localData) {
   return localData !== undefined ? localData : serverData;
 }
 
+// Compte « Groupe scolaire » : peut agir (lecture ET écriture) dans toutes les
+// écoles de son groupe — le serveur (save_school_data_groupe) vérifie le code
+// et que l'école appartient bien à CE groupe. Le compte « IEF » reste en lecture seule.
+function isGroupeSession(s) {
+  return !!(s && s.role === 'ief' && s.kind === 'groupe' && s.iefCode);
+}
+function isReadOnlyIefSession(s) {
+  return !!(s && s.role === 'ief' && !isGroupeSession(s));
+}
+
 async function saveSchoolData(id, state, access) {
   const session = loadSessionJSON(LS_SESSION, null);
   // Le compte « IEF » (role ief) est STRICTEMENT en lecture seule.
   // Aucune écriture ne doit partir vers save_school_data / *admin* / *staff*,
   // même si un code école traîne en localStorage (LS_SCHOOL_CODE) : on refuse
   // dès l'entrée et on laisse reportRejected abandonner l'élément proprement.
-  if (session && session.role === 'ief') {
+  if (isReadOnlyIefSession(session)) {
     throw new Error('Accès refusé : compte « IEF » en lecture seule, aucune modification autorisée');
   }
   // Le snapshot capturé à la saisie ne vaut que pour l'école d'origine pour
@@ -1499,16 +1510,31 @@ async function saveSchoolData(id, state, access) {
   const adminCode = session?.role === 'admin'
     ? (session.adminCode || session.iefAdminCode || (snap ? snap.adminCode : '') || '')
     : ((snap && snap.adminCode) || '');
+  // Groupe scolaire : le code du groupe passe AVANT tout autre identifiant.
+  const groupeCode = isGroupeSession(session)
+    ? session.iefCode
+    : ((snap && snap.role === 'ief' && snap.groupeCode) ? snap.groupeCode : '');
   // Dernier recours : ancien cache local contenant encore le code de l'école
   // — mais JAMAIS si une autre credential existe, afin de ne pas court-circuiter
   // une voie valide avec un code potentiellement périmé.
-  if (!schoolCode && !staffCode && !adminCode) schoolCode = cachedSchoolCode(id) || null;
+  if (!schoolCode && !staffCode && !adminCode && !groupeCode) schoolCode = cachedSchoolCode(id) || null;
   const clean = { ...state };
   delete clean.__version;
   const expectedVersion = state.__version ?? null;
   let result;
   let savedPayload = clean;
-    if (schoolCode) {
+    if (groupeCode) {
+      result = await sb('POST', 'rpc/save_school_data_groupe', '', { p_school_id: id, p_code: groupeCode, p_payload: clean, p_expected_version: expectedVersion });
+      if (result && result.ok === false && result.conflict) {
+        const fresh = await sb('POST', 'rpc/get_school_data_ief', '', { p_school_id: id, p_code: groupeCode });
+        const freshData = fresh && fresh.data;
+        if (!freshData) throw new Error(result.error || 'Enregistrement refusé');
+        const mergedClean = { ...mergePayloadAdditive(freshData, clean) };
+        delete mergedClean.__version;
+        savedPayload = mergedClean;
+        result = await sb('POST', 'rpc/save_school_data_groupe', '', { p_school_id: id, p_code: groupeCode, p_payload: mergedClean, p_expected_version: null });
+      }
+    } else if (schoolCode) {
       result = await sb('POST', 'rpc/save_school_data', '', { p_school_id: id, p_code: schoolCode, p_payload: clean, p_expected_version: expectedVersion });
       // Conflit de version (souvent « fantôme » : tant que get_school_data ne
       // renvoie pas la version réelle, le client croit être en v1 et part avec
@@ -2811,8 +2837,8 @@ const entered = String(code).trim();
             <form onSubmit={submitGroupe} className="space-y-4">
               <p className="text-xs leading-relaxed text-muted">
                 Saisissez le code d'accès de votre <b style={{ color: 'var(--green-d)' }}>Groupe scolaire</b>
-                {' '}pour consulter en <b>lecture seule</b> les écoles qui le composent :
-                élèves, notes, personnel, finances. Aucune modification n'est possible.
+                {' '}pour gérer toutes les écoles qui le composent, dans chacun de ses cycles :
+                élèves, notes, personnel, finances.
               </p>
               <CodeField code={code} setCode={setCode} show={showCode} setShow={setShowCode} label="Code d'accès du groupe scolaire" />
               <SubmitBtn busy={busy}>Se connecter</SubmitBtn>
@@ -3163,7 +3189,7 @@ function Sidebar({ session, active, setActive, mobileOpen, setMobileOpen, hasAct
 
 function Topbar({ title, sub, session, schoolName, dark, setDark, onLogout, setMobileOpen, countdownMs, annee, periodeKey, periodeLabel, periodeOptions = [], canEditPeriode, onPeriodeChange }) {
   const roleLabel = {
-    ief: session.kind === 'groupe' ? (session.iefName ? `Groupe scolaire — ${session.iefName}` : 'Groupe scolaire (lecture seule)') : (session.iefName ? `IEF — ${session.iefName}` : 'IEF (lecture seule)'), admin: 'Super Administrateur', teacher: 'Enseignant(e)', accountant: 'Comptable/Gestionnaire', secretary: 'Secrétaire', school: schoolName || 'Compte école',
+    ief: session.kind === 'groupe' ? (session.iefName ? `Groupe scolaire — ${session.iefName}` : 'Groupe scolaire') : (session.iefName ? `IEF — ${session.iefName}` : 'IEF (lecture seule)'), admin: 'Super Administrateur', teacher: 'Enseignant(e)', accountant: 'Comptable/Gestionnaire', secretary: 'Secrétaire', school: schoolName || 'Compte école',
   }[session.role];
   function fmtCountdown(ms) {
     if (ms == null || ms <= 0) return null;
@@ -3774,18 +3800,24 @@ function PersonnelModal({ person, onSave, onClose, cycle }) {
   function submit(e) {
     e.preventDefault();
     if (!form.nom.trim() && !form.prenom.trim()) return;
+    // Compte « Groupe scolaire » : les codes du personnel existant lui sont masqués.
+    // Modifier une fiche ne doit alors JAMAIS générer un nouveau code (le serveur
+    // conserve le code actuel quand la clé « code » est absente).
+    const codeHidden = isEdit && !String(form.code || '').trim() && isGroupeSession(loadSessionJSON(LS_SESSION, null));
     const accessCode = STAFF_LOGIN_ROLES.has(form.role)
       ? (String(form.code || '').trim().toUpperCase() || generateAccessCode())
       : (form.code || '');
     const applySpecialites = ['moyen', 'secondaire'].includes(cycle) && form.role === 'Enseignant(e)';
-    onSave({
+    const out = {
       ...form,
       prenom: form.prenom.trim(),
       nom: form.nom.trim(),
       role: form.role,
       code: accessCode,
       specialites: applySpecialites ? (form.specialites || []) : [],
-    });
+    };
+    if (codeHidden) delete out.code;
+    onSave(out);
   }
 
 return (
@@ -10250,7 +10282,7 @@ function actorLabel(session, state) {
     const dir = state && state.header && state.header.directeur;
     return dir ? `${dir} (Direction)` : 'Direction de l\u2019école';
   }
-  if (session.role === 'ief') return session.kind === 'groupe' ? 'Groupe scolaire (lecture seule)' : 'IEF (lecture seule)';
+  if (session.role === 'ief') return session.kind === 'groupe' ? 'Groupe scolaire' : 'IEF (lecture seule)';
   if (session.role === 'admin') return 'Super Administrateur';
   return 'Utilisateur';
 }
@@ -14284,7 +14316,7 @@ function handleLogin(sessionData) {
 function handleLogout() {
     // Enregistre la déconnexion dans le journal d'audit de l'école ouverte,
     // si une école est active et ses données chargées.
-    if (activeSchoolId && schoolState && session && session.role !== 'ief') {
+    if (activeSchoolId && schoolState && session && !isReadOnlyIefSession(session)) {
       updateState((prev) => ({
         ...prev,
         auditLog: pushAuditEntry(prev.auditLog, {
@@ -14357,7 +14389,7 @@ function handleLogout() {
   // n'est pas rappelé) : les éléments « dormants » faute de code d'accès repartent
   // alors avec les identifiants de la session courante, au lieu de rester bloqués.
   useEffect(() => {
-    if (!session || !activeSchoolId || session.role === 'ief') return;
+    if (!session || !activeSchoolId || isReadOnlyIefSession(session)) return;
     retrySync({ onlyDormant: true }).catch(() => {});
   }, [session?.role, activeSchoolId]);
 
@@ -14383,7 +14415,7 @@ function handleLogout() {
 
   const loginAuditedRef = useRef(false);
   useEffect(() => {
-    if (!session || session.role === 'ief' || !activeSchoolId || !schoolState || loginAuditedRef.current) return;
+    if (!session || isReadOnlyIefSession(session) || !activeSchoolId || !schoolState || loginAuditedRef.current) return;
     loginAuditedRef.current = true;
     updateState((prev) => ({
       ...prev,
@@ -14426,7 +14458,7 @@ function openSchool(id, name, actif) {
   // - teacher (Enseignant) : lecture/écriture limitée à SA seule classe
   // - ief (Administrateur IEF) : lecture seule sur toutes les écoles, aucune modification
   // - admin (Super Admin) : lecture/écriture sur toutes les écoles
-  const readOnly = session.role === 'ief';
+  const readOnly = isReadOnlyIefSession(session);
   const teacherName = session.role === 'teacher' ? teacherNameFromSession(schoolState, session) : null;
   const isAccountant = session.role === 'accountant';
   const isSecretary = session.role === 'secretary';
