@@ -2871,7 +2871,6 @@ const entered = String(code).trim();
             <button type="button" onClick={() => { setTab('school'); setCode(''); }} className="underline opacity-80 hover:opacity-100">← Retour à la connexion</button>
           ) : (
             <>
-              <button type="button" onClick={() => { setTab('ief'); setCode(''); }} className="underline opacity-60 hover:opacity-100">Accès IEF</button>
               <button type="button" onClick={() => { setTab('admin'); setCode(''); }} className="underline opacity-60 hover:opacity-100">Administration</button>
             </>
           )}
