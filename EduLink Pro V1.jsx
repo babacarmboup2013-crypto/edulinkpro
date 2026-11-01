@@ -803,7 +803,7 @@ function computeStudentScores(cfg, sc) {
     let t = 0;
     let domainCoefficient = 0;
     const bar = domBareme(d);
-    d.disciplines.forEach((x) => {
+    (d.disciplines || []).forEach((x) => {
       const coefficient = Math.max(1, Number(x.coefficient) || 1);
       const compositionRaw = scores[x.id];
       const devoirsRaw = weighted ? scores.devoirs?.[x.id] : null;
@@ -7301,7 +7301,7 @@ function addStudent(student) {
     return weightedAssessments ? { ...base, devoirs: { ...(base.devoirs || {}) } } : { ...base };
   }
   function openGrading(idx) {
-    if (readOnly) return;
+    if (readOnly || idx == null || idx < 0 || !students[idx]) return;
     setDraft(draftForStudent(students[idx]));
     setGradingIdx(idx);
   }
@@ -7465,7 +7465,7 @@ function addStudent(student) {
                       <div className="flex items-center justify-end gap-1.5">
                         {!readOnly && (
                           <button
-                            onClick={() => openGrading(i)}
+                            onClick={() => openGrading(students.findIndex((x) => x.id === st.id))}
                             className="px-2.5 py-1.5 rounded-lg text-xs font-semibold whitespace-nowrap"
                             style={isValidated
                               ? { background: 'var(--green-l)', color: 'var(--green-d)' }
@@ -7524,7 +7524,7 @@ function addStudent(student) {
                       <span className="text-xs font-bold" style={{ opacity: 0.75 }}>{cfg.weightedAssessments ? `coef. ${(d.disciplines || []).reduce((sum, item) => sum + Math.max(1, Number(item.coefficient) || 1), 0)}` : `/${domBareme(d)}`}</span>
                     </div>
                     <div className="p-3 grid grid-cols-1 sm:grid-cols-2 gap-2">
-                      {d.disciplines.map((x) => {
+                      {(d.disciplines || []).map((x) => {
                         const v = draft[x.id];
                         const devoirs = draft.devoirs?.[x.id];
                         const over = !isAbs(v) && v != null && v !== '' && x.max > 0 && toNum(v) > x.max;
@@ -8031,7 +8031,7 @@ function BulletinSheet({ state, cls, level, cfg, student, studentIndex, period }
           {(cfg.domains || []).map((d, di) => (
             <React.Fragment key={di}>
               <tr className="domrow"><td colSpan={cfg.weightedAssessments ? 8 : 4}>{d.name}</td></tr>
-              {d.disciplines.map((x) => {
+              {(d.disciplines || []).map((x) => {
                 const v = sc[x.id];
                 const devoirs = sc.devoirs?.[x.id];
                 const abs = isAbs(v);
