@@ -2758,8 +2758,8 @@ const entered = String(code).trim();
           <div className="text-[11px] font-medium tracking-wide opacity-70">
             © {new Date().getFullYear()} EduLink Pro — Built by <b>InTechSoft Enterprises</b>
           </div>
-          <div className="flex items-center justify-center" style={{ background: '#fff', borderRadius: 10, padding: '4px 12px', boxShadow: '0 6px 16px -8px rgba(0,0,0,.5)' }}>
-            <img src={`${import.meta.env.BASE_URL}gis-logo.jpg`} alt="Groupe InTechSoft Enterprises" style={{ height: 48, width: 'auto', display: 'block' }} />
+          <div className="flex items-center justify-center" style={{ background: '#fff', borderRadius: 10, padding: '5px 14px', boxShadow: '0 6px 16px -8px rgba(0,0,0,.5)' }}>
+            <img src={`${import.meta.env.BASE_URL}gis-logo.jpg`} alt="Groupe InTechSoft Enterprises" style={{ height: 'auto', width: 'min(190px, 60vw)', display: 'block' }} />
           </div>
         </div>
       </aside>
