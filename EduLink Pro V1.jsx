@@ -14020,7 +14020,12 @@ setSession(saved);
       try {
         await sb('GET', 'schools', 'select=cycles&limit=1');
       } catch (e) {
-        if (/cycles|does not exist|could not find|schema cache/i.test(sbErrMsg(e))) missing.push('migration_school_cycles');
+        // Uniquement si la colonne est réellement absente : une indisponibilité
+        // passagère de la base (PGRST002 « schema cache ») ou un refus d'accès
+        // ne doivent pas déclencher une fausse alerte de migration.
+        const msg = sbErrMsg(e);
+        if (!/PGRST002|Non autorisé|failed to fetch|timeout/i.test(msg)
+          && /(column[^"]*cycles[^"]*does not exist|cycles[^"]*does not exist|42703|PGRST204)/i.test(msg)) missing.push('migration_school_cycles');
       }
       // Vérifie check_groupe_code (migration_groupes_scolaires.sql) : le login
       // « Groupe scolaire » s'appuie sur cette RPC — s'il manque, abandonner.
