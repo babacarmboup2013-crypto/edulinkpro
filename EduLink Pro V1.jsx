@@ -2395,6 +2395,24 @@ function ActualitesTicker({ actualites, onOpen }) {
 /* ============================================================
    ÉCRAN DE CONNEXION — 4 rôles (École / Enseignant / IEF / Super Admin)
    ============================================================ */
+// Horloge de l'écran de connexion (heure + date du jour, mise à jour chaque seconde).
+function LoginClock() {
+  const [now, setNow] = useState(() => new Date());
+  useEffect(() => {
+    const t = setInterval(() => setNow(new Date()), 1000);
+    return () => clearInterval(t);
+  }, []);
+  const time = now.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' });
+  const d = now.toLocaleDateString('fr-FR', { weekday: 'long', day: '2-digit', month: 'long', year: 'numeric' });
+  const date = d.charAt(0).toUpperCase() + d.slice(1);
+  return (
+    <div className="mt-8 lg:mt-12 flex flex-col items-center" data-testid="login-clock">
+      <div className="text-[48px] lg:text-[64px] font-bold leading-none tabular-nums tracking-wide">{time}</div>
+      <div className="mt-3 text-sm lg:text-base font-semibold opacity-90">{date}</div>
+    </div>
+  );
+}
+
 function LoginScreen({ onLogin, dark, setDark, notify, onBack, adminOnly = false }) {
   // Onglets publics : école | personnel | groupe (Groupe scolaire). Les accès
   // « IEF » et « Super Admin » restent discrets : lien en bas de l'écran ou
@@ -2701,9 +2719,7 @@ const entered = String(code).trim();
   if (adminOnly) tabs.length = 0;
 
   return (
-    <div className="sygenop-root relative flex items-center justify-center p-6 pb-10" style={{
-      backgroundImage: `radial-gradient(circle at 12% 8%, rgba(10,30,61,.10), transparent 42%), radial-gradient(circle at 92% 4%, rgba(255,209,0,.10), transparent 38%)`,
-    }}>
+    <div className="sygenop-root relative flex flex-col lg:flex-row min-h-screen" style={{ padding: 0 }} data-testid="login-split">
       <GlobalStyles dark={dark} />
       {onBack && (
         <button
@@ -2722,44 +2738,31 @@ const entered = String(code).trim();
           <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M3 10.5 12 3l9 7.5" /><path d="M5 9.5V21h5v-6h4v6h5V9.5" /></svg>
         </button>
       )}
-      <div aria-hidden="true" style={{
-        position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center',
-        pointerEvents: 'none', overflow: 'hidden', zIndex: 0, opacity: dark ? 0.05 : 0.06,
-      }}>
-        <img src={`${import.meta.env.BASE_URL}edulink-favicon.svg`} alt="" style={{ width: 760, maxWidth: '92vw', height: 'auto' }} />
-      </div>
-      <div className="w-full max-w-6xl flex flex-col lg:flex-row items-center justify-center lg:justify-center gap-10 lg:gap-24" style={{ position: 'relative', zIndex: 1 }}>
-
-        {/* Bloc de présentation — grand écran uniquement */}
-        <div className="hidden lg:flex flex-col w-full max-w-md space-y-4">
-          <h2 className="text-[32px] font-extrabold leading-tight text-ink">
-            La gestion scolaire,<br />
-            <span style={{ color: 'var(--green-d)' }}>simple et intelligente.</span>
-          </h2>
-          <p className="text-sm leading-relaxed text-muted">
-            EduLink Pro réunit dans une seule application la vie entière de votre
-            établissement : élèves, notes, finances, personnel et communication —
-            avec des comptes sécurisés pour chaque acteur de l'école.
-          </p>
-        </div>
-
-        {/* Formulaire de connexion — poussé à droite */}
-        <div className="w-full max-w-lg">
-        <div className="flex flex-col items-center mb-8">
-          <img
-            src={`${import.meta.env.BASE_URL}edulink-favicon.svg`}
-            alt="EduLink Pro"
-            className="h-12 w-12 mb-2"
-          />
-          <div className="flex items-center gap-2">
-            <h1 className="text-2xl font-extrabold text-ink">
-              EduLink Pro
-            </h1>
-            <span className="text-[10px] font-bold px-1.5 py-0.5 rounded" style={{ background: 'var(--gold, #ffd100)', color: '#fff' }}>V1</span>
+      {/* Panneau gauche : identité EduLink Pro, heure et date */}
+      <aside className="relative flex flex-col items-center justify-center text-white text-center px-6 py-10 lg:w-1/2 lg:min-h-screen overflow-hidden" style={{ background: 'linear-gradient(160deg,#0a1e3d 0%,#0d2a5c 55%,#0b3d91 100%)' }}>
+        <div aria-hidden="true" style={{ position: 'absolute', top: '-12%', right: '-14%', width: 420, height: 420, borderRadius: '50%', background: 'rgba(255,255,255,.05)' }} />
+        <div aria-hidden="true" style={{ position: 'absolute', bottom: '-18%', left: '-12%', width: 360, height: 360, borderRadius: '50%', background: 'rgba(255,209,0,.06)' }} />
+        <div className="relative flex flex-col items-center" style={{ zIndex: 1 }}>
+          <div className="flex items-center justify-center" style={{ width: 96, height: 96, borderRadius: 24, background: 'rgba(255,255,255,.12)', boxShadow: '0 12px 30px -10px rgba(0,0,0,.45)' }}>
+            <img src={`${import.meta.env.BASE_URL}edulink-favicon.svg`} alt="EduLink Pro" style={{ width: 62, height: 62 }} />
           </div>
-          <p className="text-xs mt-1 text-center text-muted">
-            La plateforme intelligente de gestion scolaire
-          </p>
+          <h1 className="mt-5 text-[40px] lg:text-[52px] font-extrabold tracking-tight leading-none">
+            EduLink <span style={{ color: 'var(--gold, #ffd100)' }}>Pro</span>
+          </h1>
+          <p className="mt-2 text-xs lg:text-sm opacity-80">La plateforme intelligente de gestion scolaire</p>
+          <LoginClock />
+        </div>
+        <div className="absolute left-0 right-0 bottom-3 text-[11px] font-medium tracking-wide opacity-60 px-4">
+          © {new Date().getFullYear()} EduLink Pro — Built by <b>InTechSoft Enterprises</b>
+        </div>
+      </aside>
+
+      {/* Panneau droit : connexion */}
+      <div className="relative flex-1 flex items-center justify-center p-6 py-10">
+        <div className="w-full max-w-md">
+        <div className="mb-6">
+          <h2 className="text-[28px] font-extrabold text-ink">Connexion</h2>
+          <p className="text-xs mt-1 text-muted">Choisissez votre profil puis saisissez votre code d’accès.</p>
         </div>
 
         <div className="sygenop-card px-8 py-10" style={{ position: 'relative', overflow: 'hidden' }}>
@@ -2891,11 +2894,6 @@ const entered = String(code).trim();
       </div>
       </div>
 
-      <div style={{ position: 'absolute', bottom: 3, left: 14 }} className="text-[11px] font-medium tracking-wide">
-        <span style={{ color: dark ? '#9ca3af' : '#6b7280' }}>
-          © {new Date().getFullYear()} EduLink Pro — Built by <b>InTechSoft Enterprises</b>
-        </span>
-      </div>
     </div>
   );
 }
