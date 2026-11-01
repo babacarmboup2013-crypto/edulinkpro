@@ -2743,8 +2743,8 @@ const entered = String(code).trim();
         <div aria-hidden="true" style={{ position: 'absolute', top: '-12%', right: '-14%', width: 420, height: 420, borderRadius: '50%', background: 'rgba(255,255,255,.05)' }} />
         <div aria-hidden="true" style={{ position: 'absolute', bottom: '-18%', left: '-12%', width: 360, height: 360, borderRadius: '50%', background: 'rgba(255,209,0,.06)' }} />
         <div className="relative flex flex-col items-center" style={{ zIndex: 1 }}>
-          <div className="flex items-center justify-center" style={{ width: 96, height: 96, borderRadius: 24, background: 'rgba(255,255,255,.12)', boxShadow: '0 12px 30px -10px rgba(0,0,0,.45)' }}>
-            <img src={`${import.meta.env.BASE_URL}edulink-favicon.svg`} alt="EduLink Pro" style={{ width: 62, height: 62 }} />
+          <div className="flex items-center justify-center overflow-hidden" style={{ width: 112, height: 112, borderRadius: 28, background: '#f7f7f7', boxShadow: '0 14px 34px -10px rgba(0,0,0,.55)' }}>
+            <img src={`${import.meta.env.BASE_URL}edulink-logo-icon.jpg`} alt="EduLink Pro" style={{ width: 112, height: 112, objectFit: 'cover' }} />
           </div>
           <h1 className="mt-5 text-[40px] lg:text-[52px] font-extrabold tracking-tight leading-none">
             EduLink <span style={{ color: 'var(--gold, #ffd100)' }}>Pro</span>
