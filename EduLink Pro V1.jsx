@@ -2742,6 +2742,10 @@ const entered = String(code).trim();
       <aside className="relative flex flex-col items-center justify-center text-white text-center px-6 py-10 lg:w-1/2 lg:min-h-screen overflow-hidden" style={{ background: 'linear-gradient(160deg,#0a1e3d 0%,#0d2a5c 55%,#0b3d91 100%)' }}>
         <div aria-hidden="true" style={{ position: 'absolute', top: '-12%', right: '-14%', width: 420, height: 420, borderRadius: '50%', background: 'rgba(255,255,255,.05)' }} />
         <div aria-hidden="true" style={{ position: 'absolute', bottom: '-18%', left: '-12%', width: 360, height: 360, borderRadius: '50%', background: 'rgba(255,209,0,.06)' }} />
+        {/* Filigrane : logo EduLink */}
+        <div aria-hidden="true" style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', pointerEvents: 'none', zIndex: 0 }}>
+          <img src={`${import.meta.env.BASE_URL}edulink-logo-icon.png`} alt="" style={{ width: 'min(560px, 92%)', height: 'auto', opacity: 0.09 }} />
+        </div>
         <div className="relative flex flex-col items-center" style={{ zIndex: 1 }}>
           <img src={`${import.meta.env.BASE_URL}edulink-logo-icon.png`} alt="EduLink Pro" style={{ width: 128, height: 128, objectFit: 'contain', filter: 'drop-shadow(0 0 1.5px rgba(255,255,255,.7)) drop-shadow(0 12px 22px rgba(0,0,0,.45))' }} />
           <h1 className="mt-5 text-[40px] lg:text-[52px] font-extrabold tracking-tight leading-none">
@@ -2750,14 +2754,23 @@ const entered = String(code).trim();
           <p className="mt-2 text-xs lg:text-sm opacity-80">La plateforme intelligente de gestion scolaire</p>
           <LoginClock />
         </div>
-        <div className="absolute left-0 right-0 bottom-3 text-[11px] font-medium tracking-wide opacity-60 px-4">
-          © {new Date().getFullYear()} EduLink Pro — Built by <b>InTechSoft Enterprises</b>
+        <div className="relative mt-8 lg:mt-0 lg:absolute lg:left-0 lg:right-0 lg:bottom-4 flex flex-col items-center gap-2 px-4" style={{ zIndex: 1 }}>
+          <div className="text-[11px] font-medium tracking-wide opacity-70">
+            © {new Date().getFullYear()} EduLink Pro — Built by <b>InTechSoft Enterprises</b>
+          </div>
+          <div className="flex items-center justify-center" style={{ background: '#fff', borderRadius: 10, padding: '4px 12px', boxShadow: '0 6px 16px -8px rgba(0,0,0,.5)' }}>
+            <img src={`${import.meta.env.BASE_URL}gis-logo.jpg`} alt="Groupe InTechSoft Enterprises" style={{ height: 48, width: 'auto', display: 'block' }} />
+          </div>
         </div>
       </aside>
 
       {/* Panneau droit : connexion */}
-      <div className="relative flex-1 flex items-center justify-center p-6 py-10">
-        <div className="w-full max-w-md">
+      <div className="relative flex-1 flex items-center justify-center p-6 py-10 overflow-hidden">
+        {/* Filigrane : logo EduLink */}
+        <div aria-hidden="true" style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', pointerEvents: 'none', zIndex: 0 }}>
+          <img src={`${import.meta.env.BASE_URL}edulink-logo-icon.png`} alt="" style={{ width: 'min(620px, 96%)', height: 'auto', opacity: 0.05 }} />
+        </div>
+        <div className="relative w-full max-w-md" style={{ zIndex: 1 }}>
         <div className="mb-6">
           <h2 className="text-[28px] font-extrabold text-ink">Connexion</h2>
           <p className="text-xs mt-1 text-muted">Choisissez votre profil puis saisissez votre code d’accès.</p>
@@ -2765,7 +2778,7 @@ const entered = String(code).trim();
 
         <div className="sygenop-card px-8 py-10" style={{ position: 'relative', overflow: 'hidden' }}>
           <div aria-hidden="true" style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', pointerEvents: 'none', opacity: 0.06, zIndex: 0 }}>
-            <img src={`${import.meta.env.BASE_URL}edulink-favicon.svg`} alt="" style={{ width: 300, maxWidth: '80%', height: 'auto' }} />
+            <img src={`${import.meta.env.BASE_URL}edulink-logo-icon.png`} alt="" style={{ width: 300, maxWidth: '80%', height: 'auto' }} />
           </div>
           <div className="relative" style={{ position: 'relative', zIndex: 1 }}>
           {adminOnly && (
