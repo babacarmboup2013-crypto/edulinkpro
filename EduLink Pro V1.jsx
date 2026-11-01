@@ -2743,9 +2743,7 @@ const entered = String(code).trim();
         <div aria-hidden="true" style={{ position: 'absolute', top: '-12%', right: '-14%', width: 420, height: 420, borderRadius: '50%', background: 'rgba(255,255,255,.05)' }} />
         <div aria-hidden="true" style={{ position: 'absolute', bottom: '-18%', left: '-12%', width: 360, height: 360, borderRadius: '50%', background: 'rgba(255,209,0,.06)' }} />
         <div className="relative flex flex-col items-center" style={{ zIndex: 1 }}>
-          <div className="flex items-center justify-center overflow-hidden" style={{ width: 112, height: 112, borderRadius: 28, background: '#f7f7f7', boxShadow: '0 14px 34px -10px rgba(0,0,0,.55)' }}>
-            <img src={`${import.meta.env.BASE_URL}edulink-logo-icon.jpg`} alt="EduLink Pro" style={{ width: 112, height: 112, objectFit: 'cover' }} />
-          </div>
+          <img src={`${import.meta.env.BASE_URL}edulink-logo-icon.png`} alt="EduLink Pro" style={{ width: 128, height: 128, objectFit: 'contain', filter: 'drop-shadow(0 0 1.5px rgba(255,255,255,.7)) drop-shadow(0 12px 22px rgba(0,0,0,.45))' }} />
           <h1 className="mt-5 text-[40px] lg:text-[52px] font-extrabold tracking-tight leading-none">
             EduLink <span style={{ color: 'var(--gold, #ffd100)' }}>Pro</span>
           </h1>
