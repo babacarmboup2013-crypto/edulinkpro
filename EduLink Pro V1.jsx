@@ -734,7 +734,23 @@ function officialDomainsForLevel(level, mohebs) {
    existe déjà (édition future via Administration), sinon le barème officiel
    — MOHEBS (langues nationales) si l'école est marquée comme telle, sinon
    le barème public standard. ---- */
-function cfgForLevel(state, level) {
+// Barème propre à un type d'évaluation (Pré-test, Contrôles…) : state.config[niveau].baremes[type]
+// associe l'id d'une matière à son barème (note maximale). Les matières absentes de cette liste
+// gardent le barème général du niveau, et les identifiants restent identiques — les notes déjà
+// saisies ne sont donc jamais perdues.
+function evaluationBaremeOverrides(state, level, evalKey) {
+  if (!evalKey || !String(evalKey).includes('::')) return null;
+  const type = splitEvaluationKey(evalKey).type;
+  const map = state && state.config && state.config[level] && state.config[level].baremes && state.config[level].baremes[type];
+  return map && typeof map === 'object' && Object.keys(map).length ? map : null;
+}
+function cfgForLevel(state, level, evalKey) {
+  const base = cfgForLevelBase(state, level);
+  const overrides = evaluationBaremeOverrides(state, level, evalKey);
+  if (!overrides) return base;
+  return { ...base, domains: (base.domains || []).map((d) => ({ ...d, disciplines: (d.disciplines || []).map((x) => (overrides[x.id] != null && Number.isFinite(Number(overrides[x.id])) ? { ...x, max: Math.max(0, Number(overrides[x.id])) } : x)) })) };
+}
+function cfgForLevelBase(state, level) {
   const stored = state && state.config && state.config[level];
   if (stored && Array.isArray(stored.domains) && stored.domains.length) return { ...stored, weightedAssessments: stored.weightedAssessments ?? supportsWeightedAssessments(state), domains: stored.domains.map((d) => ({ ...d, disciplines: (d.disciplines || []).map((x) => ({ ...x, coefficient: Number(x.coefficient) || 1 })) })) };
   return { domains: officialDomainsForLevel(level, state && state.mohebs), weightedAssessments: supportsWeightedAssessments(state) };
@@ -3070,16 +3086,17 @@ const NAV_ITEMS = (session) => {
   if (session.role === 'secretary') {
     return [
       { id: 'dash', label: 'Tableau de bord', icon: LayoutDashboard, needsSchool: true },
+      { id: 'admin', label: 'Administration', icon: Settings, needsSchool: true },
       { id: 'actualites', label: 'Actualités', icon: MessageCircle, needsSchool: true },
       { id: 'mesdemandes', label: 'Mes demandes', icon: ClipboardCheck, needsSchool: true },
       { id: 'personnel', label: 'Personnel', icon: Users, needsSchool: true },
       { id: 'eleves', label: 'Élèves', icon: GraduationCap, needsSchool: true, expandable: true, children: [{ id: 'classes', label: 'Classes et élèves' }] },
-      { id: 'admin', label: 'Administration', icon: Settings, needsSchool: true },
       { id: 'data', label: 'Données', icon: Database, needsSchool: true },
     ];
   }
   items.push(
     { id: 'dash', label: 'Tableau de bord', icon: LayoutDashboard, needsSchool: true },
+    { id: 'admin', label: 'Administration', icon: Settings, needsSchool: true },
     { id: 'actualites', label: 'Actualités', icon: MessageCircle, needsSchool: true },
     { id: 'personnel', label: 'Personnel', icon: Users, needsSchool: true },
     {
@@ -3089,7 +3106,6 @@ const NAV_ITEMS = (session) => {
       ],
     },
     { id: 'paiements', label: 'Comptabilité', icon: CreditCard, needsSchool: true },
-    { id: 'admin', label: 'Administration', icon: Settings, needsSchool: true },
     { id: 'data', label: 'Données', icon: Database, needsSchool: true },
   );
   return items;
@@ -6098,7 +6114,7 @@ function saveClass(form) {
     setClassToDelete(null);
   }
 
-  const cfg = cfgForLevel(state, level);
+  const cfg = cfgForLevel(state, level, evaluationKey(period, evaluationType));
   const currentClass = classId ? classes[classId] : null;
 
   // Un professeur de Moyen/Secondaire ne doit voir et saisir que les
@@ -7670,7 +7686,7 @@ function synthGroups(cfg) {
   return groups;
 }
 function SynthLevelTable({ state, level, period, teacherName }) {
-  const cfg = cfgForLevel(state, level);
+  const cfg = cfgForLevel(state, level, period);
   const groups = synthGroups(cfg);
   const entries = classesOfLevel(state, level).filter(([, c]) => !teacherName || classHasTeacher(c, teacherName));
   const rowsData = [];
@@ -7763,7 +7779,7 @@ function SynthSchoolTable({ state, period }) {
   const domTotalsB = [0, 0, 0, 0], domTotalsF = [0, 0, 0, 0];
   let genB = 0, genF = 0;
   levelsForSchool(state).forEach((level) => {
-    const cfg = cfgForLevel(state, level);
+    const cfg = cfgForLevel(state, level, period);
     const doms = cfg.domains || [];
     const gb = genBareme(cfg);
     let boys = 0, girls = 0;
@@ -8171,9 +8187,9 @@ function BulletinView({ state, loading, teacherName }) {
 
   const cls = classId ? classes[classId] : null;
   const students = (cls && cls.students) || [];
-  const cfg = cls ? cfgForLevel(state, cls.level) : null;
-  const student = students[studentIdx];
   const selectedEvaluationKey = evaluationKey(period, evaluationType);
+  const cfg = cls ? cfgForLevel(state, cls.level, selectedEvaluationKey) : null;
+  const student = students[studentIdx];
 
   function sendWhatsapp() {
     if (!student) return;
@@ -10334,11 +10350,114 @@ function parseCSV(text) {
   return rows.filter((r) => r.some((c) => String(c || '').trim() !== ''));
 }
 
+/* Barème propre à un type d'évaluation (Pré-test, Évaluations standardisées, Essais, Contrôles,
+   Post-test) pour un niveau : seule la note maximale de chaque matière change, les identifiants
+   restent ceux du barème général — aucune note saisie n'est perdue. */
+function EvaluationBaremePanel({ state, updateState, notify, readOnly, session, level, evalType }) {
+  const label = evaluationTypeLabel(evalType);
+  const base = cfgForLevelBase(state, level);
+  const overrides = (state && state.config && state.config[level] && state.config[level].baremes && state.config[level].baremes[evalType]) || null;
+  const initial = () => {
+    const out = {};
+    (base.domains || []).forEach((d) => (d.disciplines || []).forEach((x) => { out[x.id] = String(overrides && overrides[x.id] != null ? overrides[x.id] : x.max); }));
+    return out;
+  };
+  const [vals, setVals] = useState(initial);
+  const [dirty, setDirty] = useState(false);
+  useEffect(() => { setVals(initial()); setDirty(false); /* eslint-disable-next-line react-hooks/exhaustive-deps */ }, [level, evalType, state && state.config && state.config[level]]);
+  const fieldStyle = { borderColor: 'var(--line)', background: 'var(--panel)', color: 'var(--ink)' };
+  const hasCustom = !!overrides && Object.keys(overrides).length > 0;
+  const numOf = (id, fallback) => { const n = Number(String(vals[id] ?? '').replace(',', '.')); return Number.isFinite(n) && n >= 0 ? n : fallback; };
+  const total = (base.domains || []).reduce((s, d) => s + (d.disciplines || []).reduce((a, x) => a + numOf(x.id, Number(x.max) || 0), 0), 0);
+  const generalTotal = genBareme(base);
+
+  function writeConfig(mutate, auditText) {
+    updateState((prev) => {
+      const prevLevel = (prev.config || {})[level] || {};
+      const baseDomains = cfgForLevelBase(prev, level).domains;
+      const baremes = { ...(prevLevel.baremes || {}) };
+      mutate(baremes);
+      const next = { ...prev, config: { ...(prev.config || {}), [level]: { ...prevLevel, domains: baseDomains, weightedAssessments: supportsWeightedAssessments(prev), baremes } } };
+      next.auditLog = pushAuditEntry(prev.auditLog, { actor: actorLabel(session, prev), role: session && session.role, action: 'Modification du barème', details: auditText });
+      return next;
+    });
+  }
+  function save() {
+    if (readOnly) return;
+    const map = {};
+    (base.domains || []).forEach((d) => (d.disciplines || []).forEach((x) => { map[x.id] = numOf(x.id, Number(x.max) || 0); }));
+    writeConfig((b) => { b[evalType] = map; }, `Niveau ${level} — barème « ${label} » : /${total}`);
+    notify(`Barème « ${label} » enregistré pour ${level}`);
+    setDirty(false);
+  }
+  function useGeneral() {
+    if (readOnly) return;
+    writeConfig((b) => { delete b[evalType]; }, `Niveau ${level} — barème « ${label} » : retour au barème général`);
+    notify(`« ${label} » reprend le barème général de ${level}`);
+  }
+
+  return (
+    <div className="space-y-4">
+      <div className="sygenop-card p-4 flex flex-wrap items-center gap-2">
+        <div className="font-bold text-sm text-ink">Barème « {label} » — {level}</div>
+        <Pill tone={hasCustom ? 'green' : 'muted'}>{hasCustom ? 'Barème propre' : 'Reprend le barème général'}</Pill>
+        <Pill tone="gold">Total : /{total}</Pill>
+        {total !== generalTotal && <span className="text-xs text-muted">(général : /{generalTotal})</span>}
+        {dirty && <Pill tone="red">Non enregistré</Pill>}
+      </div>
+      <div className="grid grid-cols-1 gap-4">
+        {(base.domains || []).map((d, di) => (
+          <div key={di} className="sygenop-card p-4 space-y-2">
+            <div className="flex items-center gap-2">
+              <div className="flex-1 font-bold text-sm text-ink">{d.name}</div>
+              <Pill tone="green">/{(d.disciplines || []).reduce((a, x) => a + numOf(x.id, Number(x.max) || 0), 0)}</Pill>
+            </div>
+            {(d.disciplines || []).map((x) => (
+              <div key={x.id} className="flex items-center gap-2">
+                <div className="flex-1 text-sm text-ink">{x.label}</div>
+                <span className="text-xs text-muted">général /{x.max}</span>
+                <div className="flex items-center gap-1">
+                  <span className="text-xs text-muted">Barème /</span>
+                  <input
+                    type="number" min="0" step="any"
+                    value={vals[x.id] ?? ''}
+                    disabled={readOnly}
+                    onChange={(e) => { const v = e.target.value; setVals((o) => ({ ...o, [x.id]: v })); setDirty(true); }}
+                    className="w-20 px-2 py-2 rounded-lg border text-sm text-center"
+                    style={fieldStyle}
+                  />
+                </div>
+              </div>
+            ))}
+          </div>
+        ))}
+      </div>
+      {!readOnly && (
+        <div className="flex flex-wrap items-center gap-2">
+          {hasCustom && (
+            <button onClick={useGeneral} className="px-3.5 py-2.5 rounded-lg text-sm font-semibold flex items-center gap-1.5" style={{ background: 'var(--bg)', color: 'var(--muted)', border: '1px solid var(--line)' }}>
+              <RotateCcw size={15} /> Reprendre le barème général
+            </button>
+          )}
+          <button onClick={save} disabled={!dirty} className="ml-auto px-4 py-2.5 rounded-lg text-sm font-semibold text-white flex items-center gap-1.5 disabled:opacity-50" style={{ background: 'var(--green-d)' }}>
+            <Save size={15} /> Enregistrer le barème « {label} »
+          </button>
+        </div>
+      )}
+      <div className="sygenop-card px-4 py-3 text-xs flex items-start gap-2 text-muted">
+        <AlertCircle size={15} className="flex-shrink-0 mt-0.5" style={{ color: 'var(--gold)' }} />
+        Ce barème s'applique à la saisie des notes, à la synthèse et aux bulletins de ce type d'évaluation pour toutes les classes du niveau {level}. Les notes déjà saisies sont conservées ; une note supérieure au nouveau barème est signalée en rouge.
+      </div>
+    </div>
+  );
+}
+
 /* ---------------------------------------------------------------
    Onglet « Barème » — édition des domaines/matières par niveau
    --------------------------------------------------------------- */
 function BaremeEditorTab({ state, updateState, notify, readOnly, session }) {
   const [level, setLevel] = useState('CI');
+  const [evalType, setEvalType] = useState(''); // '' = barème général du niveau, sinon type d'évaluation
   const isMohebs = !!(state && state.mohebs);
   const schoolLevels = levelsForSchool(state);
   useEffect(() => {
@@ -10394,7 +10513,7 @@ const cleanDomains = domains
     const totalCoefficients = cleanDomains.reduce((s, d) => s + d.disciplines.reduce((a, x) => a + (Number(x.coefficient) || 1), 0), 0);
     const nbMatieres = cleanDomains.reduce((s, d) => s + d.disciplines.length, 0);
     updateState((prev) => {
-      const next = { ...prev, config: { ...(prev.config || {}), [level]: { domains: cleanDomains, weightedAssessments: supportsWeightedAssessments(prev) } } };
+      const next = { ...prev, config: { ...(prev.config || {}), [level]: { ...((prev.config || {})[level] || {}), domains: cleanDomains, weightedAssessments: supportsWeightedAssessments(prev) } } };
       next.auditLog = pushAuditEntry(prev.auditLog, {
         actor: actorLabel(session, prev), role: session && session.role,
         action: 'Modification du barème', details: `Niveau ${level} — ${nbMatieres} matière(s), total /${total}${supportsWeightedAssessments(state) ? `, coefficients ${totalCoefficients}` : ''}`,
@@ -10430,10 +10549,31 @@ const cleanDomains = domains
         </div>
         <div className="ml-auto flex items-center gap-2">
           {isMohebs && <Pill tone="green">École MOHEBS — Langues nationales</Pill>}
-          <Pill tone="gold">Barème général : /{total}</Pill>
-          {dirty && <Pill tone="red">Non enregistré</Pill>}
+          {!evalType && <Pill tone="gold">Barème général : /{total}</Pill>}
+          {!evalType && dirty && <Pill tone="red">Non enregistré</Pill>}
+        </div>
+        <div className="w-full flex flex-wrap items-center gap-1.5 p-1 rounded-xl" style={{ background: 'var(--bg)', border: '1px solid var(--line)' }}>
+          <span className="text-[11px] font-bold uppercase tracking-wide text-muted px-2">Barème de</span>
+          {[{ key: '', label: 'Général (par défaut)' }, ...EVALUATION_TYPES].map((t) => {
+            const custom = !!t.key && !!evaluationBaremeOverrides(state, level, `T1::${t.key}`);
+            return (
+              <button
+                key={t.key || 'general'}
+                onClick={() => { if (!evalType && dirty && t.key && !window.confirm('Des modifications du barème général ne sont pas enregistrées. Continuer sans les enregistrer ?')) return; setEvalType(t.key); }}
+                className="px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors"
+                style={evalType === t.key ? { background: 'var(--green-d)', color: '#fff' } : { color: 'var(--muted)' }}
+              >
+                {t.label}{custom ? ' •' : ''}
+              </button>
+            );
+          })}
         </div>
       </div>
+
+      {evalType && (
+        <EvaluationBaremePanel state={state} updateState={updateState} notify={notify} readOnly={readOnly} session={session} level={level} evalType={evalType} />
+      )}
+      {!evalType && (<>
 
       <div className="grid grid-cols-1 gap-4">
         {domains.map((d, di) => {
@@ -10538,8 +10678,11 @@ const cleanDomains = domains
         <AlertCircle size={15} className="flex-shrink-0 mt-0.5" style={{ color: 'var(--gold)' }} />
         Modifier le barème s'applique à toutes les classes de ce niveau. Renommer ou changer le barème (/max) d'une
         matière existante n'efface pas les notes déjà saisies ; supprimer une matière rend ses notes invisibles
-        (elles restent en base tant que les élèves ne sont pas modifiés).
+        (elles restent en base tant que les élèves ne sont pas modifiés). Chaque type d'évaluation
+        (Pré-test, Contrôles…) peut avoir son propre barème : choisissez-le ci-dessus ; sans barème propre,
+        il reprend le barème général.
       </div>
+      </>)}
 
       {confirmReset && (
         <ConfirmModal
