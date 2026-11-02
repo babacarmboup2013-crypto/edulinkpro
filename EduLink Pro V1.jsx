@@ -481,7 +481,29 @@ function cycleForLevel(level) {
 // liste les enseignants supplémentaires. Les anciennes classes, sans
 // `coTeachers`, continuent de fonctionner à l'identique.
 function supportsMultiTeachers(level) {
-  return cycleForLevel(level) === 'elementaire';
+  return ['elementaire', 'prescolaire'].includes(cycleForLevel(level));
+}
+// Matière enseignée par chaque intervenant d'une classe élémentaire / préscolaire :
+// le titulaire enseigne le Français ; chaque autre enseignant a la sienne
+// (Français, Arabe ou Anglais). Stockée dans `coTeacherSubjects` ({ nom complet: clé }).
+const TEACHER_SUBJECTS = [
+  { key: 'francais', label: 'Français' },
+  { key: 'arabe', label: 'Arabe' },
+  { key: 'anglais', label: 'Anglais' },
+];
+function teacherSubjectLabel(key) { return TEACHER_SUBJECTS.find((x) => x.key === key)?.label || ''; }
+// Liste ordonnée des enseignants d'une classe avec leur matière.
+function classTeacherEntries(cls) {
+  const titulaire = String(cls?.teacher || '').trim();
+  const subjects = (cls && cls.coTeacherSubjects) || {};
+  return classTeacherNames(cls).map((name) => ({
+    name,
+    titulaire: name === titulaire,
+    subject: name === titulaire ? 'francais' : (subjects[name] || ''),
+  }));
+}
+function classTeacherSummary(cls) {
+  return classTeacherEntries(cls).map((e) => `${e.name}${e.subject ? ` (${teacherSubjectLabel(e.subject)}${e.titulaire ? ', titulaire' : ''})` : ''}`).join(', ');
 }
 function classTeacherNames(cls) {
   const extra = Array.isArray(cls?.coTeachers) ? cls.coTeachers : [];
@@ -4092,7 +4114,13 @@ function ClassModal({ cls, level, personnel, materiel = [], affectations = [], c
       const current = Array.isArray(f.coTeachers) ? f.coTeachers : [];
       return { ...f, coTeachers: current.includes(name) ? current.filter((n) => n !== name) : [...current, name] };
     });
+    setSubjectError(false);
   }
+  function setCoTeacherSubject(name, key) {
+    setForm((f) => ({ ...f, coTeacherSubjects: { ...(f.coTeacherSubjects || {}), [name]: key } }));
+    setSubjectError(false);
+  }
+  const [subjectError, setSubjectError] = useState(false);
 
   function submit(e) {
     e.preventDefault();
@@ -4100,7 +4128,11 @@ function ClassModal({ cls, level, personnel, materiel = [], affectations = [], c
     const coTeachers = multiTeachers
       ? [...new Set((Array.isArray(form.coTeachers) ? form.coTeachers : []).filter((n) => n && n !== form.teacher))]
       : [];
-    onSave({ ...form, coTeachers });
+    // Chaque enseignant supplémentaire doit avoir sa matière (Français, Arabe ou Anglais).
+    const coTeacherSubjects = {};
+    coTeachers.forEach((n) => { const k = (form.coTeacherSubjects || {})[n]; if (TEACHER_SUBJECTS.some((x) => x.key === k)) coTeacherSubjects[n] = k; });
+    if (coTeachers.some((n) => !coTeacherSubjects[n])) { setSubjectError(true); return; }
+    onSave({ ...form, coTeachers, coTeacherSubjects });
   }
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
@@ -4121,7 +4153,7 @@ function ClassModal({ cls, level, personnel, materiel = [], affectations = [], c
             />
           </div>
           <div>
-            <label className="text-xs font-semibold block mb-1 text-muted">{multiTeachers ? `${cycleTerminology(cycle).teacher} titulaire` : cycleTerminology(cycle).teacher}</label>
+            <label className="text-xs font-semibold block mb-1 text-muted">{multiTeachers ? `${cycleTerminology(cycle).teacher} titulaire (Français)` : cycleTerminology(cycle).teacher}</label>
             <select
               value={form.teacher || ''}
               onChange={(e) => set('teacher', e.target.value)}
@@ -4136,6 +4168,7 @@ function ClassModal({ cls, level, personnel, materiel = [], affectations = [], c
               <div className="text-xs font-semibold text-ink">Autres enseignants de cette classe</div>
               <p className="text-[11px] mt-1 text-muted">
                 Ils voient et saisissent les élèves, notes et présences de la classe au même titre que le titulaire.
+                Indiquez pour chacun la matière qu'il enseigne (Français, Arabe ou Anglais).
               </p>
               {coTeacherCandidates.length ? (
                 <div className="flex flex-col gap-2 mt-2.5 max-h-40 overflow-y-auto">
@@ -4143,16 +4176,31 @@ function ClassModal({ cls, level, personnel, materiel = [], affectations = [], c
                     const name = personFullName(p);
                     const checked = (form.coTeachers || []).includes(name);
                     return (
-                      <label key={p.id} className="flex items-center gap-1.5 text-sm cursor-pointer text-ink">
-                        <input type="checkbox" checked={checked} onChange={() => toggleCoTeacher(name)} className="rounded" style={{ accentColor: 'var(--green-d)' }} />
-                        {name}
-                      </label>
+                      <div key={p.id} className="flex items-center gap-2">
+                        <label className="flex items-center gap-1.5 text-sm cursor-pointer text-ink flex-1 min-w-0">
+                          <input type="checkbox" checked={checked} onChange={() => toggleCoTeacher(name)} className="rounded" style={{ accentColor: 'var(--green-d)' }} />
+                          <span className="truncate">{name}</span>
+                        </label>
+                        {checked && (
+                          <select
+                            value={(form.coTeacherSubjects || {})[name] || ''}
+                            onChange={(e) => setCoTeacherSubject(name, e.target.value)}
+                            aria-label={`Matière enseignée par ${name}`}
+                            className="px-2 py-1 rounded-lg border text-xs sygenop-input"
+                            style={!(form.coTeacherSubjects || {})[name] && subjectError ? { borderColor: 'var(--red)' } : undefined}
+                          >
+                            <option value="">— Matière —</option>
+                            {TEACHER_SUBJECTS.map((x) => <option key={x.key} value={x.key}>{x.label}</option>)}
+                          </select>
+                        )}
+                      </div>
                     );
                   })}
                 </div>
               ) : (
                 <p className="text-[11px] mt-2 text-muted">Aucun autre enseignant disponible. Ajoutez-les d'abord dans Personnel.</p>
               )}
+              {subjectError && <p className="text-[11px] mt-2 font-semibold" style={{ color: 'var(--red)' }}>Choisissez la matière de chaque enseignant coché (Français, Arabe ou Anglais).</p>}
             </div>
           )}
           {selectedProf && ['moyen', 'secondaire'].includes(cycle) && (
@@ -4818,7 +4866,7 @@ function StudentTransferRequestsPanel({ state, updateState, notify, mode, teache
             <label className="text-xs font-semibold">Classe cible
               <select value={targetId} onChange={(event) => setTargetId(event.target.value)} className="sygenop-input mt-1" required>
                 <option value="">— Choisir —</option>
-                {targetClasses.map(([id, cls]) => <option key={id} value={id}>{cls.name} — {classTeacherNames(cls).join(', ') || 'Enseignant non affecté'}</option>)}
+                {targetClasses.map(([id, cls]) => <option key={id} value={id}>{cls.name} — {classTeacherSummary(cls) || 'Enseignant non affecté'}</option>)}
               </select>
             </label>
             <button type="submit" className="sygenop-btn sygenop-btn--gold text-sm"><RotateCcw size={14} /> Soumettre</button>
@@ -6092,10 +6140,10 @@ function saveClass(form) {
     updateState((prev) => {
       const next = { ...prev, classes: { ...(prev.classes || {}) } };
       if (classModal && classModal.__key) {
-        next.classes[classModal.__key] = { ...next.classes[classModal.__key], name: form.name.trim(), teacher: form.teacher || '', coTeachers: supportsMultiTeachers(next.classes[classModal.__key].level) ? (form.coTeachers || []) : [], matieres: form.teacher ? (form.matieres || []) : [] };
+        next.classes[classModal.__key] = { ...next.classes[classModal.__key], name: form.name.trim(), teacher: form.teacher || '', coTeachers: supportsMultiTeachers(next.classes[classModal.__key].level) ? (form.coTeachers || []) : [], coTeacherSubjects: supportsMultiTeachers(next.classes[classModal.__key].level) ? (form.coTeacherSubjects || {}) : {}, matieres: form.teacher ? (form.matieres || []) : [] };
       } else {
         const id = uid('cls');
-        next.classes[id] = { id, name: form.name.trim(), level, teacher: form.teacher || '', coTeachers: supportsMultiTeachers(level) ? (form.coTeachers || []) : [], matieres: form.teacher ? (form.matieres || []) : [], students: [] };
+        next.classes[id] = { id, name: form.name.trim(), level, teacher: form.teacher || '', coTeachers: supportsMultiTeachers(level) ? (form.coTeachers || []) : [], coTeacherSubjects: supportsMultiTeachers(level) ? (form.coTeacherSubjects || {}) : {}, matieres: form.teacher ? (form.matieres || []) : [], students: [] };
         setClassId(id);
       }
       return next;
@@ -6201,7 +6249,7 @@ function saveClass(form) {
             onClick={() => setClassId(id)}
             className="px-3 py-1.5 rounded-full text-xs font-semibold flex items-center gap-1.5"
             style={classId === id ? { background: 'var(--gold)', color: '#fff' } : { background: 'var(--bg)', color: 'var(--muted)' }}
-            title={classTeacherNames(c).length ? classTeacherNames(c).join(', ') : undefined}
+            title={classTeacherNames(c).length ? classTeacherSummary(c) : undefined}
           >
             {c.name} <span style={{ opacity: 0.7 }}>· {(c.students || []).length}</span>
             {classTeacherNames(c).length > 1 && <span style={{ opacity: 0.7 }}>· {classTeacherNames(c).length} ens.</span>}
@@ -7383,6 +7431,9 @@ function addStudent(student) {
 <div className="sygenop-card p-4 flex flex-wrap items-center gap-3">
         <div>
           <div className="font-bold text-sm text-ink">{cls.name}</div>
+          {supportsMultiTeachers(cls.level) && classTeacherNames(cls).length > 0 && (
+            <div className="text-[11px] text-muted">{classTeacherSummary(cls)}</div>
+          )}
           <div className="text-xs text-muted">
             {students.length} élève{students.length > 1 ? 's' : ''} · {cfg.weightedAssessments ? `coefficients ${coefficientTotal}` : `barème général /${gbar}`} · {periods.find((t) => t.key === periodKey)?.label || periodKey}
             {maxStudentsPerClass && <span style={{ color: 'var(--gold)' }}> · Limite privée : {students.length}/{maxStudentsPerClass} élèves</span>}
@@ -11096,7 +11147,7 @@ function buildPersonnelCSVRows(state) {
   const rows = [header];
   const classesByTeacher = {};
   Object.values((state && state.classes) || {}).forEach((c) => {
-    classTeacherNames(c).forEach((name) => { (classesByTeacher[name] = classesByTeacher[name] || []).push(c.name); });
+    classTeacherEntries(c).forEach((e) => { (classesByTeacher[e.name] = classesByTeacher[e.name] || []).push(e.subject && !e.titulaire ? `${c.name} (${teacherSubjectLabel(e.subject)})` : c.name); });
   });
   ((state && state.personnel) || []).forEach((p) => {
     const full = personFullName(p);
