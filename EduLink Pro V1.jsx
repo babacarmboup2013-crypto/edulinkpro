@@ -1493,14 +1493,29 @@ function mergeStaffRequestArrays(serverData, localData) {
 function mergePayloadAdditive(serverData, localData) {
   if (Array.isArray(serverData)) {
     const map = new Map();
-    const nonId = (arr) => (arr || []).filter((el) => !(el && typeof el === 'object' && el.id != null));
+    const nonId = (arr) => (Array.isArray(arr) ? arr : []).filter((el) => !(el && typeof el === 'object' && el.id != null));
     (serverData || []).forEach((el) => { if (el && typeof el === 'object' && el.id != null) map.set(el.id, el); });
-    (localData || []).forEach((el) => { if (el && typeof el === 'object' && el.id != null) map.set(el.id, el); });
-    return [...map.values(), ...nonId(serverData), ...nonId(localData)];
+    (Array.isArray(localData) ? localData : []).forEach((el) => { if (el && typeof el === 'object' && el.id != null) map.set(el.id, el); });
+    // Éléments sans identifiant (textes, domaines du barème, journaux…) : on les réunit SANS
+    // doublon. Sans cette déduplication, chaque conflit de version recopiait la liste entière
+    // (cycles, enseignants, domaines du barème…) et les données de l'école gonflaient jusqu'à
+    // plusieurs dizaines de Mo, au point que le chargement échouait.
+    const seen = new Set();
+    const unique = [];
+    [...nonId(serverData), ...nonId(localData)].forEach((el) => {
+      let key;
+      try { key = typeof el + ':' + JSON.stringify(el); } catch (_) { key = null; }
+      if (key != null) { if (seen.has(key)) return; seen.add(key); }
+      unique.push(el);
+    });
+    return [...map.values(), ...unique];
   }
   if (serverData && typeof serverData === 'object' && localData && typeof localData === 'object') {
     const out = { ...serverData };
     for (const k of Object.keys(localData || {})) {
+      // Les domaines d'un barème n'ont pas d'identifiant : la version de l'auteur actif prévaut
+      // (les fusionner en conserverait l'ancienne version à côté de la nouvelle).
+      if (k === 'domains' && Array.isArray(localData[k])) { out[k] = localData[k]; continue; }
       out[k] = (k in serverData) ? mergePayloadAdditive(serverData[k], localData[k]) : localData[k];
     }
     return out;
