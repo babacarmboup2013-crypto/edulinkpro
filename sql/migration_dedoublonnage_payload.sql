@@ -34,3 +34,20 @@ revoke all on function public._dedupe_payload_json(jsonb) from public, anon, aut
 
 -- Application ponctuelle sur une école (incrémente la version pour que les appareils ouverts resynchronisent) :
 -- update school_data set payload = public._dedupe_payload_json(payload), version = coalesce(version,0)+1 where school_id = '<id>';
+
+-- Garde-fou permanent (appliqué le 04/11/2026) : retire les doublons à chaque enregistrement quand les
+-- données d'une école dépassent 300 000 caractères (protège des anciennes versions de l'application
+-- encore ouvertes sur des appareils).
+create or replace function public._school_data_garde_doublons() returns trigger
+language plpgsql set search_path to 'public' as $$
+begin
+  if NEW.payload is not null and length(NEW.payload::text) > 300000 then
+    NEW.payload := public._dedupe_payload_json(NEW.payload);
+  end if;
+  return NEW;
+end $$;
+drop trigger if exists trg_school_data_garde_doublons on public.school_data;
+create trigger trg_school_data_garde_doublons
+  before insert or update of payload on public.school_data
+  for each row execute function public._school_data_garde_doublons();
+revoke all on function public._school_data_garde_doublons() from public, anon, authenticated;
