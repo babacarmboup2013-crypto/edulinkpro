@@ -36,7 +36,7 @@ const SB_H = {
 };
 
 // Tables sensibles : jamais d'accès direct depuis le client. Toute lecture
-// passe par l'Edge Function read-schools (lecture seule, service_role côté
+// passe par l'Edge Function read-schools-secure (lecture seule authentifiée, service_role côté
 // serveur) ; toute écriture passe par admin-write, qui vérifie côté serveur
 // soit le code Super Admin racine (admin_code), soit le code de l'école
 // ciblée (school_code) — jamais la clé anon seule.
@@ -189,14 +189,15 @@ async function sb(method, table, params = '', body = null) {
         headers: { 'Content-Type': 'application/json', apikey: SB_KEY, Authorization: 'Bearer ' + SB_KEY },
         body: JSON.stringify(payload),
       });
-      let res;
-      try { res = await callFn('read-schools-secure', { table, params, ...cred }); } catch (_) { res = null; }
-      // TEMPORAIRE : si la lecture sécurisée est indisponible, repli sur l'ancienne
-      // fonction le temps de la bascule (retiré dès la validation complète).
-      if (!res || !res.ok) {
-        console.warn('read-schools-secure indisponible (', res ? res.status : 'réseau', '), repli sur read-schools');
-        res = await callFn('read-schools', { table, params });
+      // Lecture UNIQUEMENT par la fonction authentifiée read-schools-secure. L'ancienne
+      // fonction ouverte (read-schools) est fermée : plus aucun repli non authentifié.
+      // Seule une panne passagère (réseau / erreur serveur 5xx) déclenche une 2e tentative.
+      let res = null;
+      let lastErr = null;
+      for (let attempt = 0; attempt < 2 && (!res || res.status >= 500); attempt++) {
+        try { res = await callFn('read-schools-secure', { table, params, ...cred }); lastErr = null; } catch (e) { lastErr = e; res = null; }
       }
+      if (!res) throw lastErr || new Error('Lecture sécurisée indisponible — réessayez dans un instant.');
       const text = await res.text();
       if (!res.ok) throw new Error(text || `Erreur ${res.status}`);
       return text ? JSON.parse(text) : null;
@@ -2572,7 +2573,7 @@ function LoginScreen({ onLogin, dark, setDark, notify, onBack, adminOnly = false
 
   useEffect(() => {
     const q = staffQuery.trim();
-    if (tab !== 'personnel' || !schoolId || q.length < 2) { setStaffResults([]); return; }
+    if (tab !== 'personnel' || !schoolId || q.length < 3) { setStaffResults([]); return; }
     let cancelled = false;
     setStaffSearching(true);
     const t = setTimeout(async () => {
@@ -2893,6 +2894,7 @@ const entered = String(code).trim();
               />
               <SearchPicker
                 label="Votre nom"
+                minChars={3}
                 placeholder="Tapez votre nom de famille…"
                 query={staffQuery}
                 setQuery={setStaffQuery}
@@ -2990,7 +2992,7 @@ function CodeField({ code, setCode, show, setShow, label }) {
    l'utilisateur n'a pas tapé au moins 2 caractères, et le nombre de
    résultats renvoyés par le serveur est plafonné (voir
    search_public_schools / search_school_personnel côté Supabase). */
-function SearchPicker({ label, placeholder, query, setQuery, results, loading, selected, onSelect, onClear, disabled, emptyHint, getKey, renderOption }) {
+function SearchPicker({ label, placeholder, query, setQuery, results, loading, selected, onSelect, onClear, disabled, emptyHint, getKey, renderOption, minChars = 2 }) {
   return (
     <div>
       <label className="text-xs font-semibold block mb-1 text-muted">{label}</label>
@@ -3014,7 +3016,7 @@ function SearchPicker({ label, placeholder, query, setQuery, results, loading, s
             placeholder={disabled ? emptyHint : placeholder}
             autoComplete="off"
           />
-          {!disabled && query.trim().length >= 2 && (
+          {!disabled && query.trim().length >= minChars && (
             <div
               className="absolute left-0 right-0 mt-1 rounded-lg border shadow-lg z-10 max-h-56 overflow-auto sygenop-input"
             >
@@ -3036,8 +3038,8 @@ function SearchPicker({ label, placeholder, query, setQuery, results, loading, s
               )}
             </div>
           )}
-          {!disabled && query.trim().length > 0 && query.trim().length < 2 && (
-            <div className="text-[11px] mt-1 text-muted">Continuez à taper (2 caractères min.)</div>
+          {!disabled && query.trim().length > 0 && query.trim().length < minChars && (
+            <div className="text-[11px] mt-1 text-muted">Continuez à taper ({minChars} caractères min.)</div>
           )}
         </div>
       )}
