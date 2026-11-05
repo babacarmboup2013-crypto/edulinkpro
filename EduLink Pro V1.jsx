@@ -11739,6 +11739,7 @@ function ComingSoonView({ view }) {
 /* ============================================================
    LISTE DES ÉCOLES (IEF / Admin lecture seule)
    ============================================================ */
+const ALL_CYCLES = '__tous__';
 function IEFSchoolsView({ onOpenSchool, session }) {
   const role = session && session.role;
   const sessionIefId = session && session.iefId;
@@ -11757,7 +11758,8 @@ function IEFSchoolsView({ onOpenSchool, session }) {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [q, setQ] = useState('');
-  const [selectedCycle, setSelectedCycle] = useState('');
+  // Compte Groupe scolaire : vue consolidée de TOUS les cycles par défaut (un groupe = une école par cycle).
+  const [selectedCycle, setSelectedCycle] = useState(isLockedIef ? ALL_CYCLES : '');
   const [presMois, setPresMois] = useState(currentMonthISO());
   const [notePeriod, setNotePeriod] = useState('T1');
 
@@ -11872,12 +11874,13 @@ function IEFSchoolsView({ onOpenSchool, session }) {
   const activeSchoolStats = useMemo(() => perSchoolStats.filter((s) => s.actif !== false), [perSchoolStats]);
   useEffect(() => {
     if (!activeSchoolStats.length) return;
+    if (selectedCycle === ALL_CYCLES && isLockedIef) return;
     if (!selectedCycle || !activeSchoolStats.some((s) => s.cycle === selectedCycle)) {
       setSelectedCycle(activeSchoolStats.find((s) => s.cycle)?.cycle || '');
     }
-  }, [activeSchoolStats, selectedCycle]);
+  }, [activeSchoolStats, selectedCycle, isLockedIef]);
   const cycleSchoolStats = useMemo(
-    () => activeSchoolStats.filter((s) => s.cycle === selectedCycle),
+    () => (selectedCycle === ALL_CYCLES ? activeSchoolStats : activeSchoolStats.filter((s) => s.cycle === selectedCycle)),
     [activeSchoolStats, selectedCycle]
   );
   const totals = useMemo(() => cycleSchoolStats.reduce((acc, s) => {
@@ -11982,12 +11985,43 @@ const barData = cycleSchoolStats
           Vue d'ensemble — <span style={{ color: 'var(--green-d)' }}>{selectedIefName}</span>
         </div>
         <select value={selectedCycle} onChange={(e) => setSelectedCycle(e.target.value)} className="px-3 py-2 rounded-lg border text-sm font-semibold sygenop-input">
-          {CYCLE_OPTIONS.map((cycle) => <option key={cycle.value} value={cycle.value}>{cycle.label}</option>)}
+          {isLockedIef && <option value={ALL_CYCLES}>Tous les cycles du groupe</option>}
+          {(isLockedIef ? CYCLE_OPTIONS.filter((cycle) => activeSchoolStats.some((s) => s.cycle === cycle.value)) : CYCLE_OPTIONS).map((cycle) => <option key={cycle.value} value={cycle.value}>{cycle.label}</option>)}
         </select>
       </div>
 
+      {isLockedIef && selectedCycle === ALL_CYCLES && !!activeSchoolStats.length && (
+        <div className="sygenop-card overflow-x-auto">
+          <div className="px-4 pt-4 text-xs font-bold uppercase tracking-wide text-muted">Statistiques par cycle</div>
+          <table className="w-full text-sm">
+            <thead>
+              <tr className="text-left" style={{ borderBottom: '1px solid var(--line)' }}>
+                {['Cycle', 'Élèves', 'Garçons', 'Filles', 'Personnel', 'Classes actives', 'Recouvrement'].map((hh) => (
+                  <th key={hh} className="px-4 py-3 text-[11px] font-bold uppercase tracking-wide whitespace-nowrap text-muted">{hh}</th>
+                ))}
+              </tr>
+            </thead>
+            <tbody>
+              {activeSchoolStats.map((s) => (
+                <tr key={s.id} style={{ borderBottom: '1px solid var(--line)' }}>
+                  <td className="px-4 py-3 font-semibold whitespace-nowrap text-ink">
+                    <button type="button" onClick={() => setSelectedCycle(s.cycle)} className="underline-offset-2 hover:underline text-left">{cycleLabel(s.cycle)}</button>
+                  </td>
+                  <td className="px-4 py-3 font-semibold">{s.effectif}</td>
+                  <td className="px-4 py-3">{s.garcons}</td>
+                  <td className="px-4 py-3">{s.filles}</td>
+                  <td className="px-4 py-3">{s.personnelTotal}</td>
+                  <td className="px-4 py-3">{s.classesActives}/{s.totalClasses}</td>
+                  <td className="px-4 py-3 whitespace-nowrap">{s.totalDue > 0 ? `${Math.round((s.totalPaid / s.totalDue) * 100)}% · ${fmtFCFA(s.totalPaid)}` : '—'}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
+
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-        <StatCard icon={Building2} label="Écoles" value={cycleSchoolStats.length} sub={`${cycleSchoolStats.filter((s) => s.effectif > 0).length} avec élèves saisis · ${cycleLabel(selectedCycle)}`} tone="gold" />
+        <StatCard icon={Building2} label="Écoles" value={cycleSchoolStats.length} sub={`${cycleSchoolStats.filter((s) => s.effectif > 0).length} avec élèves saisis · ${selectedCycle === ALL_CYCLES ? 'Tous les cycles' : cycleLabel(selectedCycle)}`} tone="gold" />
         <StatCard icon={GraduationCap} label="Élèves inscrits (groupe scolaire)" value={totals.effectif} sub={`${totals.garcons} garçons · ${totals.filles} filles`} tone="green" />
         <StatCard icon={Users} label="Personnel (groupe scolaire)" value={totals.personnel} sub={`${totals.personnelMale} hommes · ${totals.personnelFemale} femmes${totals.personnelUnknown ? ` · ${totals.personnelUnknown} non renseigné(s)` : ''}`} tone="green" />
         <StatCard icon={CreditCard} label="Recouvrement global" value={`${Math.round(tauxGlobal * 100)}%`} sub={`${fmtFCFA(totals.totalPaid)} / ${fmtFCFA(totals.totalDue)}`} tone="gold" />
@@ -12152,7 +12186,7 @@ const barData = cycleSchoolStats
           style={{ borderColor: 'var(--line)', background: 'var(--bg)', color: 'var(--ink)' }}
         />
         <span className="text-xs font-semibold whitespace-nowrap text-muted">
-          {filtered.length} / {cycleSchoolStats.length} école(s) · {cycleLabel(selectedCycle)}
+          {filtered.length} / {cycleSchoolStats.length} école(s) · {selectedCycle === ALL_CYCLES ? 'Tous les cycles' : cycleLabel(selectedCycle)}
         </span>
       </div>
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
