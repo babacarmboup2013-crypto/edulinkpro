@@ -1051,8 +1051,10 @@ function studentTotalPaid(student) {
 const INSCRIPTION_LINE_KEYS = ["frais d'inscription", 'inscription', 'tenue scolaire', 'tenu scolaire', 'ass', 'ape'];
 function paymentTypeKey(p) {
   if (p && (p.type_paiement === 'inscription' || p.type_paiement === 'mensualite')) return p.type_paiement;
-  const lignes = Array.isArray(p && p.lignes) ? p.lignes.filter((l) => l && l.checked) : [];
-  const text = lignes.map((l) => `${l.label || ''} ${l.id || ''}`).join(' ').toLowerCase();
+  // Lignes cochées du reçu ; les lignes sans champ « checked » (import CSV) comptent si leur montant est > 0.
+  const lignes = Array.isArray(p && p.lignes) ? p.lignes.filter((l) => l && (l.checked === undefined ? (Number(l.montant) || 0) > 0 : l.checked)) : [];
+  // Sans lignes exploitables, on lit la rubrique du paiement (ex. import CSV « Frais d'inscription »).
+  const text = (lignes.length ? lignes.map((l) => `${l.label || ''} ${l.id || ''}`).join(' ') : `${(p && p.rubriqueLabel) || ''} ${(p && p.rubrique) || ''}`).toLowerCase();
   if (text && INSCRIPTION_LINE_KEYS.some((k) => text.includes(k))) return 'inscription';
   return 'mensualite';
 }
@@ -10144,7 +10146,7 @@ function PaiementsView({ state, loading, updateState, notify, activeSchoolId, ro
                 <table className="w-full text-sm">
                   <thead>
                     <tr className="text-left" style={{ borderBottom: '1px solid var(--line)' }}>
-                      {['Élève', 'Rel. Inscription', `Versement — ${monthLabel(effectiveMonth)}`, 'Situation du mois', `Reliquat — ${monthLabel(effectiveMonth)}`, 'Actions'].map((hh) => (
+                      {['Élève', 'Inscription versée', 'Rel. Inscription', `Versement scolarité — ${monthLabel(effectiveMonth)}`, 'Situation du mois', `Reliquat — ${monthLabel(effectiveMonth)}`, 'Actions'].map((hh) => (
                         <th key={hh} className="px-4 py-3 text-[11px] font-bold uppercase tracking-wide whitespace-nowrap text-muted">{hh}</th>
                       ))}
                     </tr>
@@ -10163,6 +10165,7 @@ function PaiementsView({ state, loading, updateState, notify, activeSchoolId, ro
                       return (
                         <tr key={s.id} style={{ borderBottom: '1px solid var(--line)' }}>
                           <td className="px-4 py-3 font-semibold whitespace-nowrap text-ink">{s.prenom || ''} {s.nom || ''}{sCas && <span className="ml-1.5 px-1.5 py-0.5 rounded-full text-[9px] font-bold uppercase align-middle" style={{ background: 'var(--gold-l)', color: 'var(--gold)' }}>Cas social −{normalizeCasSocial(s.casSocial)}%</span>}</td>
+                          <td className="px-4 py-3 whitespace-nowrap font-semibold" style={{ color: studentPaidByType(s, 'inscription') > 0 ? 'var(--green-d)' : 'var(--muted)' }}>{studentPaidByType(s, 'inscription') > 0 ? fmtFCFA(studentPaidByType(s, 'inscription')) : '—'}</td>
                           <td className="px-4 py-3 whitespace-nowrap font-semibold" style={{ color: reliquatInscription > 0 ? 'var(--gold)' : 'var(--muted)' }}>{reliquatInscription > 0 ? fmtFCFA(reliquatInscription) : '—'}</td>
                           <td className="px-4 py-3 whitespace-nowrap font-semibold" style={{ color: paidMonth > 0 ? 'var(--green-d)' : 'var(--muted)' }}>{paidMonth > 0 ? fmtFCFA(paidMonth) : '—'}</td>
                           <td className="px-4 py-3"><Pill tone={status.tone}>{status.label}</Pill></td>
@@ -10200,6 +10203,7 @@ function PaiementsView({ state, loading, updateState, notify, activeSchoolId, ro
                   <tfoot>
                     <tr style={{ borderTop: '2px solid var(--line)' }}>
                       <td className="px-4 py-3 text-[11px] font-bold uppercase tracking-wide text-muted">Totaux — {monthLabel(effectiveMonth)}</td>
+                      <td className="px-4 py-3 font-bold whitespace-nowrap" style={{ color: 'var(--green-d)' }}>{fmtFCFA(filteredStudents.reduce((sm, st) => sm + studentPaidByType(st, 'inscription'), 0))}</td>
                       <td className="px-4 py-3 font-bold whitespace-nowrap" style={{ color: filteredStudents.reduce((s, st) => s + studentReliquatByType(state, level, st).inscription, 0) > 0 ? 'var(--gold)' : 'var(--muted)' }}>{fmtFCFA(filteredStudents.reduce((s, st) => s + studentReliquatByType(state, level, st).inscription, 0))}</td>
                       <td className="px-4 py-3 font-bold whitespace-nowrap" style={{ color: 'var(--green-d)' }}>{fmtFCFA(monthTotal)}</td>
                       <td></td>
@@ -10215,7 +10219,7 @@ function PaiementsView({ state, loading, updateState, notify, activeSchoolId, ro
               <table className="w-full text-sm">
                 <thead>
                   <tr className="text-left" style={{ borderBottom: '1px solid var(--line)' }}>
-                    {['Élève', 'Téléphone tuteur', 'Rel. Inscription', 'Rel. Scolarité', 'Reliquat total', 'Statut', 'Actions'].map((hh) => (
+                    {['Élève', 'Téléphone tuteur', 'Inscription versée', 'Rel. Inscription', 'Scolarité versée', 'Rel. Scolarité', 'Reliquat total', 'Statut', 'Actions'].map((hh) => (
                       <th key={hh} className="px-4 py-3 text-[11px] font-bold uppercase tracking-wide whitespace-nowrap text-muted">{hh}</th>
                     ))}
                   </tr>
@@ -10239,7 +10243,9 @@ function PaiementsView({ state, loading, updateState, notify, activeSchoolId, ro
                             className="w-32 px-2 py-1 rounded border text-xs disabled:opacity-60 sygenop-input"
                           />
                         </td>
+                        <td className="px-4 py-3 whitespace-nowrap font-semibold" style={{ color: reliquat.paid.inscription > 0 ? 'var(--green-d)' : 'var(--muted)' }}>{reliquat.paid.inscription > 0 ? fmtFCFA(reliquat.paid.inscription) : '—'}</td>
                         <td className="px-4 py-3 whitespace-nowrap font-semibold" style={{ color: reliquat.inscription > 0 ? 'var(--gold)' : 'var(--muted)' }}>{reliquat.inscription > 0 ? fmtFCFA(reliquat.inscription) : '—'}</td>
+                        <td className="px-4 py-3 whitespace-nowrap font-semibold" style={{ color: reliquat.paid.mensualite > 0 ? 'var(--green-d)' : 'var(--muted)' }}>{reliquat.paid.mensualite > 0 ? fmtFCFA(reliquat.paid.mensualite) : '—'}</td>
                         <td className="px-4 py-3 whitespace-nowrap font-semibold" style={{ color: reliquat.mensualite > 0 ? 'var(--red)' : 'var(--muted)' }}>{reliquat.mensualite > 0 ? fmtFCFA(reliquat.mensualite) : '—'}</td>
                         <td className="px-4 py-3 whitespace-nowrap font-semibold" style={{ color: solde > 0 ? 'var(--red)' : 'var(--muted)' }}>{solde > 0 ? fmtFCFA(solde) : '—'}</td>
                         <td className="px-4 py-3"><Pill tone={status.tone}>{status.label}</Pill></td>
@@ -10273,6 +10279,22 @@ function PaiementsView({ state, loading, updateState, notify, activeSchoolId, ro
                     );
                   })}
                 </tbody>
+                <tfoot>
+                  {(() => {
+                    const tot = filteredStudents.reduce((a, st) => { const r = studentReliquatByType(state, level, st); return { pi: a.pi + r.paid.inscription, ri: a.ri + r.inscription, ps: a.ps + r.paid.mensualite, rs: a.rs + r.mensualite }; }, { pi: 0, ri: 0, ps: 0, rs: 0 });
+                    return (
+                      <tr style={{ borderTop: '2px solid var(--line)' }}>
+                        <td className="px-4 py-3 text-[11px] font-bold uppercase tracking-wide text-muted" colSpan={2}>Totaux — {filteredStudents.length} élève(s)</td>
+                        <td className="px-4 py-3 font-bold whitespace-nowrap" style={{ color: 'var(--green-d)' }}>{fmtFCFA(tot.pi)}</td>
+                        <td className="px-4 py-3 font-bold whitespace-nowrap" style={{ color: tot.ri > 0 ? 'var(--gold)' : 'var(--muted)' }}>{fmtFCFA(tot.ri)}</td>
+                        <td className="px-4 py-3 font-bold whitespace-nowrap" style={{ color: 'var(--green-d)' }}>{fmtFCFA(tot.ps)}</td>
+                        <td className="px-4 py-3 font-bold whitespace-nowrap" style={{ color: tot.rs > 0 ? 'var(--red)' : 'var(--muted)' }}>{fmtFCFA(tot.rs)}</td>
+                        <td className="px-4 py-3 font-bold whitespace-nowrap" style={{ color: tot.ri + tot.rs > 0 ? 'var(--red)' : 'var(--muted)' }}>{fmtFCFA(tot.ri + tot.rs)}</td>
+                        <td colSpan={2}></td>
+                      </tr>
+                    );
+                  })()}
+                </tfoot>
               </table>
             </div>
           )}
@@ -11635,7 +11657,7 @@ function ImportPaymentsCSVPanel({ state, updateState, notify, session }) {
       pending.forEach((row) => {
         const cls = next.classes[row.classId]; if (!cls) return;
         seq += 1; const recu = row.recu || `REC-${String(seq).padStart(5, '0')}`;
-        next.classes[row.classId] = { ...cls, students: (cls.students || []).map((student) => student.id === row.studentId ? { ...student, paiements: [...studentPaiements(student), { id: uid('pay'), recu, date: row.date, montant: row.montant, mode: row.mode, mois: row.mois, note: row.note, rubrique: row.rubrique, rubriqueLabel: row.rubriqueLabel, lignes: row.lignes }] } : student) };
+        next.classes[row.classId] = { ...cls, students: (cls.students || []).map((student) => student.id === row.studentId ? { ...student, paiements: [...studentPaiements(student), { id: uid('pay'), recu, date: row.date, montant: row.montant, mode: row.mode, mois: row.mois, note: row.note, rubrique: row.rubrique, rubriqueLabel: row.rubriqueLabel, lignes: row.lignes, type_paiement: paymentTypeKey(row) }] } : student) };
       });
       next.recuSeq = seq; next.auditLog = pushAuditEntry(prev.auditLog, { actor: actorLabel(session, prev), role: session?.role, action: 'Import CSV paiements', details: `${pending.length} paiement(s) importé(s)` }); return next;
     });
