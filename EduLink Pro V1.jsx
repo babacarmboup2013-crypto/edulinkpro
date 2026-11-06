@@ -773,6 +773,13 @@ function cfgForLevel(state, level, evalKey) {
   if (!overrides) return base;
   return { ...base, domains: (base.domains || []).map((d) => ({ ...d, disciplines: (d.disciplines || []).map((x) => (overrides[x.id] != null && Number.isFinite(Number(overrides[x.id])) ? { ...x, max: Math.max(0, Number(overrides[x.id])) } : x)) })) };
 }
+// Libellé du barème réellement appliqué (affiché en saisie, synthèse et bulletin).
+function baremeAppliedLabel(state, level, evalKey) {
+  const type = splitEvaluationKey(evalKey).type;
+  const custom = !!evaluationBaremeOverrides(state, level, evalKey);
+  const total = genBareme(cfgForLevel(state, level, evalKey));
+  return `Barème ${evaluationTypeLabel(type)} : /${total}${custom ? '' : ' (général)'}`;
+}
 function cfgForLevelBase(state, level) {
   const stored = state && state.config && state.config[level];
   if (stored && Array.isArray(stored.domains) && stored.domains.length) return { ...stored, weightedAssessments: stored.weightedAssessments ?? supportsWeightedAssessments(state), domains: stored.domains.map((d) => ({ ...d, disciplines: (d.disciplines || []).map((x) => ({ ...x, coefficient: Number(x.coefficient) || 1 })) })) };
@@ -1313,7 +1320,8 @@ function combinePresenceSummaries(list) {
 function schoolAcademicSummary(state, period) {
   let effectifNote = 0, sumMoy = 0, reussite = 0;
   levelsForSchool(state).forEach((level) => {
-    const cfg = cfgForLevel(state, level);
+    // Les notes lues pour « T1 » sont celles des Contrôles : on prend donc le barème des Contrôles.
+    const cfg = cfgForLevel(state, level, String(period).includes('::') ? period : evaluationKey(period, 'controle'));
     classesOfLevel(state, level).forEach(([, cls]) => {
       (cls.students || []).forEach((st) => {
         const sc = scoresFor(st, period);
@@ -6317,6 +6325,8 @@ function saveClass(form) {
         <select value={evaluationType} onChange={(e) => setEvaluationType(e.target.value)} className="px-3 py-1.5 rounded-lg text-xs font-semibold border sygenop-input" aria-label="Type d’évaluation">
           {EVALUATION_TYPES.map((type) => <option key={type.key} value={type.key}>{type.label}</option>)}
         </select>
+        <span className="text-xs font-semibold px-2.5 py-1.5 rounded-lg" style={{ background: 'var(--gold-l)', color: 'var(--gold)' }} title="Barème appliqué à la saisie de ce type d'évaluation">{baremeAppliedLabel(state, level, evaluationKey(period, evaluationType))}</span>
+        
       </div>
 
       {currentClass && (
@@ -7999,6 +8009,7 @@ function SynthView({ state, loading, teacherName }) {
         <select value={evaluationType} onChange={(e) => setEvaluationType(e.target.value)} className="px-3 py-1.5 rounded-lg text-xs font-semibold border sygenop-input">
           {EVALUATION_TYPES.map((type) => <option key={type.key} value={type.key}>{type.label}</option>)}
         </select>
+        {level !== '__ALL__' ? <span className="text-xs font-semibold px-2.5 py-1.5 rounded-lg" style={{ background: 'var(--gold-l)', color: 'var(--gold)' }} title="Barème appliqué à cette synthèse">{baremeAppliedLabel(state, level, evaluationKey(period, evaluationType))}</span> : <span className="text-xs font-semibold px-2.5 py-1.5 rounded-lg" style={{ background: 'var(--gold-l)', color: 'var(--gold)' }}>Barème {evaluationTypeLabel(evaluationType)} de chaque niveau</span>}
         <button
           onClick={() => window.print()}
           className="px-3.5 py-2 rounded-lg text-sm font-semibold text-white flex items-center gap-1.5"
@@ -8316,6 +8327,7 @@ function BulletinView({ state, loading, teacherName }) {
         <select value={evaluationType} onChange={(e) => setEvaluationType(e.target.value)} className="px-3 py-2 rounded-lg border text-sm sygenop-input">
           {EVALUATION_TYPES.map((type) => <option key={type.key} value={type.key}>{type.label}</option>)}
         </select>
+        {cls && <span className="text-xs font-semibold px-2.5 py-1.5 rounded-lg" style={{ background: 'var(--gold-l)', color: 'var(--gold)' }} title="Barème appliqué à ce bulletin">{baremeAppliedLabel(state, cls.level, selectedEvaluationKey)}</span>}
         <button
           onClick={sendWhatsapp}
           disabled={mode !== 'single'}
@@ -11158,24 +11170,36 @@ function AdminView({ state, loading, updateState, notify, readOnly, session }) {
    Export — JSON complet & CSV (élèves/notes, personnel, paiements)
    --------------------------------------------------------------- */
 function buildStudentsCSVRows(state) {
-  const header = ['Niveau', 'Classe', 'Nom', 'Prénom', 'Âge', 'Genre'];
+  // Une ligne par élève ET par type d'évaluation : chaque type est calculé avec SON barème
+  // (Contrôles toujours listés ; les autres types seulement s'il existe des notes).
+  const header = ['Niveau', 'Classe', 'Nom', 'Prénom', 'Âge', 'Genre', "Type d'évaluation"];
   TRIMESTRES.forEach((t) => header.push(`${t.key} Total`, `${t.key} Barème`, `${t.key} Moyenne/10`, `${t.key} Rang`, `${t.key} Mention`));
   const rows = [header];
   levelsForSchool(state).forEach((level) => {
-    const cfg = cfgForLevel(state, level);
     classesOfLevel(state, level).forEach(([, cls]) => {
       const students = cls.students || [];
-      const ranksByPeriod = {};
-      TRIMESTRES.forEach((t) => { ranksByPeriod[t.key] = computeRanks(cfg, students, t.key); });
-      students.forEach((s, idx) => {
-        const row = [level, cls.name, s.nom || '', s.prenom || '', s.age || '', s.genre || ''];
+      EVALUATION_TYPES.forEach((type) => {
+        const cfgByPeriod = {};
+        const ranksByPeriod = {};
         TRIMESTRES.forEach((t) => {
-          const hasData = Object.keys(scoresFor(s, t.key)).length > 0;
-          if (!hasData) { row.push('', '', '', '', ''); return; }
-          const sc = computeStudentScores(cfg, scoresFor(s, t.key));
-          row.push(fmtNote(sc.total, 1), sc.bareme, fmtNote(sc.moy, 2), ranksByPeriod[t.key][idx], mention(sc.moy, cfg.weightedAssessments));
+          const key = evaluationKey(t.key, type.key);
+          cfgByPeriod[t.key] = cfgForLevel(state, level, key);
+          ranksByPeriod[t.key] = computeRanks(cfgByPeriod[t.key], students, key);
         });
-        rows.push(row);
+        students.forEach((s, idx) => {
+          const anyData = TRIMESTRES.some((t) => Object.keys(scoresFor(s, evaluationKey(t.key, type.key))).length > 0);
+          if (type.key !== 'controle' && !anyData) return;
+          const row = [level, cls.name, s.nom || '', s.prenom || '', s.age || '', s.genre || '', type.label];
+          TRIMESTRES.forEach((t) => {
+            const key = evaluationKey(t.key, type.key);
+            const hasData = Object.keys(scoresFor(s, key)).length > 0;
+            if (!hasData) { row.push('', '', '', '', ''); return; }
+            const cfg = cfgByPeriod[t.key];
+            const sc = computeStudentScores(cfg, scoresFor(s, key));
+            row.push(fmtNote(sc.total, 1), sc.bareme, fmtNote(sc.moy, 2), ranksByPeriod[t.key][idx], mention(sc.moy, cfg.weightedAssessments));
+          });
+          rows.push(row);
+        });
       });
     });
   });
