@@ -1632,7 +1632,11 @@ async function saveSchoolData(id, state, access) {
         const fresh = await sb('POST', 'rpc/get_school_data_staff', '', { p_school_id: id, p_staff_id: staffId, p_code: staffCode });
         const freshData = fresh && fresh.data;
         if (!freshData) throw new Error(result.error || 'Enregistrement refusé');
-        const mergedClean = { ...mergeStaffRequestArrays(freshData, clean) };
+        // Fusion SANS PERTE : la version serveur (élèves, classes, notes ajoutés entre-temps par la
+        // direction ou un collègue) sert de base et la saisie locale (notes, présences…) y est
+        // réinjectée. Avant, seules les demandes étaient reprises : les notes saisies étaient perdues
+        // et une copie périmée pouvait écraser des élèves ajoutés par la direction.
+        const mergedClean = { ...mergePayloadAdditive(mergeStaffRequestArrays(freshData, clean), clean) };
         delete mergedClean.__version;
         savedPayload = mergedClean;
         result = await sb('POST', 'rpc/save_school_data_staff', '', { p_school_id: id, p_staff_id: staffId, p_code: staffCode, p_payload: mergedClean, p_expected_version: null });
