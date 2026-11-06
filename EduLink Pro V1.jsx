@@ -3871,7 +3871,7 @@ function ConfirmModal({ title, message, onConfirm, onCancel, danger }) {
 
 function PersonnelModal({ person, onSave, onClose, cycle }) {
   const [form, setForm] = useState(() => person || {
-    id: uid('staff'), prenom: '', nom: '', role: STAFF_ROLES[1], telephone: '', salaireBase: '', dateEmbauche: todayISO(), statut: 'Actif', code: generateAccessCode(), genre: 'Homme', specialites: [],
+    id: uid('staff'), prenom: '', nom: '', role: STAFF_ROLES[1], telephone: '', dateEmbauche: todayISO(), statut: 'Actif', code: generateAccessCode(), genre: 'Homme', specialites: [],
   });
   const [showCode, setShowCode] = useState(true);
   const isEdit = !!person;
@@ -4016,16 +4016,6 @@ return (
             </div>
           </div>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-            <div>
-              <label className="text-xs font-semibold block mb-1 text-muted">Salaire de base (FCFA)</label>
-              <input
-                type="number" min="0" step="1000"
-                value={form.salaireBase}
-                onChange={(e) => set('salaireBase', e.target.value)}
-                className="w-full px-3 py-2 rounded-lg border text-sm sygenop-input"
-                placeholder="0"
-              />
-            </div>
             <div>
               <label className="text-xs font-semibold block mb-1 text-muted">Date d'embauche</label>
               <input
@@ -4315,7 +4305,7 @@ function PersonnelListTab({ personnel, onAdd, onEdit, onDelete, onCard, onAttest
           <table className="w-full text-sm">
             <thead>
               <tr className="text-left" style={{ borderBottom: '1px solid var(--line)' }}>
-                {['Nom', 'Fonction', 'Téléphone', 'Salaire de base', 'Statut', ''].map((h) => (
+                {['Nom', 'Fonction', 'Téléphone', 'Statut', ''].map((h) => (
                   <th key={h} className="px-4 py-3 text-[11px] font-bold uppercase tracking-wide text-muted">{h}</th>
                 ))}
               </tr>
@@ -4354,7 +4344,6 @@ function PersonnelListTab({ personnel, onAdd, onEdit, onDelete, onCard, onAttest
                     )}
                   </td>
                   <td className="px-4 py-3 text-muted">{p.telephone || '—'}</td>
-                  <td className="px-4 py-3 text-ink">{fmtFCFA(p.salaireBase)}</td>
                   <td className="px-4 py-3">
                     <Pill tone={p.statut === 'Actif' ? 'green' : p.statut === 'Absent' ? 'red' : 'gold'}>{p.statut}</Pill>
                   </td>
@@ -4612,7 +4601,23 @@ function HeuresRecapPanel({ personnel, pointage, defaultMois, settings }) {
   );
 }
 
+// Salaires : gérés dans Comptabilité (state.salaires[id].base) ; repli sur l'ancien champ personnel.salaireBase.
+function salaireBaseOf(state, p) {
+  const v = state && state.salaires && p && state.salaires[p.id] && state.salaires[p.id].base;
+  if (v != null && v !== '') return Math.max(0, Number(v) || 0);
+  return Math.max(0, Number(p && p.salaireBase) || 0);
+}
+// Ponctions (retenues manuelles : avance, sanction, prêt…) d'un agent pour un mois : state.ponctionsPaie[mois][id] = [{id, motif, montant}]
+function ponctionsOf(state, mois, staffId) {
+  const l = state && state.ponctionsPaie && state.ponctionsPaie[mois] && state.ponctionsPaie[mois][staffId];
+  return Array.isArray(l) ? l : [];
+}
+function ponctionsTotal(list) { return (list || []).reduce((sum, x) => sum + (Math.max(0, Number(x && x.montant) || 0)), 0); }
+
 function PaieTab({ personnel, pointage, state, updateState, readOnly }) {
+  const [ponctionOuverte, setPonctionOuverte] = useState(null);
+  const [pMotif, setPMotif] = useState('');
+  const [pMontant, setPMontant] = useState('');
   const [mois, setMois] = useState(currentMonthISO());
   const horaires = attendanceSettings(state);
   const joursOuvres = joursOuvresDuMois(mois, horaires.joursOuvres);
@@ -4632,25 +4637,59 @@ function PaieTab({ personnel, pointage, state, updateState, readOnly }) {
         else if (s === 'C') conge++;
         if (rec && (s === 'P' || s === 'R')) heures += Number(rec.heures) || 0;
       });
-      const tauxJournalier = joursOuvres > 0 ? p.salaireBase / joursOuvres : 0;
+      const base = salaireBaseOf(state, p);
+      const tauxJournalier = joursOuvres > 0 ? base / joursOuvres : 0;
       const retenueCalculee = Math.round(absent * tauxJournalier + retard * tauxJournalier * 0.25);
       const retenue = isPrivateSchool && absent > 0
         ? (retenuesManuelles[p.id] != null ? Math.max(0, Number(retenuesManuelles[p.id]) || 0) : null)
         : retenueCalculee;
-      const net = Math.max(0, Math.round(p.salaireBase - (retenue || 0)));
-      return { ...p, present, absent, retard, conge, heures, tauxJournalier, retenue, retenueCalculee, net };
+      const ponctions = ponctionsOf(state, mois, p.id);
+      const totalPonctions = ponctionsTotal(ponctions);
+      const net = Math.max(0, Math.round(base - (retenue || 0) - totalPonctions));
+      return { ...p, salaireBase: base, present, absent, retard, conge, heures, tauxJournalier, retenue, retenueCalculee, ponctions, totalPonctions, net };
     });
-  }, [personnel, pointage, mois, joursOuvres, isPrivateSchool, retenuesManuelles]);
+  }, [personnel, pointage, mois, joursOuvres, isPrivateSchool, retenuesManuelles, state?.salaires, state?.ponctionsPaie]);
 
   const totalBase = rows.reduce((s, r) => s + (Number(r.salaireBase) || 0), 0);
+  const totalPonctionsAll = rows.reduce((s, r) => s + r.totalPonctions, 0);
   const totalRetenue = rows.reduce((s, r) => s + (r.retenue || 0), 0);
   const totalNet = rows.reduce((s, r) => s + r.net, 0);
 
   function exportCSV() {
-    const header = ['Nom', 'Prénom(s)', 'Fonction', 'Salaire de base', 'Jours présents', 'Jours absents', 'Retards', 'Congés', 'Heures servies', 'Retenue', 'Salaire net'];
-    const data = rows.map((r) => [r.nom, r.prenom, r.role, r.salaireBase, r.present, r.absent, r.retard, r.conge, r.heures, r.retenue, r.net]);
-    data.push(['TOTAL', '', '', totalBase, '', '', '', '', '', totalRetenue, totalNet]);
+    const header = ['Nom', 'Prénom(s)', 'Fonction', 'Salaire de base', 'Jours présents', 'Jours absents', 'Retards', 'Congés', 'Heures servies', 'Retenue absences/retards', 'Ponctions', 'Détail des ponctions', 'Salaire net'];
+    const data = rows.map((r) => [r.nom, r.prenom, r.role, r.salaireBase, r.present, r.absent, r.retard, r.conge, r.heures, r.retenue, r.totalPonctions, r.ponctions.map((x) => `${x.motif || 'Ponction'} (${x.montant})`).join(' ; '), r.net]);
+    data.push(['TOTAL', '', '', totalBase, '', '', '', '', '', totalRetenue, totalPonctionsAll, '', totalNet]);
     downloadCSV(`paie_${mois}.csv`, [header, ...data]);
+  }
+
+  function setSalaireBase(staffId, value) {
+    if (readOnly) return;
+    const amount = Math.max(0, Number(String(value).replace(',', '.')) || 0);
+    updateState((prev) => ({ ...prev, salaires: { ...(prev.salaires || {}), [staffId]: { ...((prev.salaires || {})[staffId] || {}), base: amount } } }));
+  }
+  function addPonction(staffId) {
+    if (readOnly) return;
+    const montant = Math.max(0, Number(String(pMontant).replace(',', '.')) || 0);
+    if (!montant) return;
+    const item = { id: uid('ponct'), motif: pMotif.trim() || 'Ponction', montant };
+    updateState((prev) => {
+      const all = { ...(prev.ponctionsPaie || {}) };
+      const month = { ...(all[mois] || {}) };
+      month[staffId] = [...(Array.isArray(month[staffId]) ? month[staffId] : []), item];
+      all[mois] = month;
+      return { ...prev, ponctionsPaie: all };
+    });
+    setPMotif(''); setPMontant('');
+  }
+  function removePonction(staffId, ponctionId) {
+    if (readOnly) return;
+    updateState((prev) => {
+      const all = { ...(prev.ponctionsPaie || {}) };
+      const month = { ...(all[mois] || {}) };
+      month[staffId] = (Array.isArray(month[staffId]) ? month[staffId] : []).filter((x) => x.id !== ponctionId);
+      all[mois] = month;
+      return { ...prev, ponctionsPaie: all };
+    });
   }
 
   function setRetenueManuelle(staffId, value) {
@@ -4690,9 +4729,10 @@ function PaieTab({ personnel, pointage, state, updateState, readOnly }) {
         </button>
       </div>
 
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-4 gap-4">
         <StatCard icon={Wallet} label="Masse salariale (base)" value={fmtFCFA(totalBase)} tone="green" />
-        <StatCard icon={AlertTriangle} label="Total retenues" value={fmtFCFA(totalRetenue)} tone="red" />
+        <StatCard icon={AlertTriangle} label="Retenues absences/retards" value={fmtFCFA(totalRetenue)} tone="red" />
+        <StatCard icon={TrendingDown} label="Total ponctions" value={fmtFCFA(totalPonctionsAll)} tone="red" />
         <StatCard icon={CheckCircle2} label="Total net à payer" value={fmtFCFA(totalNet)} tone="gold" />
       </div>
 
@@ -4711,16 +4751,28 @@ function PaieTab({ personnel, pointage, state, updateState, readOnly }) {
           <table className="w-full text-sm">
             <thead>
               <tr className="text-left" style={{ borderBottom: '1px solid var(--line)' }}>
-                {['Nom', 'Salaire de base', 'Présents', 'Absents', 'Retards', 'Congés', 'Heures', 'Retenue', 'Salaire net'].map((h) => (
+                {['Nom', 'Fonction', 'Salaire de base', 'Présents', 'Absents', 'Retards', 'Congés', 'Heures', 'Retenue abs./retards', 'Ponctions', 'Salaire net'].map((h) => (
                   <th key={h} className="px-4 py-3 text-[11px] font-bold uppercase tracking-wide whitespace-nowrap text-muted">{h}</th>
                 ))}
               </tr>
             </thead>
             <tbody>
               {rows.map((r) => (
-                <tr key={r.id} style={{ borderBottom: '1px solid var(--line)' }}>
+                <React.Fragment key={r.id}>
+                <tr style={{ borderBottom: ponctionOuverte === r.id ? 'none' : '1px solid var(--line)' }}>
                   <td className="px-4 py-3 font-semibold whitespace-nowrap text-ink">{personFullName(r) || r.nom}</td>
-                  <td className="px-4 py-3 whitespace-nowrap text-muted">{fmtFCFA(r.salaireBase)}</td>
+                  <td className="px-4 py-3 whitespace-nowrap text-muted">{displayStaffRole(r.role)}</td>
+                  <td className="px-4 py-3 whitespace-nowrap">
+                    {readOnly ? <span className="text-muted">{fmtFCFA(r.salaireBase)}</span> : (
+                      <input
+                        type="number" min="0" step="1000" defaultValue={r.salaireBase || ''} key={`${r.id}-${r.salaireBase}`}
+                        onBlur={(e) => { if (Number(e.target.value || 0) !== Number(r.salaireBase || 0)) setSalaireBase(r.id, e.target.value); }}
+                        aria-label={`Salaire de base de ${personFullName(r)}`}
+                        className="w-28 px-2 py-1 rounded border text-sm" placeholder="0"
+                        style={{ borderColor: 'var(--line)', background: 'var(--panel)', color: 'var(--ink)' }}
+                      />
+                    )}
+                  </td>
                   <td className="px-4 py-3"><Pill tone="green">{r.present}</Pill></td>
                   <td className="px-4 py-3"><Pill tone="red">{r.absent}</Pill></td>
                   <td className="px-4 py-3"><Pill tone="gold">{r.retard}</Pill></td>
@@ -4737,16 +4789,52 @@ function PaieTab({ personnel, pointage, state, updateState, readOnly }) {
                       />
                     ) : <>− {fmtFCFA(r.retenue || 0)}</>}
                   </td>
+                  <td className="px-4 py-3 whitespace-nowrap">
+                    <button
+                      type="button"
+                      onClick={() => { setPonctionOuverte((cur) => (cur === r.id ? null : r.id)); setPMotif(''); setPMontant(''); }}
+                      className="px-2.5 py-1 rounded-lg text-xs font-semibold"
+                      style={r.totalPonctions > 0 ? { background: 'var(--red-l, #fde8e8)', color: 'var(--red)' } : { background: 'var(--bg)', color: 'var(--muted)', border: '1px solid var(--line)' }}
+                      title="Voir / ajouter des ponctions"
+                    >
+                      {r.totalPonctions > 0 ? `− ${fmtFCFA(r.totalPonctions)}` : (readOnly ? '—' : '+ Ponction')}
+                    </button>
+                  </td>
                   <td className="px-4 py-3 font-bold whitespace-nowrap" style={{ color: 'var(--green-d)' }}>{fmtFCFA(r.net)}</td>
                 </tr>
+                {ponctionOuverte === r.id && (
+                  <tr style={{ borderBottom: '1px solid var(--line)', background: 'var(--bg)' }}>
+                    <td colSpan={11} className="px-4 py-3">
+                      <div className="text-xs font-bold uppercase tracking-wide text-muted mb-2">Ponctions de {personFullName(r)} — {monthLabelFr(mois)}</div>
+                      {r.ponctions.length === 0 && <div className="text-xs text-muted mb-2">Aucune ponction ce mois-ci.</div>}
+                      {r.ponctions.map((x) => (
+                        <div key={x.id} className="flex items-center gap-3 text-sm py-1">
+                          <span className="flex-1 text-ink">{x.motif}</span>
+                          <b style={{ color: 'var(--red)' }}>− {fmtFCFA(x.montant)}</b>
+                          {!readOnly && <button type="button" onClick={() => removePonction(r.id, x.id)} className="p-1.5 rounded-lg" style={{ color: 'var(--red)' }} title="Supprimer cette ponction"><Trash2 size={14} /></button>}
+                        </div>
+                      ))}
+                      {!readOnly && (
+                        <div className="flex flex-wrap items-center gap-2 mt-2">
+                          <input value={pMotif} onChange={(e) => setPMotif(e.target.value)} placeholder="Motif (avance, sanction, prêt…)" className="px-3 py-2 rounded-lg border text-sm sygenop-input" style={{ width: 280, maxWidth: '100%' }} />
+                          <input type="number" min="0" step="500" value={pMontant} onChange={(e) => setPMontant(e.target.value)} placeholder="Montant" className="px-3 py-2 rounded-lg border text-sm sygenop-input" style={{ width: 130 }} />
+                          <button type="button" onClick={() => addPonction(r.id)} className="px-3.5 py-2 rounded-lg text-sm font-semibold text-white" style={{ background: 'var(--green-d)' }}>Ajouter</button>
+                        </div>
+                      )}
+                    </td>
+                  </tr>
+                )}
+                </React.Fragment>
               ))}
             </tbody>
             <tfoot>
               <tr>
                 <td className="px-4 py-3 font-bold text-ink">Total</td>
+                <td></td>
                 <td className="px-4 py-3 font-bold text-ink">{fmtFCFA(totalBase)}</td>
                 <td colSpan={5}></td>
                 <td className="px-4 py-3 font-bold" style={{ color: 'var(--red)' }}>− {fmtFCFA(totalRetenue)}</td>
+                <td className="px-4 py-3 font-bold" style={{ color: 'var(--red)' }}>− {fmtFCFA(totalPonctionsAll)}</td>
                 <td className="px-4 py-3 font-bold" style={{ color: 'var(--green-d)' }}>{fmtFCFA(totalNet)}</td>
               </tr>
             </tfoot>
@@ -4754,7 +4842,7 @@ function PaieTab({ personnel, pointage, state, updateState, readOnly }) {
         </div>
       )}
       <p className="text-xs px-1 text-muted">
-        Calcul indicatif : taux journalier = salaire de base ÷ jours ouvrés du mois. Une absence retire un jour complet, un retard un quart de jour. {isPrivateSchool ? 'Les retenues peuvent être ajustées directement dans le tableau.' : 'Les jours fériés ne sont pas encore pris en compte.'}
+        Calcul indicatif : taux journalier = salaire de base ÷ jours ouvrés du mois. Une absence retire un jour complet, un retard un quart de jour. Les ponctions (avances, sanctions…) se saisissent par agent et par mois ; salaire net = base − retenues − ponctions. {isPrivateSchool ? 'Les retenues peuvent être ajustées directement dans le tableau.' : 'Les jours fériés ne sont pas encore pris en compte.'}
       </p>
     </div>
   );
@@ -5655,7 +5743,6 @@ function PersonnelProfileModal({ person, state, updateState, notify, readOnly, o
           <div><b className="text-xs text-muted">Genre</b><div className="text-ink">{person.genre || '—'}</div></div>
           <div><b className="text-xs text-muted">Matricule</b><div className="font-mono text-ink">{staffCardCode(person)}</div></div>
           <div><b className="text-xs text-muted">Date d'embauche</b><div className="text-ink">{person.dateEmbauche ? fmtDateFr(person.dateEmbauche) : '—'}</div></div>
-          <div><b className="text-xs text-muted">Salaire de base</b><div className="text-ink">{fmtFCFA(person.salaireBase)}</div></div>
           <div><b className="text-xs text-muted">Statut</b><div className="text-ink">{person.statut || 'Actif'}</div></div>
           {person.specialites?.length > 0 && (
             <div className="sm:col-span-2"><b className="text-xs text-muted">Spécialités</b><div className="flex flex-wrap gap-1 mt-1">{person.specialites.map((specialite) => <span key={specialite} className="text-[11px] px-2 py-0.5 rounded-full" style={{ background: 'var(--green-l)', color: 'var(--green-d)' }}>{specialite}</span>)}</div></div>
@@ -5792,7 +5879,6 @@ function PersonnelView({ state, loading, updateState, notify, session, readOnly 
   const tabs = [
     { id: 'liste', label: 'Liste du personnel', icon: Users },
     { id: 'pointage', label: 'Pointage', icon: CalendarDays },
-    { id: 'paie', label: 'Paie', icon: Wallet },
     { id: 'absences', label: 'Absences', icon: CalendarX },
     ...(!readOnly ? [{ id: 'demandes', label: 'Demandes de transfert', icon: RotateCcw }] : []),
   ];
@@ -5839,7 +5925,6 @@ function PersonnelView({ state, loading, updateState, notify, session, readOnly 
           </div>
         </div>
       )}
-      {tab === 'paie' && <PaieTab personnel={personnel} pointage={pointage} state={state} updateState={updateState} readOnly={readOnly} />}
       {tab === 'absences' && (
         <div className="space-y-4">
           <StaffAbsencesView state={state} updateState={updateState} notify={notify} session={session} readOnly={readOnly} />
@@ -9647,7 +9732,7 @@ function PaiementsView({ state, loading, updateState, notify, activeSchoolId, ro
   const [level, setLevel] = useState('CI');
   const [classId, setClassId] = useState(null);
   const canSeeRanking = role === 'ief' || role === 'admin';
-  const [viewMode, setViewMode] = useState('suivi'); // suivi | classement | depenses | recap | materiel
+  const [viewMode, setViewMode] = useState('suivi'); // suivi | classement | depenses | recap | materiel | salaires
   const [feesModalOpen, setFeesModalOpen] = useState(false);
   const [paymentModalStudent, setPaymentModalStudent] = useState(null);
   const [invoiceStudent, setInvoiceStudent] = useState(null);
@@ -10031,6 +10116,7 @@ function PaiementsView({ state, loading, updateState, notify, activeSchoolId, ro
           <button onClick={() => setViewMode('depenses')} className="px-3 py-1.5 rounded-lg text-xs font-semibold flex items-center gap-1" style={viewMode === 'depenses' ? { background: 'var(--green-l)', color: 'var(--green-d)' } : { color: 'var(--muted)' }}><TrendingDown size={13} /> Dépenses</button>
           <button onClick={() => setViewMode('verification')} className="px-3 py-1.5 rounded-lg text-xs font-semibold flex items-center gap-1" style={viewMode === 'verification' ? { background: 'var(--green-l)', color: 'var(--green-d)' } : { color: 'var(--muted)' }}><ScanLine size={13} /> Vérifier QR</button>
           <button onClick={() => setViewMode('recap')} className="px-3 py-1.5 rounded-lg text-xs font-semibold flex items-center gap-1" style={viewMode === 'recap' ? { background: 'var(--green-l)', color: 'var(--green-d)' } : { color: 'var(--muted)' }}><Scale size={13} /> Entrées / sorties</button>
+          <button onClick={() => setViewMode('salaires')} className="px-3 py-1.5 rounded-lg text-xs font-semibold flex items-center gap-1" style={viewMode === 'salaires' ? { background: 'var(--green-l)', color: 'var(--green-d)' } : { color: 'var(--muted)' }}><Users size={13} /> Salaires</button>
           {canSeeRanking && <button onClick={() => setViewMode('classement')} className="px-3 py-1.5 rounded-lg text-xs font-semibold flex items-center gap-1" style={viewMode === 'classement' ? { background: 'var(--green-l)', color: 'var(--green-d)' } : { color: 'var(--muted)' }}><Trophy size={13} /> Classement</button>}
         </div>
       )}
@@ -10102,6 +10188,8 @@ function PaiementsView({ state, loading, updateState, notify, activeSchoolId, ro
         />
       ) : viewMode === 'verification' ? (
         <StudentCardVerification state={state} updateState={updateState} notify={notify} />
+      ) : viewMode === 'salaires' ? (
+        <PaieTab personnel={state.personnel || []} pointage={state.pointage || {}} state={state} updateState={updateState} readOnly={readOnly} />
       ) : viewMode === 'recap' ? (
         <RecapTab state={state} notify={notify} session={session} updateState={updateState} />
       ) : viewMode === 'classement' && canSeeRanking ? (
@@ -10432,7 +10520,7 @@ function PaiementsView({ state, loading, updateState, notify, activeSchoolId, ro
         />
       )}
       {expenseModal !== undefined && (
-        <ExpenseModal expense={expenseModal} personnel={state.personnel || []} defaultDate={newExpenseDefaultDate} onSave={saveExpense} onClose={() => setExpenseModal(undefined)} />
+        <ExpenseModal expense={expenseModal} personnel={(state.personnel || []).map((p) => ({ ...p, salaireBase: salaireBaseOf(state, p) }))} defaultDate={newExpenseDefaultDate} onSave={saveExpense} onClose={() => setExpenseModal(undefined)} />
       )}
       {toDeleteExpense && (
         <ConfirmModal
