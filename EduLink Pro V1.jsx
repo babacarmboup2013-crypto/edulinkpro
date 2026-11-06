@@ -9663,17 +9663,21 @@ function MaterielAffectationReceipt({ state, affectation, item, cls }) {
    les autres rôles saisissent le code d'accès du comptable (vérifié côté serveur).
    --------------------------------------------------------------- */
 function ComptaLockGate({ schoolId, session, schoolName, notify, children }) {
-  const exempt = !schoolId || session.role === 'accountant' || session.role === 'admin';
+  // Seul le Comptable/Gestionnaire entre directement : directeur, secrétariat, groupe, IEF et Super Admin
+  // doivent saisir le code. Le déverrouillage est lié à CETTE connexion (jamais hérité d'un autre utilisateur).
+  const exempt = !schoolId || session.role === 'accountant';
+  const sessionToken = `${session.role}|${session.staffId || ''}|${session.expiresAt || ''}`;
   const okKey = `edulink_compta_ok_${schoolId}`;
+  const [tries, setTries] = useState(0);
   const lockKey = `edulink_compta_lock_${schoolId}`;
   const readFlag = (store, key) => { try { return store.getItem(key); } catch { return null; } };
   const writeFlag = (store, key, v) => { try { store.setItem(key, v); } catch { /* stockage indisponible */ } };
-  const [status, setStatus] = useState(exempt ? 'open' : 'checking'); // checking | locked | open
+  const [status, setStatus] = useState(exempt ? 'open' : 'checking'); // checking | locked | open | error
   const [code, setCode] = useState('');
   const [busy, setBusy] = useState(false);
   useEffect(() => {
     if (exempt) { setStatus('open'); return undefined; }
-    if (readFlag(sessionStorage, okKey) === '1') { setStatus('open'); return undefined; }
+    if (readFlag(sessionStorage, okKey) === sessionToken) { setStatus('open'); return undefined; }
     let alive = true;
     setStatus('checking');
     (async () => {
@@ -9682,12 +9686,12 @@ function ComptaLockGate({ schoolId, session, schoolName, notify, children }) {
         writeFlag(localStorage, lockKey, locked ? '1' : '0');
         if (alive) setStatus(locked ? 'locked' : 'open');
       } catch {
-        // Hors ligne : on garde le dernier état connu (verrouillé si l'école l'était).
-        if (alive) setStatus(readFlag(localStorage, lockKey) === '1' ? 'locked' : 'open');
+        // Vérification impossible : on ne laisse jamais la Comptabilité ouverte par défaut.
+        if (alive) setStatus('error');
       }
     })();
     return () => { alive = false; };
-  }, [schoolId, session.role]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [schoolId, session.role, sessionToken, tries]); // eslint-disable-line react-hooks/exhaustive-deps
   async function unlock(e) {
     e.preventDefault();
     if (busy) return;
@@ -9696,7 +9700,7 @@ function ComptaLockGate({ schoolId, session, schoolName, notify, children }) {
     setBusy(true);
     try {
       const ok = (await sb('POST', 'rpc/check_compta_code', '', { p_school_id: schoolId, p_code: value })) === true;
-      if (ok) { writeFlag(sessionStorage, okKey, '1'); setStatus('open'); setCode(''); }
+      if (ok) { writeFlag(sessionStorage, okKey, sessionToken); setStatus('open'); setCode(''); }
       else notify('Code d\u2019accès Comptabilité incorrect', true);
     } catch (err) {
       const m = sbErrMsg(err);
@@ -9704,6 +9708,15 @@ function ComptaLockGate({ schoolId, session, schoolName, notify, children }) {
     } finally { setBusy(false); }
   }
   if (status === 'open') return children;
+  if (status === 'error') {
+    return (
+      <div className="max-w-md mx-auto sygenop-card p-6 space-y-3 mt-6 text-center">
+        <div className="font-extrabold text-ink">Accès à la Comptabilité indisponible</div>
+        <p className="text-xs text-muted">Impossible de vérifier l\u2019accès pour le moment. Vérifiez la connexion puis réessayez.</p>
+        <button type="button" onClick={() => setTries((n) => n + 1)} className="px-4 py-2 rounded-lg text-sm font-semibold text-white" style={{ background: 'var(--green-d)' }}>Réessayer</button>
+      </div>
+    );
+  }
   if (status === 'checking') {
     return <div className="sygenop-card p-8 text-sm text-muted flex items-center gap-2"><Loader2 size={16} className="animate-spin" /> Vérification de l\u2019accès à la Comptabilité…</div>;
   }
