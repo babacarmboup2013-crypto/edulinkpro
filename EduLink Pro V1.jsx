@@ -10654,21 +10654,24 @@ const cleanDomains = domains
           {!evalType && <Pill tone="gold">Barème général : /{total}</Pill>}
           {!evalType && dirty && <Pill tone="red">Non enregistré</Pill>}
         </div>
-        <div className="w-full flex flex-wrap items-center gap-1.5 p-1 rounded-xl" style={{ background: 'var(--bg)', border: '1px solid var(--line)' }}>
-          <span className="text-[11px] font-bold uppercase tracking-wide text-muted px-2">Barème de</span>
-          {[{ key: '', label: 'Général (par défaut)' }, ...EVALUATION_TYPES].map((t) => {
-            const custom = !!t.key && !!evaluationBaremeOverrides(state, level, `T1::${t.key}`);
-            return (
-              <button
-                key={t.key || 'general'}
-                onClick={() => { if (!evalType && dirty && t.key && !window.confirm('Des modifications du barème général ne sont pas enregistrées. Continuer sans les enregistrer ?')) return; setEvalType(t.key); }}
-                className="px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors"
-                style={evalType === t.key ? { background: 'var(--green-d)', color: '#fff' } : { color: 'var(--muted)' }}
-              >
-                {t.label}{custom ? ' •' : ''}
-              </button>
-            );
-          })}
+        <div className="w-full flex flex-wrap items-center gap-2">
+          <label htmlFor="bareme-eval-select" className="text-[11px] font-bold uppercase tracking-wide text-muted">Barème de l'évaluation</label>
+          <select
+            id="bareme-eval-select"
+            value={evalType}
+            onChange={(e) => {
+              const next = e.target.value;
+              if (!evalType && dirty && next && !window.confirm('Des modifications du barème général ne sont pas enregistrées. Continuer sans les enregistrer ?')) return;
+              setEvalType(next);
+            }}
+            className="px-3 py-2 rounded-lg border text-sm font-semibold sygenop-input"
+            style={{ minWidth: 260 }}
+          >
+            <option value="">Barème général (par défaut)</option>
+            {EVALUATION_TYPES.map((t) => (
+              <option key={t.key} value={t.key}>{t.label}{evaluationBaremeOverrides(state, level, `T1::${t.key}`) ? ' • barème propre' : ' — barème général'}</option>
+            ))}
+          </select>
         </div>
       </div>
 
