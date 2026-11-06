@@ -9573,6 +9573,76 @@ function MaterielAffectationReceipt({ state, affectation, item, cls }) {
   return <div className="recu-sheet sygenop-card p-6"><div className="flex justify-between items-start"><div className="flex items-center gap-2"><SchoolLogoMark state={state} width={48} /><div><h2 className="font-bold">{state?.header?.ecole || 'EduLink Pro'}</h2><p className="text-xs">La plateforme intelligente de gestion scolaire</p></div></div><img src={qr} alt="QR code du reçu" width="80" height="80" /></div><h3 className="text-center font-bold py-2 mt-3" style={{ background: '#0a1e3d', color: '#fff' }}>REÇU D’AFFECTATION DE MATÉRIEL</h3><div className="space-y-2 mt-4 text-sm"><div><b>Code :</b> {code}</div><div><b>Date :</b> {fmtDateFr(affectation.date)}</div><div><b>Classe :</b> {cls?.name} — {cls?.level}</div><div><b>Matériel :</b> {item?.nom}</div><div><b>Catégorie :</b> {item?.categorie || '—'}</div><div><b>Quantité affectée :</b> {affectation.quantite}</div></div><p className="text-xs mt-6 text-muted">Document vérifiable avec le QR code.</p></div>;
 }
 
+/* ---------------------------------------------------------------
+   Comptabilité verrouillée (ex. GS BPEN) : seul le Comptable/Gestionnaire entre directement ;
+   les autres rôles saisissent le code d'accès du comptable (vérifié côté serveur).
+   --------------------------------------------------------------- */
+function ComptaLockGate({ schoolId, session, schoolName, notify, children }) {
+  const exempt = !schoolId || session.role === 'accountant' || session.role === 'admin';
+  const okKey = `edulink_compta_ok_${schoolId}`;
+  const lockKey = `edulink_compta_lock_${schoolId}`;
+  const readFlag = (store, key) => { try { return store.getItem(key); } catch { return null; } };
+  const writeFlag = (store, key, v) => { try { store.setItem(key, v); } catch { /* stockage indisponible */ } };
+  const [status, setStatus] = useState(exempt ? 'open' : 'checking'); // checking | locked | open
+  const [code, setCode] = useState('');
+  const [busy, setBusy] = useState(false);
+  useEffect(() => {
+    if (exempt) { setStatus('open'); return undefined; }
+    if (readFlag(sessionStorage, okKey) === '1') { setStatus('open'); return undefined; }
+    let alive = true;
+    setStatus('checking');
+    (async () => {
+      try {
+        const locked = (await sb('POST', 'rpc/compta_est_verrouillee', '', { p_school_id: schoolId })) === true;
+        writeFlag(localStorage, lockKey, locked ? '1' : '0');
+        if (alive) setStatus(locked ? 'locked' : 'open');
+      } catch {
+        // Hors ligne : on garde le dernier état connu (verrouillé si l'école l'était).
+        if (alive) setStatus(readFlag(localStorage, lockKey) === '1' ? 'locked' : 'open');
+      }
+    })();
+    return () => { alive = false; };
+  }, [schoolId, session.role]); // eslint-disable-line react-hooks/exhaustive-deps
+  async function unlock(e) {
+    e.preventDefault();
+    if (busy) return;
+    const value = String(code || '').trim();
+    if (!value) { notify('Saisissez le code d\u2019accès Comptabilité', true); return; }
+    setBusy(true);
+    try {
+      const ok = (await sb('POST', 'rpc/check_compta_code', '', { p_school_id: schoolId, p_code: value })) === true;
+      if (ok) { writeFlag(sessionStorage, okKey, '1'); setStatus('open'); setCode(''); }
+      else notify('Code d\u2019accès Comptabilité incorrect', true);
+    } catch (err) {
+      const m = sbErrMsg(err);
+      notify(/trop de tentatives/i.test(m) ? m : 'Vérification impossible pour le moment. Réessayez.', true);
+    } finally { setBusy(false); }
+  }
+  if (status === 'open') return children;
+  if (status === 'checking') {
+    return <div className="sygenop-card p-8 text-sm text-muted flex items-center gap-2"><Loader2 size={16} className="animate-spin" /> Vérification de l\u2019accès à la Comptabilité…</div>;
+  }
+  return (
+    <div className="max-w-md mx-auto sygenop-card p-6 space-y-4 mt-6">
+      <div className="flex items-center gap-3">
+        <div className="w-11 h-11 rounded-xl flex items-center justify-center" style={{ background: 'var(--gold-l)', color: 'var(--gold)' }}><KeyRound size={20} /></div>
+        <div>
+          <div className="font-extrabold text-ink">Comptabilité verrouillée</div>
+          <div className="text-xs text-muted">{schoolName || 'Cet établissement'} — accès réservé au Comptable/Gestionnaire</div>
+        </div>
+      </div>
+      <form onSubmit={unlock} className="space-y-3">
+        <label className="block text-xs font-bold uppercase tracking-wide text-muted" htmlFor="compta-code">Code d\u2019accès Comptabilité</label>
+        <input id="compta-code" type="password" autoComplete="off" value={code} onChange={(e) => setCode(e.target.value)} className="w-full px-3 py-2.5 rounded-lg border text-sm sygenop-input" placeholder="Code du comptable" />
+        <button type="submit" disabled={busy} className="w-full px-4 py-2.5 rounded-lg text-sm font-semibold text-white disabled:opacity-60" style={{ background: 'var(--green-d)' }}>
+          {busy ? 'Vérification…' : 'Déverrouiller'}
+        </button>
+      </form>
+      <p className="text-xs text-muted">Demandez ce code au Comptable/Gestionnaire de l\u2019école. L\u2019accès reste ouvert jusqu\u2019à la déconnexion.</p>
+    </div>
+  );
+}
+
 function PaiementsView({ state, loading, updateState, notify, activeSchoolId, role, readOnly, session }) {
   const [level, setLevel] = useState('CI');
   const [classId, setClassId] = useState(null);
@@ -14641,6 +14711,7 @@ function handleLogout() {
         }),
       }));
     }
+    try { Object.keys(sessionStorage).filter((k) => k.startsWith('edulink_compta_ok_')).forEach((k) => sessionStorage.removeItem(k)); } catch { /* ignore */ }
     setSession(null);
     setActiveSchoolId(null);
     setActiveSchoolName('');
@@ -14827,6 +14898,7 @@ function openSchool(id, name, actif) {
     body = <BulletinView state={schoolState} loading={loadingState} teacherName={teacherName} />;
   } else if (active === 'paiements') {
     body = (
+      <ComptaLockGate schoolId={activeSchoolId} session={session} schoolName={activeSchoolName} notify={notify}>
       <PaiementsView
         state={schoolState}
         loading={loadingState}
@@ -14838,6 +14910,7 @@ function openSchool(id, name, actif) {
         readOnly={readOnly}
         session={session}
       />
+      </ComptaLockGate>
     );
   } else if (active === 'admin') {
     body = <AdminView state={schoolState} loading={loadingState} updateState={updateState} notify={notify} readOnly={readOnly} session={session} />;
