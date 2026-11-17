@@ -12531,7 +12531,7 @@ function RestrictionsModal({ school, onSave, onClose }) {
 /* ============================================================
    SUPER ADMIN — Gestion des écoles & des administrateurs
    ============================================================ */
-function SchoolModal({ school, onSave, onClose, iefOptions, fixedIefName, groupeOptions, fixedGroupeName }) {
+function SchoolModal({ school, onSave, onClose, notify, iefOptions, fixedIefName, groupeOptions, fixedGroupeName }) {
   const isEdit = !!school;
 const initialCycles = (() => {
     const base = school?.cycles && Array.isArray(school.cycles) && school.cycles.length ? school.cycles : (school?.cycle ? [school.cycle] : []);
@@ -12564,6 +12564,21 @@ const initialCycles = (() => {
     if (!form.name.trim()) return;
     if (!form.cycles || form.cycles.length === 0) return;
     if (!String(form.code).trim()) return;
+    // Un groupe scolaire (2+ cycles) se crée UNIQUEMENT depuis l'onglet
+    // « Groupes scolaires », qui génère une école membre par cycle. Créer la
+    // fiche ici avec plusieurs cycles ne produit qu'UNE ligne dans `schools`
+    // (cycle principal) : les autres cycles ne remontent jamais dans le
+    // compte groupe. On bloque donc la création et on guide l'utilisateur.
+    if (!isEdit && (form.cycles || []).length >= 2) {
+      if (notify) notify('Pour créer un établissement avec plusieurs cycles, utilisez l’onglet « Groupes scolaires » (une école membre est créée par cycle). Ici, cochez un seul cycle.', true);
+      return;
+    }
+    // Anciennes fiches multi-cycles créées depuis cet onglet : exiger le
+    // rattachement au groupe, sinon le compte groupe ne voit aucune donnée.
+    if (isEdit && (form.cycles || []).length >= 2 && groupeOptions && !form.groupe_id) {
+      if (notify) notify('Cette fiche couvre plusieurs cycles : sélectionnez le Groupe scolaire de rattachement pour que ses données remontent dans le compte groupe.', true);
+      return;
+    }
     setBusy(true);
     await onSave({ ...form, name: form.name.trim(), code: String(form.code).trim(), cycle: form.cycles[0] || '' });
     setBusy(false);
@@ -12572,6 +12587,7 @@ const initialCycles = (() => {
   const primaryCycle = form.cycles[0] || '';
   const cyclesValid = form.cycles && form.cycles.length > 0;
   const isGroupeScolaire = (form.cycles || []).length >= 2;
+  const missingGroupeForMulti = isEdit && isGroupeScolaire && !!groupeOptions && !form.groupe_id;
   const fieldStyle = { borderColor: 'var(--line)', background: 'var(--panel)', color: 'var(--ink)' };
 
   return (
@@ -12600,7 +12616,7 @@ const initialCycles = (() => {
             </select>
           </div>
           <div>
-            <label className="text-xs font-semibold block mb-1 text-muted">Cycles couverts * <span className="font-normal">({form.cycles.length}/5 — 1 cycle = école simple, 2 à 5 = groupe scolaire)</span></label>
+            <label className="text-xs font-semibold block mb-1 text-muted">Cycles couverts * <span className="font-normal">({form.cycles.length}/5 — 1 cycle = école simple. Pour 2 cycles ou plus, créez un groupe depuis l’onglet « Groupes scolaires »)</span></label>
             <div className="grid grid-cols-1 gap-1.5">
               {CYCLE_OPTIONS.map((cycle) => {
                 const checked = (form.cycles || []).includes(cycle.value);
@@ -12624,6 +12640,14 @@ const initialCycles = (() => {
             </div>
             {!cyclesValid && form.cycles.length === 0 && (
               <p className="text-[11px] mt-1 text-muted">Sélectionnez au moins 1 cycle pour créer l'école.</p>
+            )}
+            {isGroupeScolaire && (
+              <div className="mt-2 rounded-lg px-3 py-2 text-[11px] leading-relaxed" style={{ background: '#fff7ed', color: '#9a3412', border: '1px solid #fed7aa' }}>
+                <b>{isEdit ? 'Fiche multi-cycles héritée.' : 'Plusieurs cycles cochés.'}</b>{' '}
+                {isEdit
+                  ? 'Une seule fiche « école » ne porte qu’un seul cycle de données. Le compte groupe affichera cette école une seule fois (cycle principal). Renseignez bien le rattachement au groupe ci-dessous, puis créez une seconde école (un seul cycle chacune) pour que les deux cycles remontent séparément.'
+                  : 'La création d’un groupe avec plusieurs cycles se fait depuis l’onglet « Groupes scolaires » : une école membre est créée automatiquement pour chaque cycle. Cochez un seul cycle ici, ou annulez et utilisez cet onglet.'}
+              </div>
             )}
           </div>
           <div>
@@ -12651,11 +12675,16 @@ const initialCycles = (() => {
           ) : null}
           {groupeOptions ? (
             <div>
-              <label className="text-xs font-semibold block mb-1 text-muted">Groupe scolaire de rattachement</label>
-              <select value={form.groupe_id} onChange={(e) => set('groupe_id', e.target.value)} className="w-full px-3 py-2.5 rounded-lg border text-sm" style={fieldStyle}>
+              <label className="text-xs font-semibold block mb-1 text-muted">Groupe scolaire de rattachement {missingGroupeForMulti && <span style={{ color: 'var(--red)' }}>*</span>}</label>
+              <select value={form.groupe_id} onChange={(e) => set('groupe_id', e.target.value)} className="w-full px-3 py-2.5 rounded-lg border text-sm" style={missingGroupeForMulti ? { ...fieldStyle, borderColor: 'var(--red)' } : fieldStyle}>
                 <option value="">— Aucun —</option>
                 {groupeOptions.map((g) => <option key={g.id} value={g.id}>{g.nom}</option>)}
               </select>
+              {missingGroupeForMulti && (
+                <p className="text-[11px] mt-1 font-semibold" style={{ color: 'var(--red)' }}>
+                  Obligatoire pour cette fiche multi-cycles : sans groupe, aucune donnée n’apparaîtra dans le compte groupe.
+                </p>
+              )}
             </div>
           ) : fixedGroupeName ? (
             <div className="text-[11px] px-3 py-2 rounded-lg" style={{ background: 'var(--green-l)', color: 'var(--green-d)' }}>
@@ -13188,6 +13217,7 @@ const st = await loadSchoolData(modal.id);
           school={modal === 'new' ? null : modal}
           onSave={handleSave}
           onClose={() => setModal(null)}
+          notify={notify}
           iefOptions={isGlobalAdmin && iefList.length ? iefList : null}
           fixedIefName={!isGlobalAdmin ? (session && session.iefName) : null}
           groupeOptions={isGlobalAdmin && groupeList.length ? groupeList : null}
