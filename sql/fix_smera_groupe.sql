@@ -46,7 +46,7 @@ begin
 
   if v_id is null then
     insert into public.groupes_scolaires (nom, code, cycles, actif)
-    values ('Groupe scolaire SMERA', 'SMERA-G', array['elementaire', 'moyen']::text[], true)
+    values ('GS SMERA SCHOOL', 'SMERA-G', array['elementaire', 'moyen']::text[], true)
     returning id into v_id;
   end if;
 
