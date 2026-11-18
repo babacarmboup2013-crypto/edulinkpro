@@ -103,7 +103,6 @@ where u.cycle is not null
 -- ------------------------------------------------------------
 -- 4) Crée les écoles membres manquantes
 -- ------------------------------------------------------------
-insert into smera_created(id)
 with ins as (
   insert into public.schools
     (name, type, cycle, cycles, directeur, code, actif, ief_id, groupe_id)
@@ -129,6 +128,7 @@ with ins as (
   cross join smera_ctx ctx
   returning id
 )
+insert into smera_created(id)
 select id from ins;
 
 -- ------------------------------------------------------------
