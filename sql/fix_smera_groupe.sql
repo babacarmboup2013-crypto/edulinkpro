@@ -213,7 +213,7 @@ commit;
 -- Vérification finale (à lire après exécution)
 select g.nom, g.code, g.cycles,
        s.name, s.code as code_ecole, s.cycle, s.actif,
-       coalesce(jsonb_object_length(sd.payload->'classes'), 0) as nb_classes
+       (select count(*) from jsonb_each(coalesce(sd.payload->'classes', '{}'::jsonb))) as nb_classes
 from public.groupes_scolaires g
 join public.schools s on s.groupe_id = g.id
 left join public.school_data sd on sd.school_id = s.id
