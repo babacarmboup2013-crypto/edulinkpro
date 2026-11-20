@@ -3128,9 +3128,10 @@ const NAV_ITEMS = (session) => {
       { id: 'mesdemandes', label: 'Mes demandes', icon: ClipboardCheck, needsSchool: true },
       PERSONNEL_SPACE_ITEM,
       {
-        id: 'eleves', label: 'Élèves', icon: GraduationCap, needsSchool: true, expandable: true,
+        id: 'eleves', label: 'Classes', icon: GraduationCap, needsSchool: true, expandable: true,
         children: [
-          { id: 'classes', label: 'Classes et élèves' },
+          { id: 'classes', label: 'Espace élèves' },
+          { id: 'enseignants', label: 'Espace Enseignants' },
         ],
       },
     );
@@ -3156,7 +3157,7 @@ const NAV_ITEMS = (session) => {
       { id: 'mesdemandes', label: 'Mes demandes', icon: ClipboardCheck, needsSchool: true },
       { id: 'personnel', label: 'Personnel', icon: Users, needsSchool: true },
       PERSONNEL_SPACE_ITEM,
-      { id: 'eleves', label: 'Élèves', icon: GraduationCap, needsSchool: true, expandable: true, children: [{ id: 'classes', label: 'Classes et élèves' }] },
+      { id: 'eleves', label: 'Classes', icon: GraduationCap, needsSchool: true, expandable: true, children: [{ id: 'classes', label: 'Espace élèves' }, { id: 'enseignants', label: 'Espace Enseignants' }] },
       { id: 'data', label: 'Données', icon: Database, needsSchool: true },
     ];
   }
@@ -3167,9 +3168,10 @@ const NAV_ITEMS = (session) => {
     { id: 'personnel', label: 'Personnel', icon: Users, needsSchool: true },
     PERSONNEL_SPACE_ITEM,
     {
-      id: 'eleves', label: 'Élèves', icon: GraduationCap, needsSchool: true, expandable: true,
+      id: 'eleves', label: 'Classes', icon: GraduationCap, needsSchool: true, expandable: true,
       children: [
-        { id: 'classes', label: 'Classes et élèves' },
+        { id: 'classes', label: 'Espace élèves' },
+      { id: 'enseignants', label: 'Espace Enseignants' },
       ],
     },
     { id: 'paiements', label: 'Comptabilité', icon: CreditCard, needsSchool: true },
@@ -3185,7 +3187,8 @@ const PAGE_TITLES = {
   personnel: ['Personnel', 'Gestion du personnel et pointage'],
   mesdemandes: ['Mes demandes', 'Autorisation d\u2019absence et demande d\u2019attestation de service'],
   actualites: ['Actualités', 'Publications et informations de l\u2019école'],
-  classes: ['Classes et élèves', 'Gestion des classes et des élèves'],
+  classes: ['Espace élèves', 'Gestion des classes et des élèves'],
+  enseignants: ['Espace Enseignants', 'Espace enseignants — disponible en V2'],
   saisie: ['Saisie des notes', 'Élèves — Saisie des notes'],
   synth: ['Synthèse', 'Élèves — Synthèse'],
   bull: ['Bulletins', 'Élèves — Bulletins'],
@@ -6203,7 +6206,7 @@ function TimetableView({ state, classId, teacherName, updateState, notify, readO
 function StudentSectionNav({ section, onChange }) {
   return (
     <div className="no-print flex flex-wrap gap-1.5 p-1 rounded-xl w-fit" style={{ background: 'var(--panel)', border: '1px solid var(--line)' }}>
-      {[['classes', 'Classes et élèves'], ['appel', 'Faire l\u2019appel'], ['rapport', 'Statistiques'], ['timetable', 'Emploi du temps'], ['synth', 'Synthèse'], ['bull', 'Bulletins']].map(([id, label]) => (
+      {[['classes', 'Espace élèves'], ['appel', 'Faire l\u2019appel'], ['rapport', 'Statistiques'], ['timetable', 'Emploi du temps'], ['synth', 'Synthèse'], ['bull', 'Bulletins']].map(([id, label]) => (
         <button key={id} onClick={() => onChange(id)} className="px-3.5 py-2 rounded-lg text-sm font-semibold" style={section === id ? { background: 'var(--green-d)', color: '#fff' } : { color: 'var(--muted)' }}>
           {label}
         </button>
@@ -6346,10 +6349,10 @@ function saveClass(form) {
   );
 
   if (studentSection === 'appel') {
-    return <div className="space-y-4 sygenop-fade">{commonStudentHeader}{currentClass ? <AppelView state={state} updateState={updateState} notify={notify} teacherStaffId={teacherStaffId} readOnly={readOnly} fixedClassId={classId} /> : <div className="sygenop-card p-5 text-sm text-muted">Sélectionnez d'abord une classe dans l'onglet « Classes et élèves ».</div>}</div>;
+    return <div className="space-y-4 sygenop-fade">{commonStudentHeader}{currentClass ? <AppelView state={state} updateState={updateState} notify={notify} teacherStaffId={teacherStaffId} readOnly={readOnly} fixedClassId={classId} /> : <div className="sygenop-card p-5 text-sm text-muted">Sélectionnez d'abord une classe dans l'onglet « Espace élèves ».</div>}</div>;
   }
   if (studentSection === 'rapport') {
-    return <div className="space-y-4 sygenop-fade">{commonStudentHeader}{currentClass ? <PresenceRapportView state={state} fixedClassId={classId} /> : <div className="sygenop-card p-5 text-sm text-muted">Sélectionnez d'abord une classe dans l'onglet « Classes et élèves ».</div>}</div>;
+    return <div className="space-y-4 sygenop-fade">{commonStudentHeader}{currentClass ? <PresenceRapportView state={state} fixedClassId={classId} /> : <div className="sygenop-card p-5 text-sm text-muted">Sélectionnez d'abord une classe dans l'onglet « Espace élèves ».</div>}</div>;
   }
   if (studentSection === 'timetable') {
     return <div className="space-y-4 sygenop-fade">{commonStudentHeader}<TimetableView state={state} classId={classId} teacherName={teacherName} updateState={updateState} notify={notify} readOnly={true} /></div>;
@@ -11999,6 +12002,46 @@ function PersonnelSpaceView() {
 }
 
 /* ============================================================
+   ESPACE ENSEIGNANTS — sous-rubrique « Classes » (V2)
+   ============================================================ */
+function EnseignantsSpaceView() {
+  const modules = [
+    { title: 'Fiches enseignants', desc: 'Fiches individuelles et coordonnées des enseignants.' },
+    { title: 'Affectations', desc: 'Classes, niveaux et matières confiés à chaque enseignant.' },
+    { title: 'Emplois du temps', desc: 'Planning des cours et des interventions pédagogiques.' },
+    { title: 'Suivi pédagogique', desc: 'Suivi des programmes, évaluations et réunions pédagogiques.' },
+  ];
+  return (
+    <div className="sygenop-card p-8 max-w-3xl mx-auto sygenop-fade">
+      <div className="flex items-start gap-3">
+        <div className="w-12 h-12 rounded-2xl flex items-center justify-center flex-shrink-0" style={{ background: 'var(--gold-l)', color: 'var(--gold)' }}>
+          <GraduationCap size={22} />
+        </div>
+        <div>
+          <div className="flex items-center gap-2 flex-wrap">
+            <h2 className="text-lg font-bold text-ink">Espace Enseignants</h2>
+            <span className="text-[10px] font-bold px-2 py-0.5 rounded" style={{ background: 'var(--gold-l)', color: '#8a6d00' }}>V2</span>
+          </div>
+          <p className="text-sm text-muted mt-1">
+            Cette sous-rubrique est en place dans « Classes ». Les fonctionnalités détaillées
+            seront activées dans la <b>V2</b>.
+          </p>
+        </div>
+      </div>
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mt-6">
+        {modules.map((m) => (
+          <div key={m.title} className="rounded-lg border p-3" style={{ borderColor: 'var(--line)', background: 'var(--panel)' }}>
+            <div className="font-semibold text-sm text-ink mb-0.5">{m.title}</div>
+            <div className="text-xs text-muted">{m.desc}</div>
+          </div>
+        ))}
+      </div>
+      <p className="text-xs text-muted mt-5">Aucune donnée n’est encore enregistrée dans cette rubrique.</p>
+    </div>
+  );
+}
+
+/* ============================================================
    LISTE DES ÉCOLES (IEF / Admin lecture seule)
    ============================================================ */
 const ALL_CYCLES = '__tous__';
@@ -15121,6 +15164,8 @@ function openSchool(id, name, actif) {
         activeSchoolName={activeSchoolName}
       />
     );
+    } else if (active === 'enseignants') {
+    body = <EnseignantsSpaceView />;
     } else if (active === 'personnel_space') {
     body = <PersonnelSpaceView />;
     } else {
