@@ -3098,6 +3098,16 @@ function allowedPagesFor(session) {
   return ids;
 }
 
+// Rubrique « espace de discussion et de réunions du personnel » : la place est
+// réservée dans la navigation dès la V1, mais les fonctions arrivent en V2.
+const PERSONNEL_SPACE_ITEM = {
+  id: 'personnel_space',
+  label: 'Espace personnel',
+  icon: MessageCircle,
+  needsSchool: true,
+  badge: 'V2',
+};
+
 const NAV_ITEMS = (session) => {
   const items = [];
   // La consultation de circonscription (« Vue d'ensemble IEF »)
@@ -3116,6 +3126,7 @@ const NAV_ITEMS = (session) => {
       { id: 'dash', label: 'Tableau de bord', icon: LayoutDashboard, needsSchool: true },
       { id: 'actualites', label: 'Actualités', icon: MessageCircle, needsSchool: true },
       { id: 'mesdemandes', label: 'Mes demandes', icon: ClipboardCheck, needsSchool: true },
+      PERSONNEL_SPACE_ITEM,
       {
         id: 'eleves', label: 'Élèves', icon: GraduationCap, needsSchool: true, expandable: true,
         children: [
@@ -3133,6 +3144,7 @@ const NAV_ITEMS = (session) => {
       { id: 'dash', label: 'Tableau de bord', icon: LayoutDashboard, needsSchool: true },
       { id: 'paiements', label: 'Comptabilité', icon: CreditCard, needsSchool: true },
       { id: 'mesdemandes', label: 'Mes demandes', icon: ClipboardCheck, needsSchool: true },
+      PERSONNEL_SPACE_ITEM,
       { id: 'data', label: 'Données', icon: Database, needsSchool: true },
     ];
   }
@@ -3143,6 +3155,7 @@ const NAV_ITEMS = (session) => {
       { id: 'actualites', label: 'Actualités', icon: MessageCircle, needsSchool: true },
       { id: 'mesdemandes', label: 'Mes demandes', icon: ClipboardCheck, needsSchool: true },
       { id: 'personnel', label: 'Personnel', icon: Users, needsSchool: true },
+      PERSONNEL_SPACE_ITEM,
       { id: 'eleves', label: 'Élèves', icon: GraduationCap, needsSchool: true, expandable: true, children: [{ id: 'classes', label: 'Classes et élèves' }] },
       { id: 'data', label: 'Données', icon: Database, needsSchool: true },
     ];
@@ -3152,6 +3165,7 @@ const NAV_ITEMS = (session) => {
     { id: 'admin', label: 'Administration', icon: Settings, needsSchool: true },
     { id: 'actualites', label: 'Actualités', icon: MessageCircle, needsSchool: true },
     { id: 'personnel', label: 'Personnel', icon: Users, needsSchool: true },
+    PERSONNEL_SPACE_ITEM,
     {
       id: 'eleves', label: 'Élèves', icon: GraduationCap, needsSchool: true, expandable: true,
       children: [
@@ -3256,6 +3270,11 @@ function Sidebar({ session, active, setActive, mobileOpen, setMobileOpen, hasAct
               >
                 <item.icon size={16} className="w-[18px]" />
                 {item.label}
+                {item.badge && (
+                  <span className="ml-auto text-[9px] font-bold px-1.5 py-0.5 rounded" style={{ background: 'var(--gold, #ffd100)', color: '#0a1e3d' }}>
+                    {item.badge}
+                  </span>
+                )}
               </button>
             );
           })}
@@ -11939,6 +11958,47 @@ function ComingSoonView({ view }) {
 }
 
 /* ============================================================
+   ESPACE DE DISCUSSION & DE RÉUNIONS DU PERSONNEL
+   La rubrique existe dès la V1 ; les fonctions arrivent en V2.
+   ============================================================ */
+function PersonnelSpaceView() {
+  const modules = [
+    { title: 'Discussions', desc: 'Échanges entre les membres du personnel de l’établissement.' },
+    { title: 'Réunions', desc: 'Planification des réunions pédagogiques et administratives.' },
+    { title: 'Ordres du jour', desc: 'Préparation et partage des points à traiter.' },
+    { title: 'Comptes rendus', desc: 'Archivage des décisions et des synthèses de réunion.' },
+  ];
+  return (
+    <div className="sygenop-card p-8 max-w-3xl mx-auto sygenop-fade">
+      <div className="flex items-start gap-3">
+        <div className="w-12 h-12 rounded-2xl flex items-center justify-center flex-shrink-0" style={{ background: 'var(--gold-l)', color: 'var(--gold)' }}>
+          <MessageCircle size={22} />
+        </div>
+        <div>
+          <div className="flex items-center gap-2 flex-wrap">
+            <h2 className="text-lg font-bold text-ink">Espace de discussion & de réunions du personnel</h2>
+            <span className="text-[10px] font-bold px-2 py-0.5 rounded" style={{ background: 'var(--gold-l)', color: '#8a6d00' }}>V2</span>
+          </div>
+          <p className="text-sm text-muted mt-1">
+            La rubrique est en place dans l’application. Les fonctionnalités de discussion et de
+            réunion seront activées dans la <b>V2</b>.
+          </p>
+        </div>
+      </div>
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mt-6">
+        {modules.map((m) => (
+          <div key={m.title} className="rounded-lg border p-3" style={{ borderColor: 'var(--line)', background: 'var(--panel)' }}>
+            <div className="font-semibold text-sm text-ink mb-0.5">{m.title}</div>
+            <div className="text-xs text-muted">{m.desc}</div>
+          </div>
+        ))}
+      </div>
+      <p className="text-xs text-muted mt-5">Aucune donnée n’est encore enregistrée dans cette rubrique.</p>
+    </div>
+  );
+}
+
+/* ============================================================
    LISTE DES ÉCOLES (IEF / Admin lecture seule)
    ============================================================ */
 const ALL_CYCLES = '__tous__';
@@ -15061,6 +15121,8 @@ function openSchool(id, name, actif) {
         activeSchoolName={activeSchoolName}
       />
     );
+    } else if (active === 'personnel_space') {
+    body = <PersonnelSpaceView />;
     } else {
     body = <ComingSoonView view={active} />;
   }
