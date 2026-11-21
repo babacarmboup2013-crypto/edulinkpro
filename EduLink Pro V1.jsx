@@ -2209,6 +2209,9 @@ function GlobalStyles({ dark }) {
       .sygenop-btn--sm{ padding:.4rem .7rem; font-size:.78rem; border-radius:.5rem; }
       .sygenop-btn--gold{ background:var(--gold); color:#172033; transition:transform .15s ease, box-shadow .2s ease, background .2s ease; }
       .sygenop-btn--gold:hover{ box-shadow:0 8px 18px -6px rgba(255,209,0,.5); background:var(--gold-hover); }
+      .sygenop-cta{ background:var(--gold)!important; color:#0a1e3d!important; font-weight:700; box-shadow:0 8px 24px -8px rgba(255,209,0,.55); transition:transform .2s cubic-bezier(.2,0,0,1), box-shadow .2s, background .2s; }
+      .sygenop-cta:hover{ background:#ffd100!important; color:#0a1e3d!important; transform:translateY(-1px); box-shadow:0 12px 28px -8px rgba(255,209,0,.75); }
+      .sygenop-eyebrow{ font-size:10px; font-weight:800; letter-spacing:.14em; text-transform:uppercase; color:var(--gold); line-height:1.2; }
       .sygenop-input{ width:100%; padding:.65rem .9rem; border-radius:.65rem; border:1px solid var(--line); background:var(--panel); color:var(--ink); font-size:.9rem; transition:border-color .2s, box-shadow .2s; }
 
       /* ---------- Tableaux : lisibilité + lignes alternées + survol ---------- */
@@ -3294,7 +3297,7 @@ function Sidebar({ session, active, setActive, mobileOpen, setMobileOpen, hasAct
   );
 }
 
-function Topbar({ title, sub, session, schoolName, dark, setDark, onLogout, setMobileOpen, countdownMs, annee, periodeKey, periodeLabel, periodeOptions = [], canEditPeriode, onPeriodeChange }) {
+function Topbar({ title, sub, session, schoolName, dark, setDark, onLogout, setMobileOpen, active, setActive, countdownMs, annee, periodeKey, periodeLabel, periodeOptions = [], canEditPeriode, onPeriodeChange }) {
   const roleLabel = {
     ief: session.kind === 'groupe' ? (session.iefName ? `Groupe scolaire — ${session.iefName}` : 'Groupe scolaire') : (session.iefName ? `IEF — ${session.iefName}` : 'IEF (lecture seule)'), admin: 'Super Administrateur', teacher: 'Enseignant(e)', accountant: 'Comptable/Gestionnaire', secretary: 'Secrétaire', school: schoolName || 'Compte école',
   }[session.role];
@@ -3308,6 +3311,32 @@ function Topbar({ title, sub, session, schoolName, dark, setDark, onLogout, setM
     return h > 0 ? `${h}:${pad(m)}:${pad(s)}` : `${pad(m)}:${pad(s)}`;
   }
   const cd = fmtCountdown(countdownMs);
+
+  // Recherche globale des rubriques (esprit SAMA Store : champ flottant dans l'en-tête).
+  const [navQuery, setNavQuery] = useState('');
+  const [navOpen, setNavOpen] = useState(false);
+  const flatNav = useMemo(() => {
+    const out = [];
+    NAV_ITEMS(session || { role: 'guest' }).forEach((item) => {
+      if (item.children) item.children.forEach((c) => out.push(c));
+      else out.push(item);
+    });
+    return out;
+  }, [session]);
+  const normalizeNav = (value) => String(value || '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+  const navResults = useMemo(() => {
+    const q = normalizeNav(navQuery.trim());
+    if (!q) return [];
+    return flatNav
+      .filter((item) => normalizeNav(`${item.label} ${PAGE_TITLES[item.id]?.[0] || ''}`).includes(q))
+      .slice(0, 8);
+  }, [flatNav, navQuery]);
+  const eyebrow = session?.role === 'admin'
+    ? 'Super administration'
+    : session?.role === 'ief'
+      ? 'Espaces IEF & groupes'
+      : 'Gestion scolaire';
+
   return (
     <div
       className="no-print sticky top-0 z-20 px-4 md:px-7 py-2.5"
@@ -3320,11 +3349,58 @@ function Topbar({ title, sub, session, schoolName, dark, setDark, onLogout, setM
     >
       <div className="flex items-center justify-between gap-4">
       <button className="md:hidden text-white" onClick={() => setMobileOpen(true)}><Menu size={22} /></button>
-      <div>
-        <div className="text-white font-bold text-[17px] md:text-[19px]">{title}</div>
-        <div className="text-white/75 text-xs font-medium mt-0.5 hidden sm:block">{sub}</div>
+      <div className="min-w-0">
+        <div className="sygenop-eyebrow">{eyebrow}</div>
+        <div className="text-white font-bold text-[17px] md:text-[19px] truncate">{title}</div>
+        <div className="text-white/75 text-xs font-medium mt-0.5 hidden sm:block truncate">{sub}</div>
       </div>
-      <div className="flex items-center gap-3 ml-auto">
+
+      <div
+        className="relative hidden lg:block w-56 xl:w-80 ml-auto"
+        onBlur={(e) => { if (!e.currentTarget.contains(e.relatedTarget)) setNavOpen(false); }}
+      >
+        <Search size={15} className="absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" style={{ color: 'rgba(255,255,255,.7)' }} />
+        <input
+          value={navQuery}
+          onChange={(e) => { setNavQuery(e.target.value); setNavOpen(true); }}
+          onFocus={() => setNavOpen(true)}
+          onKeyDown={(e) => {
+            if (e.key === 'Escape') { setNavOpen(false); setNavQuery(''); }
+            if (e.key === 'Enter' && navResults[0]) {
+              setActive(navResults[0].id); setNavQuery(''); setNavOpen(false);
+            }
+          }}
+          placeholder="Rechercher une rubrique…"
+          className="w-full pl-9 pr-3 py-2 rounded-xl text-sm font-medium outline-none placeholder:text-white/55 focus:ring-2 focus:ring-[#ffd100]/40"
+          style={{ background: 'rgba(255,255,255,.10)', border: '1px solid rgba(255,255,255,.18)', color: '#fff' }}
+          aria-label="Rechercher une rubrique"
+        />
+        {navOpen && navQuery.trim() && (
+          <div
+            className="absolute top-full left-0 right-0 mt-2 rounded-xl overflow-hidden z-50"
+            style={{ background: 'var(--panel)', border: '1px solid var(--line)', boxShadow: '0 18px 40px -12px rgba(0,0,0,.45)' }}
+          >
+            {navResults.length ? navResults.map((item) => (
+              <button
+                key={item.id}
+                type="button"
+                onMouseDown={(e) => e.preventDefault()}
+                onClick={() => { setActive(item.id); setNavQuery(''); setNavOpen(false); }}
+                className="w-full text-left px-4 py-2.5 text-sm font-semibold flex items-center gap-2 transition-colors"
+                style={{ color: 'var(--ink)' }}
+                onMouseEnter={(e) => { e.currentTarget.style.background = 'var(--bg)'; }}
+                onMouseLeave={(e) => { e.currentTarget.style.background = 'transparent'; }}
+              >
+                <Search size={13} style={{ color: 'var(--gold)' }} /> {item.label}
+              </button>
+            )) : (
+              <div className="px-4 py-3 text-xs text-muted">Aucune rubrique trouvée.</div>
+            )}
+          </div>
+        )}
+      </div>
+
+      <div className="flex items-center gap-3 ml-auto lg:ml-0">
         {cd && (
           <span className="hidden sm:flex items-center gap-1.5 text-xs font-semibold px-2.5 py-1 rounded-lg bg-white/10 text-white/90" title="Déconnexion automatique dans">
             <Clock size={14} /> {cd}
@@ -3545,7 +3621,7 @@ function StaffRoleDashboard({ state, loading, role, setActive, authorName }) {
           </div>
           <div className="flex flex-wrap gap-2">
             <button onClick={() => open('personnel')} className="px-4 py-2.5 rounded-lg text-sm font-semibold text-white" style={{ background: 'var(--green-d)' }}><Users size={15} className="inline mr-1.5" /> Gérer le personnel</button>
-            <button onClick={() => open('classes')} className="px-4 py-2.5 rounded-lg text-sm font-semibold" style={{ background: 'var(--green-l)', color: 'var(--green-d)' }}><GraduationCap size={15} className="inline mr-1.5" /> Gérer les élèves</button>
+            <button onClick={() => open('classes')} className="sygenop-cta px-4 py-2.5 rounded-lg text-sm"><GraduationCap size={15} className="inline mr-1.5" /> Gérer les élèves</button>
             <button onClick={() => open('actualites')} className="px-4 py-2.5 rounded-lg text-sm font-semibold" style={{ background: 'var(--gold-l)', color: 'var(--gold)' }}><MessageCircle size={15} className="inline mr-1.5" /> Actualités</button>
             <button onClick={() => open('admin')} className="px-4 py-2.5 rounded-lg text-sm font-semibold" style={{ background: 'var(--bg)', color: 'var(--ink)' }}><Settings size={15} className="inline mr-1.5" /> Administration</button>
             <button onClick={() => open('data')} className="px-4 py-2.5 rounded-lg text-sm font-semibold" style={{ background: 'var(--bg)', color: 'var(--ink)' }}><Database size={15} className="inline mr-1.5" /> Données</button>
@@ -14488,7 +14564,7 @@ function GroupesAdminTab({ notify, session, iefList }) {
     <div className="space-y-4" data-testid="groupes-tab">
       <div className="flex items-center justify-between gap-2 flex-wrap">
         <p className="text-sm text-slate-600">Un groupe scolaire regroupe plusieurs cycles : une école est créée automatiquement pour chaque cycle coché, avec son propre code d’accès.</p>
-        <button onClick={openNew} className="inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-indigo-600 text-white text-sm font-semibold hover:bg-indigo-700">
+        <button onClick={openNew} className="sygenop-cta inline-flex items-center gap-2 px-4 py-2 rounded-lg text-sm">
           <Plus size={16} /> Créer un groupe scolaire
         </button>
       </div>
@@ -15459,6 +15535,8 @@ function openSchool(id, name, actif) {
             setDark={setDark}
             onLogout={handleLogout}
             setMobileOpen={setMobileOpen}
+            active={active}
+            setActive={setActive}
             annee={(schoolState && schoolState.header && schoolState.header.annee) || ''}
             periodeKey={(schoolState && schoolState.header && schoolState.header.periodeActif) || 'T1'}
             periodeLabel={(() => {
