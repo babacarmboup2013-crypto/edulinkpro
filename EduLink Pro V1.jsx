@@ -11572,6 +11572,126 @@ function ExportTab({ state, updateState, notify, session }) {
 }
 
 /* ---------------------------------------------------------------
+   Import CSV — ajout en masse du personnel
+   --------------------------------------------------------------- */
+function ImportPersonnelCSVPanel({ state, updateState, notify, session }) {
+  const inputRef = useRef(null);
+  const [rows, setRows] = useState(null);
+  const [error, setError] = useState('');
+
+  const normalize = (value) => String(value || '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').trim();
+  const templateRows = [
+    ['Prénom(s)', 'Nom', 'Rôle', 'Téléphone', 'Code', 'Statut', 'Genre', "Date d'embauche"],
+    ['Aïssatou', 'Diop', 'Enseignant(e)', '77 000 00 00', 'ABC123', 'Actif', 'Femme', todayISO()],
+  ];
+
+  function onFile(e) {
+    const file = e.target.files && e.target.files[0];
+    e.target.value = '';
+    if (!file) return;
+    setError(''); setRows(null);
+    const reader = new FileReader();
+    reader.onload = () => {
+      try {
+        const table = parseCSV(String(reader.result));
+        if (!table.length) { setError('Fichier vide.'); return; }
+        const head = table[0].map(normalize);
+        const idx = (...names) => head.findIndex((h) => names.includes(h));
+        const iPrenom = idx('prenom', 'prenom(s)', 'prenoms');
+        const iNom = idx('nom', 'nom de famille');
+        const iRole = idx('role', 'fonction');
+        const iTel = idx('telephone', 'tel', 'contact');
+        const iCode = idx('code', 'code enseignant', 'code acces', "code d acces");
+        const iStatut = idx('statut');
+        const iGenre = idx('genre', 'sexe');
+        const iDate = idx('date dembauche', 'date embauche', 'dateembauche', 'embauche');
+        if (iNom === -1 && iPrenom === -1) { setError('Colonnes « Nom » et « Prénom(s) » introuvables dans l\u2019en-tête du fichier.'); return; }
+        const parsed = [];
+        for (let i = 1; i < table.length; i += 1) {
+          const r = table[i];
+          const prenom = iPrenom > -1 ? String(r[iPrenom] || '').trim() : '';
+          const nom = iNom > -1 ? String(r[iNom] || '').trim() : '';
+          if (!prenom && !nom) continue;
+          const rawRole = iRole > -1 ? String(r[iRole] || '').trim() : '';
+          const role = STAFF_ROLES.find((item) => normalize(item) === normalize(rawRole)) || (rawRole ? null : STAFF_ROLES[1]);
+          if (!role) { setError(`Ligne ${i + 1} : fonction « ${rawRole} » inconnue. Valeurs acceptées : ${STAFF_ROLES.join(', ')}.`); return; }
+          const rawGenre = iGenre > -1 ? String(r[iGenre] || '').trim() : '';
+          const genre = normalize(rawGenre).startsWith('f') ? 'Femme' : normalize(rawGenre).startsWith('m') ? 'Homme' : (rawGenre || 'Homme');
+          const rawCode = iCode > -1 ? String(r[iCode] || '').trim().toUpperCase() : '';
+          parsed.push({
+            id: uid('staff'),
+            prenom,
+            nom,
+            role,
+            telephone: iTel > -1 ? String(r[iTel] || '').trim() : '',
+            code: STAFF_LOGIN_ROLES.has(role) ? (rawCode || generateAccessCode()) : rawCode,
+            statut: iStatut > -1 ? String(r[iStatut] || '').trim() || 'Actif' : 'Actif',
+            genre,
+            dateEmbauche: iDate > -1 ? String(r[iDate] || '').trim() || todayISO() : todayISO(),
+            specialites: [],
+          });
+        }
+        if (!parsed.length) { setError('Aucune ligne exploitable trouvée dans le fichier.'); return; }
+        setRows(parsed);
+      } catch (err) { setError('Erreur de lecture du fichier : ' + err.message); }
+    };
+    reader.readAsText(file);
+  }
+
+  function apply() {
+    if (!rows) return;
+    updateState((prev) => {
+      const current = prev.personnel || [];
+      const existing = new Set(current.map((p) => `${normalize(personFullName(p))}|${normalize(p.role)}`));
+      const additions = rows.filter((r) => !existing.has(`${normalize(`${r.prenom} ${r.nom}`.trim())}|${normalize(r.role)}`));
+      if (!additions.length) return prev;
+      return {
+        ...prev,
+        personnel: [...current, ...additions],
+        auditLog: pushAuditEntry(prev.auditLog, { actor: actorLabel(session, prev), role: session && session.role, action: 'Import CSV personnel', details: `${additions.length} membre(s) ajouté(s)` }),
+      };
+    });
+    notify(`${rows.length} ligne(s) traitée(s) — doublons ignorés`);
+    setRows(null);
+  }
+
+  return (
+    <div className="sygenop-card p-5 space-y-3">
+      <div className="flex items-center gap-2">
+        <div className="w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0" style={{ background: 'var(--green-l)', color: 'var(--green-d)' }}><Users size={18} /></div>
+        <div>
+          <div className="font-bold text-sm text-ink">Importer du personnel (CSV)</div>
+          <p className="text-xs text-muted">Ajoute plusieurs agents. Les doublons (nom + fonction) sont ignorés. Les classes assignées se configurent ensuite dans « Personnel ».</p>
+        </div>
+      </div>
+      <div className="flex flex-wrap gap-2">
+        <button type="button" onClick={() => downloadCSV('modele_personnel_sygenop.csv', templateRows)} className="px-3.5 py-2 rounded-lg text-sm font-semibold sygenop-btn sygenop-btn--ghost"><FileSpreadsheet size={14} className="inline mr-1" /> Modèle CSV</button>
+        <button type="button" onClick={() => inputRef.current?.click()} className="px-3.5 py-2 rounded-lg text-sm font-semibold text-white" style={{ background: 'var(--green-d)' }}><Upload size={14} className="inline mr-1" /> Choisir un CSV</button>
+      </div>
+      <input ref={inputRef} type="file" accept=".csv,text/csv" onChange={onFile} className="hidden" />
+      <div className="text-xs rounded-lg p-3" style={{ background: 'var(--bg)', border: '1px solid var(--line)', color: 'var(--muted)' }}>
+        Colonnes : Prénom(s) · Nom · Rôle · Téléphone · Code · Statut · Genre · Date d'embauche
+      </div>
+      {error && <div className="text-xs flex items-center gap-1.5" style={{ color: 'var(--red)' }}><AlertCircle size={13} /> {error}</div>}
+      {rows && (
+        <div className="rounded-lg p-3 text-xs overflow-x-auto" style={{ border: '1px solid var(--line)' }}>
+          <div className="font-semibold mb-2 text-ink">{rows.length} membre(s) prêt(s) à importer :</div>
+          <table className="w-full border-collapse">
+            <thead><tr>{['Prénom', 'Nom', 'Fonction', 'Téléphone', 'Code'].map((h) => <th key={h} className="text-left py-1 pr-3 font-semibold" style={{ color: 'var(--muted)' }}>{h}</th>)}</tr></thead>
+            <tbody>
+              {rows.map((r) => (
+                <tr key={r.id}>{[r.prenom, r.nom, r.role, r.telephone, r.code].map((v, i) => <td key={i} className="py-1 pr-3" style={{ color: 'var(--ink)' }}>{v || '—'}</td>)}</tr>
+              ))}
+            </tbody>
+          </table>
+          <button onClick={apply} className="mt-3 px-3.5 py-2 rounded-lg text-sm font-semibold text-white flex items-center gap-1.5" style={{ background: 'var(--green-d)' }}><CheckCircle2 size={14} /> Importer dans le personnel</button>
+        </div>
+      )}
+    </div>
+  );
+}
+
+/* ---------------------------------------------------------------
    Import CSV — ajout en masse d'élèves dans une classe
    --------------------------------------------------------------- */
 function ImportStudentsCSVPanel({ state, updateState, notify, session }) {
@@ -11933,6 +12053,7 @@ function DataView({ state, loading, updateState, notify, readOnly, session, acti
           </div>
         ) : (
           <div className="space-y-4">
+            <ImportPersonnelCSVPanel state={state} updateState={updateState} notify={notify} session={session} />
             <ImportStudentsCSVPanel state={state} updateState={updateState} notify={notify} session={session} />
             <ImportPaymentsCSVPanel state={state} updateState={updateState} notify={notify} session={session} />
           </div>
