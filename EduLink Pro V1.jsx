@@ -2159,10 +2159,9 @@ function GlobalStyles({ dark }) {
   const cssVars = Object.entries(vars).map(([k, v]) => `${k}:${v};`).join('');
   return (
     <style>{`
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap');
-      .sygenop-root{ ${cssVars} font-family:'Inter',-apple-system,BlinkMacSystemFont,sans-serif; background:var(--bg); color:var(--ink); min-height:100vh; -webkit-font-smoothing:antialiased; text-rendering:optimizeLegibility; }
-      .sygenop-card{ background:var(--panel); border:1px solid var(--line); border-radius:16px; box-shadow:0 1px 2px rgba(2,6,23,.04),0 12px 30px -8px rgba(2,6,23,.10); transition:transform .25s cubic-bezier(.22,1,.36,1), box-shadow .25s, border-color .25s; will-change:transform; }
-      .sygenop-card:hover{ transform:translateY(-3px); box-shadow:0 4px 10px rgba(2,6,23,.06),0 22px 45px -14px rgba(10,30,61,.28); border-color:rgba(10,30,61,.15); }
+      .sygenop-root{ ${cssVars} font-family:'IBM Plex Sans',-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif; letter-spacing:-.15px; background:var(--bg); color:var(--ink); min-height:100vh; -webkit-font-smoothing:antialiased; text-rendering:optimizeLegibility; }
+      .sygenop-card{ background:var(--panel); border:1px solid var(--line); border-radius:18px; box-shadow:0 1px 2px rgba(24,32,51,.04),0 8px 24px -8px rgba(24,32,51,.12); transition:transform .2s cubic-bezier(.2,0,0,1), box-shadow .2s, border-color .2s; will-change:transform; }
+      .sygenop-card:hover{ transform:translateY(-2px); box-shadow:0 3px 8px rgba(24,32,51,.05),0 14px 36px -14px rgba(10,30,61,.26); border-color:rgba(10,30,61,.15); }
 
       /* ---------- Modales : verre dépoli, opacité régulée + scroll sûr ---------- */
       .sygenop-root .fixed.inset-0.z-50{
@@ -3224,7 +3223,7 @@ function Sidebar({ session, active, setActive, mobileOpen, setMobileOpen, hasAct
             />
             <div className="flex items-center gap-1.5">
               <h1 className="text-lg font-bold">EduLink Pro</h1>
-              <span className="text-[9px] font-bold px-1.5 py-0.5 rounded" style={{ background: 'var(--gold, #ffd100)', color: '#fff' }}>V1</span>
+              <span className="text-[9px] font-bold px-1.5 py-0.5 rounded" style={{ background: 'var(--gold, #ffd100)', color: '#0a1e3d' }}>V1</span>
             </div>
           </button>
           <p className="text-[11px] mt-1 text-[#94a3b8] font-medium leading-tight">
@@ -3311,8 +3310,13 @@ function Topbar({ title, sub, session, schoolName, dark, setDark, onLogout, setM
   const cd = fmtCountdown(countdownMs);
   return (
     <div
-      className="no-print sticky top-0 z-20 px-4 md:px-7 py-2.5 shadow-lg"
-      style={{ background: 'linear-gradient(120deg,#0a1e3d 0%,#0d2448 55%,#132d55 100%)' }}
+      className="no-print sticky top-0 z-20 px-4 md:px-7 py-2.5"
+      style={{
+        background: 'linear-gradient(120deg,#0a1e3d 0%,#0d2448 55%,#132d55 100%)',
+        boxShadow: 'inset 0 -3px 0 #ffd100, 0 10px 30px -12px rgba(0,0,0,.45)',
+        backdropFilter: 'blur(12px)',
+        WebkitBackdropFilter: 'blur(12px)',
+      }}
     >
       <div className="flex items-center justify-between gap-4">
       <button className="md:hidden text-white" onClick={() => setMobileOpen(true)}><Menu size={22} /></button>

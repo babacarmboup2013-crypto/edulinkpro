@@ -6,7 +6,7 @@ import ChesterWidget from './components/Chester.jsx';
    ----------------------------------------------------------------
    Design system inspiré de la charte du logo :
    badge bleu marine (#0a1e3d), anneau blanc, dot jaune (#ffd100).
-   Typographie : Inter. Grille 8px. Bento grid.
+   Typographie : IBM Plex Sans. Grille 8px. Bento grid.
    ================================================================ */
 
 const BRAND = {
@@ -31,7 +31,7 @@ const css = `
 @keyframes edlDraw{from{stroke-dashoffset:320}to{stroke-dashoffset:0}}
 
 .edl{--g900:${BRAND.green900};--g800:${BRAND.green800};--g700:${BRAND.green700};--g600:${BRAND.green600};--g500:${BRAND.green500};--g50:${BRAND.green50};--gold:${BRAND.gold};--goldsoft:${BRAND.goldSoft};--ink:${BRAND.ink};--body:${BRAND.body};--muted:${BRAND.muted};--line:${BRAND.line};--white:#fff;
-  font-family:'Inter',-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;background:var(--white);color:var(--ink);
+  font-family:'IBM Plex Sans',-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;letter-spacing:-.15px;background:var(--white);color:var(--ink);
   -webkit-font-smoothing:antialiased;text-rendering:optimizeLegibility;line-height:1.6;min-height:100vh;overflow-x:hidden}
 .edl *{box-sizing:border-box;margin:0;padding:0}
 .edl img{display:block;max-width:100%}

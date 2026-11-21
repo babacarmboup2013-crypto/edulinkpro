@@ -22,7 +22,7 @@ export default function ChesterWidget({ dark, session, landing }) {
           : 'Connecté en tant qu’école (direction). Retrouvez le tableau de bord, le personnel, la saisie des notes, les paiements et les données.';
 
   return (
-    <div className="fixed bottom-5 right-5 z-50" style={{ fontFamily: "'Inter',-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif" }}>
+    <div className="fixed bottom-5 right-5 z-50" style={{ fontFamily: "'IBM Plex Sans',-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif" }}>
       {open && (
         <div
           className="sygenop-fade"
