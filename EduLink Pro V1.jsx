@@ -2212,6 +2212,8 @@ function GlobalStyles({ dark }) {
       .sygenop-cta{ background:var(--gold)!important; color:#0a1e3d!important; font-weight:700; box-shadow:0 8px 24px -8px rgba(255,209,0,.55); transition:transform .2s cubic-bezier(.2,0,0,1), box-shadow .2s, background .2s; }
       .sygenop-cta:hover{ background:#ffd100!important; color:#0a1e3d!important; transform:translateY(-1px); box-shadow:0 12px 28px -8px rgba(255,209,0,.75); }
       .sygenop-eyebrow{ font-size:10px; font-weight:800; letter-spacing:.14em; text-transform:uppercase; color:var(--gold); line-height:1.2; }
+      .sygenop-login-input{ border-radius:12px!important; padding-top:14px!important; padding-bottom:14px!important; font-size:14px; }
+      .sygenop-login-input:focus{ border-color:var(--gold)!important; box-shadow:0 0 0 4px rgba(255,209,0,.18)!important; }
       .sygenop-input{ width:100%; padding:.65rem .9rem; border-radius:.65rem; border:1px solid var(--line); background:var(--panel); color:var(--ink); font-size:.9rem; transition:border-color .2s, box-shadow .2s; }
 
       /* ---------- Tableaux : lisibilité + lignes alternées + survol ---------- */
@@ -2800,9 +2802,9 @@ const entered = String(code).trim();
           style={{
             top: 18, left: 18, zIndex: 70, cursor: 'pointer',
             width: 42, height: 42, display: 'flex', alignItems: 'center', justifyContent: 'center',
-            borderRadius: '50%', border: '2px solid var(--green-d, #0a1e3d)',
+            borderRadius: '50%', border: '2px solid var(--gold, #ffd100)',
             background: 'rgba(255,255,255,.92)', backdropFilter: 'blur(6px)',
-            boxShadow: '0 6px 16px -6px rgba(10,79,58,.35)', color: 'var(--green-d, #0a1e3d)',
+            boxShadow: '0 6px 16px -6px rgba(10,30,61,.45)', color: 'var(--green-d, #0a1e3d)',
           }}
         >
           <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M3 10.5 12 3l9 7.5" /><path d="M5 9.5V21h5v-6h4v6h5V9.5" /></svg>
@@ -2817,6 +2819,9 @@ const entered = String(code).trim();
           <img src={`${import.meta.env.BASE_URL}edulink-logo-icon.png`} alt="" style={{ width: 'min(560px, 92%)', height: 'auto', opacity: 0.09 }} />
         </div>
         <div className="relative flex flex-col items-center" style={{ zIndex: 1 }}>
+          <div className="mb-4 inline-flex items-center gap-2 rounded-full px-3 py-1 text-[10px] font-extrabold uppercase tracking-[.18em]" style={{ background: 'rgba(255,209,0,.14)', border: '1px solid rgba(255,209,0,.35)', color: '#ffd100' }}>
+            Accès sécurisé · V1
+          </div>
           <img src={`${import.meta.env.BASE_URL}edulink-logo-icon.png`} alt="EduLink Pro" style={{ width: 128, height: 128, objectFit: 'contain', filter: 'drop-shadow(0 0 1.5px rgba(255,255,255,.7)) drop-shadow(0 12px 22px rgba(0,0,0,.45))' }} />
           <h1 className="mt-5 text-[40px] lg:text-[52px] font-extrabold tracking-tight leading-none">
             EduLink <span style={{ color: 'var(--gold, #ffd100)' }}>Pro</span>
@@ -2842,11 +2847,13 @@ const entered = String(code).trim();
         </div>
         <div className="relative w-full max-w-md" style={{ zIndex: 1 }}>
         <div className="mb-6">
-          <h2 className="text-[28px] font-extrabold text-ink">Connexion</h2>
+          <div className="sygenop-eyebrow mb-1">Espace utilisateur</div>
+          <h2 className="text-[30px] font-extrabold text-ink">Connexion</h2>
           <p className="text-xs mt-1 text-muted">Choisissez votre profil puis saisissez votre code d’accès.</p>
         </div>
 
         <div className="sygenop-card px-8 py-10" style={{ position: 'relative', overflow: 'hidden' }}>
+          <div className="absolute top-0 left-0 right-0 h-[3px]" style={{ background: 'var(--gold)' }} />
           <div aria-hidden="true" style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', pointerEvents: 'none', opacity: 0.06, zIndex: 0 }}>
             <img src={`${import.meta.env.BASE_URL}edulink-logo-icon.png`} alt="" style={{ width: 300, maxWidth: '80%', height: 'auto' }} />
           </div>
@@ -2864,7 +2871,9 @@ const entered = String(code).trim();
                 key={t.id}
                 onClick={() => { setTab(t.id); setCode(''); }}
                 className="flex flex-col items-center gap-1 py-2 rounded-lg text-[11px] font-semibold transition-colors"
-                style={tab === t.id ? { background: 'var(--green-d)', color: '#fff' } : { color: 'var(--muted)' }}
+                style={tab === t.id
+                  ? { background: 'var(--gold)', color: '#0a1e3d', boxShadow: '0 6px 16px -8px rgba(255,209,0,.7)' }
+                  : { color: 'var(--muted)' }}
               >
                 <t.icon size={15} />
                 {t.label}
@@ -2990,7 +2999,7 @@ function CodeField({ code, setCode, show, setShow, label }) {
           type={show ? 'text' : 'password'}
           value={code}
           onChange={(e) => setCode(e.target.value)}
-          className="w-full pl-9 pr-9 py-3 rounded-lg border text-sm sygenop-input"
+          className="w-full pl-9 pr-9 rounded-lg border text-sm sygenop-input sygenop-login-input"
           placeholder="••••••"
         />
         <button type="button" onClick={() => setShow(!show)} className="absolute right-3 top-1/2 -translate-y-1/2 text-muted">
@@ -3028,7 +3037,7 @@ function SearchPicker({ label, placeholder, query, setQuery, results, loading, s
             value={query}
             disabled={disabled}
             onChange={(e) => setQuery(e.target.value)}
-            className="w-full px-3 py-3 rounded-lg border text-sm disabled:opacity-50 sygenop-input"
+            className="w-full px-3 rounded-lg border text-sm disabled:opacity-50 sygenop-input sygenop-login-input"
             placeholder={disabled ? emptyHint : placeholder}
             autoComplete="off"
           />
@@ -3067,8 +3076,7 @@ function SubmitBtn({ children, busy }) {
     <button
       type="submit"
       disabled={busy}
-      className="w-full py-3 rounded-lg font-semibold text-sm text-white flex items-center justify-center gap-2 disabled:opacity-60"
-      style={{ background: 'linear-gradient(135deg,#ffd100,#0a1e3d)' }}
+      className="sygenop-cta w-full py-3.5 rounded-xl font-bold text-sm flex items-center justify-center gap-2 disabled:opacity-60 disabled:transform-none"
     >
       {busy && <Loader2 size={15} className="animate-spin" />}
       {children}
