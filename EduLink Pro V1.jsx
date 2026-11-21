@@ -10693,7 +10693,7 @@ function PaiementsView({ state, loading, updateState, notify, activeSchoolId, ro
 /* ============================================================
    MODULE 5 — ADMINISTRATION + DONNÉES
    (config barème par niveau, infos établissement, import/export
-   JSON/CSV, journal d'audit)
+   CSV, journal d'audit)
    ============================================================ */
 
 /* ---- Identité de l'auteur d'une action, pour le journal d'audit ---- */
@@ -11461,7 +11461,7 @@ function AdminView({ state, loading, updateState, notify, readOnly, session }) {
 }
 
 /* ---------------------------------------------------------------
-   Export — JSON complet & CSV (élèves/notes, personnel, paiements)
+   Export — CSV (élèves/notes, personnel, paiements)
    --------------------------------------------------------------- */
 function buildStudentsCSVRows(state) {
   // Une ligne par élève ET par type d'évaluation : chaque type est calculé avec SON barème
@@ -11567,103 +11567,6 @@ function ExportTab({ state, updateState, notify, session }) {
         desc="Historique de tous les versements enregistrés (reçus, montants, modes, périodes)."
         onClick={() => { downloadCSV(`sygenop_paiements_${todayISO()}.csv`, buildPaymentsCSVRows(state)); log('Export CSV', 'Paiements'); notify('Export CSV paiements généré'); }}
       />
-    </div>
-  );
-}
-
-/* ---------------------------------------------------------------
-   Import JSON — restauration complète depuis une sauvegarde
-   --------------------------------------------------------------- */
-function ImportJSONPanel({ state, updateState, notify, session }) {
-  const inputRef = useRef(null);
-  const [pending, setPending] = useState(null);
-  const [error, setError] = useState('');
-  const [confirmApply, setConfirmApply] = useState(false);
-
-  function onFile(e) {
-    const file = e.target.files && e.target.files[0];
-    e.target.value = '';
-    if (!file) return;
-    setError(''); setPending(null);
-    const reader = new FileReader();
-    reader.onload = () => {
-      try {
-        const parsed = JSON.parse(String(reader.result));
-        const payload = parsed && parsed.data ? parsed.data : parsed;
-        if (!payload || typeof payload !== 'object' || typeof payload.classes !== 'object') {
-          setError('Fichier invalide : structure de données SYGENOP non reconnue.');
-          return;
-        }
-        setPending(payload);
-      } catch (err) {
-        setError('Fichier JSON illisible : ' + err.message);
-      }
-    };
-    reader.readAsText(file);
-  }
-  function apply() {
-    if (!pending) return;
-    updateState((prev) => {
-      const merged = { ...pending, __version: prev.__version };
-      merged.auditLog = pushAuditEntry(pending.auditLog || prev.auditLog, {
-        actor: actorLabel(session, prev), role: session && session.role,
-        action: 'Import JSON', details: 'Remplacement complet des données de l\u2019école depuis un fichier de sauvegarde',
-      });
-      return merged;
-    });
-    notify('Import réussi — les données de l\u2019école ont été remplacées');
-    setPending(null);
-    setConfirmApply(false);
-  }
-  const counts = pending ? {
-    classes: Object.keys(pending.classes || {}).length,
-    eleves: Object.values(pending.classes || {}).reduce((s, c) => s + ((c.students || []).length), 0),
-    personnel: (pending.personnel || []).length,
-  } : null;
-
-  return (
-    <div className="sygenop-card p-5 space-y-3">
-      <div className="flex items-center gap-2">
-        <div className="w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0" style={{ background: 'var(--gold-l)', color: 'var(--gold)' }}>
-          <Upload size={18} />
-        </div>
-        <div>
-          <div className="font-bold text-sm text-ink">Restaurer une sauvegarde (JSON)</div>
-          <p className="text-xs text-muted">Remplace <strong>toutes</strong> les données actuelles de l'école par le contenu du fichier.</p>
-        </div>
-      </div>
-      <input ref={inputRef} type="file" accept="application/json,.json" onChange={onFile} className="hidden" />
-      <button
-        onClick={() => inputRef.current && inputRef.current.click()}
-        className="px-3.5 py-2 rounded-lg text-sm font-semibold flex items-center gap-1.5 sygenop-btn sygenop-btn--ghost"
-      >
-        <Upload size={15} /> Choisir un fichier .json
-      </button>
-      {error && (
-        <div className="text-xs flex items-center gap-1.5" style={{ color: 'var(--red)' }}><AlertCircle size={13} /> {error}</div>
-      )}
-      {counts && (
-        <div className="rounded-lg p-3 text-xs space-y-1" style={{ background: 'var(--bg)', border: '1px solid var(--line)' }}>
-          <div className="font-semibold text-ink">Aperçu du fichier :</div>
-          <div className="text-muted">{counts.classes} classe(s) · {counts.eleves} élève(s) · {counts.personnel} membre(s) du personnel</div>
-          <button
-            onClick={() => setConfirmApply(true)}
-            className="mt-2 px-3.5 py-2 rounded-lg text-sm font-semibold text-white flex items-center gap-1.5"
-            style={{ background: 'var(--red)' }}
-          >
-            <Upload size={14} /> Remplacer les données de l'école
-          </button>
-        </div>
-      )}
-      {confirmApply && (
-        <ConfirmModal
-          title="Remplacer toutes les données de l'école ?"
-          message="Cette action est irréversible : les classes, élèves, notes, personnel et paiements actuels seront écrasés par le contenu du fichier importé."
-          danger
-          onConfirm={apply}
-          onCancel={() => setConfirmApply(false)}
-        />
-      )}
     </div>
   );
 }
@@ -12030,7 +11933,6 @@ function DataView({ state, loading, updateState, notify, readOnly, session, acti
           </div>
         ) : (
           <div className="space-y-4">
-            <ImportJSONPanel state={state} updateState={updateState} notify={notify} session={session} />
             <ImportStudentsCSVPanel state={state} updateState={updateState} notify={notify} session={session} />
             <ImportPaymentsCSVPanel state={state} updateState={updateState} notify={notify} session={session} />
           </div>
