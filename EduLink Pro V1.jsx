@@ -11527,18 +11527,6 @@ function buildPaymentsCSVRows(state) {
   });
   return rows;
 }
-function downloadJSONBackup(state, schoolName) {
-  const clean = { ...state };
-  delete clean.__version;
-  const payload = { meta: { exporte_le: new Date().toISOString(), ecole: schoolName || (state.header && state.header.ecole) || '', version: state.__version || 1 }, data: clean };
-  const blob = new Blob([JSON.stringify(payload, null, 2)], { type: 'application/json' });
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement('a');
-  a.href = url; a.download = `sygenop_${(schoolName || 'ecole').replace(/[^a-z0-9]+/gi, '_')}_${todayISO()}.json`;
-  document.body.appendChild(a); a.click(); document.body.removeChild(a);
-  URL.revokeObjectURL(url);
-}
-
 function ExportCard({ icon: Icon, title, desc, onClick, tone = 'green' }) {
   const toneMap = { green: { bg: 'var(--green-l)', fg: 'var(--green-d)' }, gold: { bg: 'var(--gold-l)', fg: 'var(--gold)' } };
   const t = toneMap[tone] || toneMap.green;
@@ -11558,17 +11546,12 @@ function ExportCard({ icon: Icon, title, desc, onClick, tone = 'green' }) {
   );
 }
 
-function ExportTab({ state, activeSchoolName, updateState, notify, session }) {
+function ExportTab({ state, updateState, notify, session }) {
   function log(action, details) {
     updateState((prev) => ({ ...prev, auditLog: pushAuditEntry(prev.auditLog, { actor: actorLabel(session, prev), role: session && session.role, action, details }) }));
   }
   return (
     <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-      <ExportCard
-        icon={Database} tone="gold" title="Sauvegarde complète (JSON)"
-        desc="Toutes les données de l'école : classes, élèves, notes, personnel, pointage, paiements, barèmes et journal d'audit."
-        onClick={() => { downloadJSONBackup(state, activeSchoolName); log('Export JSON', 'Sauvegarde complète des données de l\u2019école'); notify('Export JSON généré'); }}
-      />
       <ExportCard
         icon={GraduationCap} title="Élèves &amp; notes (CSV)"
         desc="Un tableau par élève avec totaux, moyennes, rangs et mentions pour les 3 trimestres, toutes classes confondues."
@@ -12039,7 +12022,7 @@ function DataView({ state, loading, updateState, notify, readOnly, session, acti
           </button>
         ))}
       </div>
-      {tab === 'export' && <ExportTab state={state} activeSchoolName={activeSchoolName} updateState={updateState} notify={notify} session={session} />}
+      {tab === 'export' && <ExportTab state={state} updateState={updateState} notify={notify} session={session} />}
       {tab === 'import' && (
         readOnly ? (
           <div className="sygenop-card p-10 text-center text-sm text-muted">
