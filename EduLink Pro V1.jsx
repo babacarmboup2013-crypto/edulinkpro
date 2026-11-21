@@ -11726,6 +11726,9 @@ function ImportStudentsCSVPanel({ state, updateState, notify, session }) {
 function AuditLogTab({ state, updateState, notify, readOnly, session }) {
   const [q, setQ] = useState('');
   const [confirmClear, setConfirmClear] = useState(false);
+  // GS BPEN : mode « transparence renforcée ». Le journal est conservé dans un
+  // miroir Supabase en ajout seul ; la purge depuis l'école est donc interdite.
+  const journalProtege = !!(state && state.config && state.config.transparence_renforcee === true);
   const log = (state && state.auditLog) || [];
   const filtered = log.filter((e) => {
     if (!q.trim()) return true;
@@ -11733,7 +11736,7 @@ function AuditLogTab({ state, updateState, notify, readOnly, session }) {
     return (e.action || '').toLowerCase().includes(s) || (e.actor || '').toLowerCase().includes(s) || (e.details || '').toLowerCase().includes(s);
   });
   function clearLog() {
-    if (readOnly) return;
+    if (readOnly || journalProtege) return;
     updateState((prev) => ({
       ...prev,
       auditLog: [{ id: uid('log'), ts: new Date().toISOString(), actor: actorLabel(session, prev), role: session && session.role, action: 'Purge du journal', details: `${(prev.auditLog || []).length} entrée(s) supprimée(s)` }],
@@ -11757,7 +11760,12 @@ function AuditLogTab({ state, updateState, notify, readOnly, session }) {
           style={{ borderColor: 'var(--line)', background: 'var(--bg)', color: 'var(--ink)' }}
         />
         <span className="text-xs font-semibold whitespace-nowrap text-muted">{filtered.length} / {log.length} entrée(s)</span>
-        {!readOnly && log.length > 0 && (
+        {journalProtege && (
+          <span className="text-[11px] font-semibold px-2.5 py-1.5 rounded-lg whitespace-nowrap" style={{ background: 'var(--gold-l)', color: '#8a6d00' }}>
+            🔒 Journal protégé — purge désactivée
+          </span>
+        )}
+        {!readOnly && !journalProtege && log.length > 0 && (
           <button onClick={() => setConfirmClear(true)} className="px-3 py-2 rounded-lg text-xs font-semibold flex items-center gap-1.5 whitespace-nowrap" style={{ background: 'var(--red-l)', color: 'var(--red)' }}>
             <Trash2 size={13} /> Vider le journal
           </button>
