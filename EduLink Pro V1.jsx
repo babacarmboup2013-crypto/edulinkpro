@@ -3120,6 +3120,7 @@ const NAV_ITEMS = (session) => {
   }
   if (session.role === 'admin') {
     items.push({ id: 'superadmin', label: 'Gestion des écoles', icon: Building2 });
+    items.push({ id: 'transparence_bpen', label: 'Transparence GS BPEN', icon: ShieldCheck });
   }
   if (session.role === 'teacher') {
     items.push(
@@ -3183,6 +3184,7 @@ const NAV_ITEMS = (session) => {
 const PAGE_TITLES = {
   ief: ['Vue d\u2019ensemble (IEF)', 'Tous les cycles de l\u2019établissement — statistiques consolidées'],
   superadmin: ['Gestion des écoles', 'Créer, modifier, supprimer des écoles et des administrateurs'],
+  transparence_bpen: ['Transparence GS BPEN', 'Journal d’audit en lecture seule — miroir protégé'],
   dash: ['Tableau de bord', 'Vue d\u2019ensemble de l\u2019établissement'],
   personnel: ['Personnel', 'Gestion du personnel et pointage'],
   mesdemandes: ['Mes demandes', 'Autorisation d\u2019absence et demande d\u2019attestation de service'],
@@ -3891,6 +3893,61 @@ function ConfirmModal({ title, message, onConfirm, onCancel, danger }) {
           </button>
         </div>
       </div>
+    </div>
+  );
+}
+
+/* Double validation financière : le code du Super Admin racine est exigé
+   avant certaines opérations sensibles (GS BPEN uniquement). */
+function FinancialApprovalModal({ label, onApprove, onCancel }) {
+  const [code, setCode] = useState('');
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState('');
+
+  async function approve(e) {
+    e.preventDefault();
+    setBusy(true);
+    setError('');
+    try {
+      const res = await sb('POST', 'rpc/check_admin_code', '', { p_code: String(code).trim() });
+      const root = !!(res && res.ok === true && res.ief_id == null);
+      if (!root) {
+        setError('Code Super Admin invalide (les codes IEF ne sont pas acceptés).');
+        return;
+      }
+      onApprove();
+    } catch (err) {
+      setError('Vérification impossible : ' + sbErrMsg(err));
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+      <form onSubmit={approve} className="sygenop-card p-6 max-w-sm w-full sygenop-fade">
+        <div className="flex items-center gap-2 mb-1">
+          <KeyRound size={18} style={{ color: 'var(--gold)' }} />
+          <div className="font-bold text-ink">Validation Super Admin requise</div>
+        </div>
+        <p className="text-sm mb-4 text-muted">{label}</p>
+        <input
+          type="password"
+          autoFocus
+          autoComplete="off"
+          value={code}
+          onChange={(e) => setCode(e.target.value)}
+          placeholder="Code maître Super Admin"
+          className="w-full px-3 py-2.5 rounded-lg border text-sm sygenop-input"
+        />
+        {error && <p className="text-xs mt-2 font-semibold" style={{ color: 'var(--red)' }}>{error}</p>}
+        <div className="flex justify-end gap-2 mt-5">
+          <button type="button" onClick={onCancel} className="px-3.5 py-2 rounded-lg text-sm font-semibold" style={{ background: 'var(--bg)', color: 'var(--ink)' }}>Annuler</button>
+          <button type="submit" disabled={busy || !code.trim()} className="px-3.5 py-2 rounded-lg text-sm font-semibold text-white disabled:opacity-60" style={{ background: 'var(--green-d)' }}>
+            {busy ? 'Vérification…' : 'Valider'}
+          </button>
+        </div>
+      </form>
     </div>
   );
 }
@@ -9796,6 +9853,14 @@ function PaiementsView({ state, loading, updateState, notify, activeSchoolId, ro
   const [selectedMonth, setSelectedMonth] = useState('');
   const [presetMois, setPresetMois] = useState(null);
   const [paymentFeesStudent, setPaymentFeesStudent] = useState(null);
+  const [pendingFinance, setPendingFinance] = useState(null);
+
+  // GS BPEN : certaines opérations financières exigent le code Super Admin.
+  const doubleValidation = !!(state && state.config && state.config.double_validation_financiere === true);
+  function requireApproval(label, run) {
+    if (!doubleValidation) { run(); return; }
+    setPendingFinance({ label, run });
+  }
 
   const classes = (state && state.classes) || {};
   const schoolLevels = levelsForSchool(state);
@@ -9860,10 +9925,17 @@ function PaiementsView({ state, loading, updateState, notify, activeSchoolId, ro
     });
   }
 
-  function saveFees(vals) {
-    updateState((prev) => ({ ...prev, fees: { ...(prev.fees || {}), [level]: vals } }));
+  function applySaveFees(vals) {
+    updateState((prev) => ({
+      ...prev,
+      fees: { ...(prev.fees || {}), [level]: vals },
+      auditLog: pushAuditEntry(prev.auditLog, { actor: actorLabel(session, prev), role: session && session.role, action: 'Modification des frais de scolarité', details: `Niveau ${level}${doubleValidation ? ' — validé Super Admin' : ''}` }),
+    }));
     notify(`Frais mis à jour pour ${level}`);
     setFeesModalOpen(false);
+  }
+  function saveFees(vals) {
+    requireApproval(`Modifier les frais de scolarité du niveau ${level}.`, () => applySaveFees(vals));
   }
 
   function saveStudentFees(patch) {
@@ -9894,7 +9966,7 @@ function PaiementsView({ state, loading, updateState, notify, activeSchoolId, ro
     setPrinting({ studentId: student.id, paymentId: payment.id });
   }
 
-  function saveEditedPayment(form) {
+  function applySaveEditedPayment(form) {
     const { student, payment } = editingPayment;
     updateState((prev) => {
       const next = { ...prev, classes: { ...(prev.classes || {}) } };
@@ -9906,14 +9978,18 @@ function PaiementsView({ state, loading, updateState, notify, activeSchoolId, ro
           ? { ...s, paiements: studentPaiements(s).map((p) => (p.id === payment.id ? { ...p, ...form } : p)) }
           : s)),
       };
+      next.auditLog = pushAuditEntry(prev.auditLog, { actor: actorLabel(session, prev), role: session && session.role, action: 'Modification d’un reçu', details: `Reçu ${payment.recu}${doubleValidation ? ' — validé Super Admin' : ''}` });
       return next;
     });
     notify(`Reçu ${payment.recu} modifié`);
     setEditingPayment(null);
     setPrinting({ studentId: student.id, paymentId: payment.id });
   }
+  function saveEditedPayment(form) {
+    requireApproval(`Modifier le reçu ${editingPayment?.payment?.recu || ''} — ce changement sera tracé dans le journal protégé.`, () => applySaveEditedPayment(form));
+  }
 
-  function confirmDeletePayment() {
+  function applyDeletePayment() {
     const { student, payment } = toDeletePayment;
     updateState((prev) => {
       const next = { ...prev, classes: { ...(prev.classes || {}) } };
@@ -9923,10 +9999,14 @@ function PaiementsView({ state, loading, updateState, notify, activeSchoolId, ro
         ...cls,
         students: (cls.students || []).map((s) => (s.id === student.id ? { ...s, paiements: studentPaiements(s).filter((p) => p.id !== payment.id) } : s)),
       };
+      next.auditLog = pushAuditEntry(prev.auditLog, { actor: actorLabel(session, prev), role: session && session.role, action: 'Suppression d’un versement', details: `Reçu ${payment.recu}${doubleValidation ? ' — validé Super Admin' : ''}` });
       return next;
     });
     notify('Paiement supprimé');
     setToDeletePayment(null);
+  }
+  function confirmDeletePayment() {
+    requireApproval(`Supprimer le versement du reçu ${toDeletePayment?.payment?.recu || ''} — cette action sera tracée dans le journal protégé.`, applyDeletePayment);
   }
 
   function saveMateriel(form) {
@@ -10038,11 +10118,18 @@ function PaiementsView({ state, loading, updateState, notify, activeSchoolId, ro
     setPrintingExpense(receipt);
   }
 
-  function confirmDeleteExpense() {
+  function applyDeleteExpense() {
     if (readOnly || !toDeleteExpense) return;
-    updateState((prev) => ({ ...prev, depenses: (prev.depenses || []).filter((d) => d.id !== toDeleteExpense.id) }));
+    updateState((prev) => ({
+      ...prev,
+      depenses: (prev.depenses || []).filter((d) => d.id !== toDeleteExpense.id),
+      auditLog: pushAuditEntry(prev.auditLog, { actor: actorLabel(session, prev), role: session && session.role, action: 'Suppression d’une dépense', details: `${toDeleteExpense.libelle || ''}${doubleValidation ? ' — validé Super Admin' : ''}` }),
+    }));
     notify('Dépense supprimée');
     setToDeleteExpense(null);
+  }
+  function confirmDeleteExpense() {
+    requireApproval(`Supprimer la dépense « ${toDeleteExpense?.libelle || ''} » — cette action sera tracée dans le journal protégé.`, applyDeleteExpense);
   }
 
   function exportDepenses() {
@@ -10591,6 +10678,13 @@ function PaiementsView({ state, loading, updateState, notify, activeSchoolId, ro
       )}
       {printingExpense && (
         <div className="fixed inset-0 z-50 overflow-auto p-4"><div className="max-w-lg mx-auto mt-4"><div className="flex justify-end gap-2 mb-2"><button onClick={() => window.print()} className="px-3 py-2 rounded-lg text-white flex items-center gap-1" style={{ background: 'var(--red)' }}><Printer size={14} /> Imprimer</button><button onClick={() => setPrintingExpense(null)} className="px-3 py-2 rounded-lg bg-panel">Fermer</button></div><ExpenseReceipt state={state} expense={printingExpense} /></div></div>
+      )}
+      {pendingFinance && (
+        <FinancialApprovalModal
+          label={pendingFinance.label}
+          onCancel={() => setPendingFinance(null)}
+          onApprove={() => { const run = pendingFinance.run; setPendingFinance(null); run(); }}
+        />
       )}
     </div>
   );
@@ -11819,6 +11913,8 @@ function ImportPaymentsCSVPanel({ state, updateState, notify, session }) {
   const inputRef = useRef(null);
   const [error, setError] = useState('');
   const [pending, setPending] = useState(null);
+  const [pendingApproval, setPendingApproval] = useState(null);
+  const doubleValidation = !!(state && state.config && state.config.double_validation_financiere === true);
   const parseLine = (line) => {
     const cells = []; let current = ''; let quoted = false;
     for (let i = 0; i < line.length; i += 1) {
@@ -11882,7 +11978,7 @@ function ImportPaymentsCSVPanel({ state, updateState, notify, session }) {
   };
   const templateRows = [['Niveau', 'Classe', 'Élève', "Frais d'inscription", 'Scolarité', 'Cantine', 'Car / transport scolaire', 'Tenue scolaire', 'Bibliothèque', 'Informatique', 'Date', 'Mode', 'Mois', 'N° Reçu', 'Note'], ['CI', 'CI A', 'Prénom Nom', '0', '25000', '0', '0', '0', '0', '0', todayISO(), 'especes', '', '', '']];
   const downloadPaymentTemplate = () => { downloadCSV('modele-paiements.csv', templateRows); notify('Modèle CSV de paiement téléchargé'); };
-  const apply = () => {
+  const applyImport = () => {
     if (!pending?.length) return;
     updateState((prev) => {
       const next = { ...prev, classes: { ...(prev.classes || {}) } }; let seq = Number(next.recuSeq) || 0;
@@ -11891,11 +11987,24 @@ function ImportPaymentsCSVPanel({ state, updateState, notify, session }) {
         seq += 1; const recu = row.recu || `REC-${String(seq).padStart(5, '0')}`;
         next.classes[row.classId] = { ...cls, students: (cls.students || []).map((student) => student.id === row.studentId ? { ...student, paiements: [...studentPaiements(student), { id: uid('pay'), recu, date: row.date, montant: row.montant, mode: row.mode, mois: row.mois, note: row.note, rubrique: row.rubrique, rubriqueLabel: row.rubriqueLabel, lignes: row.lignes, type_paiement: paymentTypeKey(row) }] } : student) };
       });
-      next.recuSeq = seq; next.auditLog = pushAuditEntry(prev.auditLog, { actor: actorLabel(session, prev), role: session?.role, action: 'Import CSV paiements', details: `${pending.length} paiement(s) importé(s)` }); return next;
+      next.recuSeq = seq; next.auditLog = pushAuditEntry(prev.auditLog, { actor: actorLabel(session, prev), role: session?.role, action: 'Import CSV paiements', details: `${pending.length} paiement(s) importé(s)${doubleValidation ? ' — validé Super Admin' : ''}` }); return next;
     });
     notify(`${pending.length} paiement(s) importé(s)`); setPending(null);
   };
-  return <div className="sygenop-card p-5 space-y-3"><div className="flex items-center gap-2"><div className="w-10 h-10 rounded-xl flex items-center justify-center" style={{ background: 'var(--green-l)', color: 'var(--green-d)' }}><CreditCard size={18} /></div><div><div className="font-bold text-sm text-ink">Importer des paiements (CSV)</div><p className="text-xs text-muted">Rubriques reconnues : inscription, scolarité, cantine, car/transport, tenue, bibliothèque et informatique.</p></div></div><input ref={inputRef} type="file" accept=".csv,text/csv" onChange={onFile} className="hidden" /><div className="flex flex-wrap gap-2"><button type="button" onClick={downloadPaymentTemplate} className="px-3.5 py-2 rounded-lg text-sm font-semibold sygenop-btn sygenop-btn--ghost"><FileSpreadsheet size={14} className="inline mr-1" /> Modèle CSV</button><button onClick={() => inputRef.current?.click()} className="px-3.5 py-2 rounded-lg text-sm font-semibold text-white" style={{ background: 'var(--green-d)' }}><Upload size={14} className="inline mr-1" /> Choisir un CSV</button></div><div className="rounded-lg p-3 text-xs overflow-x-auto" style={{ background: 'var(--bg)', border: '1px solid var(--line)' }}><div className="font-semibold mb-1 text-ink">Colonnes du modèle CSV</div><div className="text-muted">Niveau · Classe · Élève · Frais d'inscription · Scolarité · Cantine · Car / transport scolaire · Tenue scolaire · Bibliothèque · Informatique · Date · Mode · Mois · N° Reçu · Note</div></div>{error && <div className="text-xs" style={{ color: 'var(--red)' }}><AlertCircle size={13} className="inline mr-1" />{error}</div>}{pending && <div className="rounded-lg p-3 text-xs" style={{ background: 'var(--bg)', border: '1px solid var(--line)' }}><div className="font-semibold">{pending.length} paiement(s) prêt(s) à importer.</div><button onClick={apply} className="mt-2 px-3.5 py-2 rounded-lg text-sm font-semibold text-white" style={{ background: 'var(--green-d)' }}><Save size={14} className="inline mr-1" /> Confirmer l’import</button></div>}</div>;
+  const apply = () => {
+    if (!pending?.length) return;
+    if (!doubleValidation) { applyImport(); return; }
+    setPendingApproval({ label: `Importer ${pending.length} paiement(s) — cette action sera tracée dans le journal protégé.`, run: applyImport });
+  };
+  return <div className="sygenop-card p-5 space-y-3"><div className="flex items-center gap-2"><div className="w-10 h-10 rounded-xl flex items-center justify-center" style={{ background: 'var(--green-l)', color: 'var(--green-d)' }}><CreditCard size={18} /></div><div><div className="font-bold text-sm text-ink">Importer des paiements (CSV)</div><p className="text-xs text-muted">Rubriques reconnues : inscription, scolarité, cantine, car/transport, tenue, bibliothèque et informatique.</p></div></div><input ref={inputRef} type="file" accept=".csv,text/csv" onChange={onFile} className="hidden" /><div className="flex flex-wrap gap-2"><button type="button" onClick={downloadPaymentTemplate} className="px-3.5 py-2 rounded-lg text-sm font-semibold sygenop-btn sygenop-btn--ghost"><FileSpreadsheet size={14} className="inline mr-1" /> Modèle CSV</button><button onClick={() => inputRef.current?.click()} className="px-3.5 py-2 rounded-lg text-sm font-semibold text-white" style={{ background: 'var(--green-d)' }}><Upload size={14} className="inline mr-1" /> Choisir un CSV</button></div><div className="rounded-lg p-3 text-xs overflow-x-auto" style={{ background: 'var(--bg)', border: '1px solid var(--line)' }}><div className="font-semibold mb-1 text-ink">Colonnes du modèle CSV</div><div className="text-muted">Niveau · Classe · Élève · Frais d'inscription · Scolarité · Cantine · Car / transport scolaire · Tenue scolaire · Bibliothèque · Informatique · Date · Mode · Mois · N° Reçu · Note</div></div>{error && <div className="text-xs" style={{ color: 'var(--red)' }}><AlertCircle size={13} className="inline mr-1" />{error}</div>}{pending && <div className="rounded-lg p-3 text-xs" style={{ background: 'var(--bg)', border: '1px solid var(--line)' }}><div className="font-semibold">{pending.length} paiement(s) prêt(s) à importer.</div><button onClick={apply} className="mt-2 px-3.5 py-2 rounded-lg text-sm font-semibold text-white" style={{ background: 'var(--green-d)' }}><Save size={14} className="inline mr-1" /> Confirmer l'import</button></div>}
+    {pendingApproval && (
+      <FinancialApprovalModal
+        label={pendingApproval.label}
+        onCancel={() => setPendingApproval(null)}
+        onApprove={() => { const run = pendingApproval.run; setPendingApproval(null); run(); }}
+      />
+    )}
+  </div>;
 }
 function DataView({ state, loading, updateState, notify, readOnly, session, activeSchoolName }) {
   const [tab, setTab] = useState('export');
@@ -12005,6 +12114,133 @@ function PersonnelSpaceView() {
         ))}
       </div>
       <p className="text-xs text-muted mt-5">Aucune donnée n’est encore enregistrée dans cette rubrique.</p>
+    </div>
+  );
+}
+
+/* ============================================================
+   SUPER ADMIN — TRANSPARENCE GS BPEN
+   Lecture seule du miroir d'audit protégé (RPC dédiée).
+   ============================================================ */
+function TransparenceBpenView({ session, notify }) {
+  const [entries, setEntries] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState('');
+  const [q, setQ] = useState('');
+  const [schoolId, setSchoolId] = useState('');
+  const [financeOnly, setFinanceOnly] = useState(false);
+
+  useEffect(() => {
+    let mounted = true;
+    (async () => {
+      setLoading(true);
+      setError('');
+      try {
+        const res = await sb('POST', 'rpc/list_audit_miroir_bpen', '', {
+          p_admin_code: (session && (session.adminCode || session.iefAdminCode)) || '',
+          p_limit: 5000,
+        });
+        if (!mounted) return;
+        if (!res || res.ok !== true) {
+          setError('Accès refusé : cette rubrique est réservée au Super Admin racine.');
+          setEntries([]);
+          return;
+        }
+        setEntries(res.entries || []);
+      } catch (e) {
+        if (mounted) setError('Lecture impossible : ' + sbErrMsg(e));
+      } finally {
+        if (mounted) setLoading(false);
+      }
+    })();
+    return () => { mounted = false; };
+  }, [session && (session.adminCode || session.iefAdminCode)]);
+
+  const schools = useMemo(() => {
+    const map = {};
+    entries.forEach((e) => { if (e.school_id) map[e.school_id] = e.school; });
+    return Object.entries(map).sort((a, b) => String(a[1]).localeCompare(String(b[1])));
+  }, [entries]);
+
+  const isFinance = (value = '') => /paiement|re[cç]u|d[eé]pense|compta|export|import|frais|tr[eé]sorerie|recette|encaiss|versement/i.test(String(value));
+  const filtered = entries.filter((e) => {
+    if (schoolId && e.school_id !== schoolId) return false;
+    if (financeOnly && !isFinance(e.action) && !isFinance(e.details)) return false;
+    if (q.trim()) {
+      const needle = q.trim().toLowerCase();
+      return [e.school, e.actor, e.actor_role, e.action, e.details, e.occurred_at]
+        .some((v) => String(v || '').toLowerCase().includes(needle));
+    }
+    return true;
+  });
+
+  return (
+    <div className="space-y-3">
+      <div className="sygenop-card p-4 flex flex-wrap items-center gap-3">
+        <div>
+          <div className="font-bold text-ink">Journal protégé — GS BPEN</div>
+          <div className="text-xs text-muted">Miroir d’audit en ajout seul : aucune modification depuis le compte école.</div>
+        </div>
+        <span className="ml-auto text-xs font-semibold text-muted">{filtered.length} / {entries.length} entrée(s)</span>
+      </div>
+
+      <div className="sygenop-card p-4 flex flex-wrap items-end gap-3">
+        <div className="min-w-[180px] flex-1">
+          <label className="text-xs font-semibold block mb-1 text-muted">Recherche</label>
+          <input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Action, auteur, détail…"
+            className="w-full px-3 py-2 rounded-lg border text-sm sygenop-input" />
+        </div>
+        <div>
+          <label className="text-xs font-semibold block mb-1 text-muted">École</label>
+          <select value={schoolId} onChange={(e) => setSchoolId(e.target.value)} className="px-3 py-2 rounded-lg border text-sm sygenop-input">
+            <option value="">Toutes les écoles GS BPEN</option>
+            {schools.map(([id, name]) => <option key={id} value={id}>{name}</option>)}
+          </select>
+        </div>
+        <label className="flex items-center gap-2 text-xs font-semibold text-ink pb-2">
+          <input type="checkbox" checked={financeOnly} onChange={(e) => setFinanceOnly(e.target.checked)} />
+          Finances uniquement
+        </label>
+      </div>
+
+      {error && (
+        <div className="sygenop-card p-6 text-sm text-center" style={{ color: 'var(--red)' }}>{error}</div>
+      )}
+      {!error && loading && (
+        <div className="sygenop-card p-10 text-center text-sm text-muted">
+          <Loader2 size={18} className="animate-spin inline mr-2" /> Chargement du journal protégé…
+        </div>
+      )}
+      {!error && !loading && !filtered.length && (
+        <div className="sygenop-card p-10 text-center text-sm text-muted">Aucune entrée ne correspond à ces filtres.</div>
+      )}
+      {!error && !loading && filtered.length > 0 && (
+        <div className="sygenop-card overflow-x-auto">
+          <table className="text-xs w-full border-collapse">
+            <thead>
+              <tr>
+                {['Enregistré le', 'École', 'Auteur', 'Rôle', 'Action', 'Détails'].map((h) => (
+                  <th key={h} className="px-3 py-2 text-left whitespace-nowrap" style={{ color: 'var(--muted)', borderBottom: '1px solid var(--line)' }}>{h}</th>
+                ))}
+              </tr>
+            </thead>
+            <tbody>
+              {filtered.map((e) => (
+                <tr key={e.id}>
+                  <td className="px-3 py-2 whitespace-nowrap" style={{ borderBottom: '1px solid var(--line)', color: 'var(--muted)' }}>{fmtAuditTs(e.created_at)}</td>
+                  <td className="px-3 py-2 whitespace-nowrap" style={{ borderBottom: '1px solid var(--line)', color: 'var(--ink)' }}>{e.school || '—'}</td>
+                  <td className="px-3 py-2 whitespace-nowrap" style={{ borderBottom: '1px solid var(--line)', color: 'var(--ink)' }}>{e.actor || '—'}</td>
+                  <td className="px-3 py-2 whitespace-nowrap" style={{ borderBottom: '1px solid var(--line)', color: 'var(--muted)' }}>{e.actor_role || '—'}</td>
+                  <td className="px-3 py-2 whitespace-nowrap" style={{ borderBottom: '1px solid var(--line)' }}>
+                    <Pill tone={isFinance(e.action) ? 'gold' : 'green'}>{e.action}</Pill>
+                  </td>
+                  <td className="px-3 py-2" style={{ borderBottom: '1px solid var(--line)', color: 'var(--muted)' }}>{e.details || ''}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
     </div>
   );
 }
@@ -15105,6 +15341,8 @@ function openSchool(id, name, actif) {
     body = <IEFSchoolsView onOpenSchool={openSchool} session={session} />;
   } else if (active === 'superadmin') {
     body = <SuperAdminView notify={notify} onOpenSchool={openSchool} session={session} migrationStatus={migrationStatus} />;
+  } else if (active === 'transparence_bpen') {
+    body = <TransparenceBpenView session={session} notify={notify} />;
   } else if (active === 'dash') {
     body = (
       <DashboardView
